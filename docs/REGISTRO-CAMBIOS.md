@@ -15,6 +15,29 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-16 · E-08 · Proteger la exportación completa
+- Rama / commit: `feat/E-08-salida` (sale de `feat/E-10-credenciales`)
+- Qué se ha hecho: `servicios/salida.php` pasa a ser una copia de seguridad en JSON solo para administradores.
+  Antes cualquiera sin sesión podía descargar toda la base de datos. Se excluyen los hashes de contraseña y se
+  añade un enlace de descarga en la pantalla de configuración. Se eliminó `servicios/entrada.php` (vacío y sin uso).
+- Archivos creados o modificados: `server/servicios/salida.php`, `public/nucleo/configuracion.js`;
+  eliminados `server/servicios/entrada.php` y `public/servicios/entrada.php`; `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Se mantiene el servicio en lugar de borrarlo porque sirve como copia de seguridad (RNF-04).
+  - La sesión y el rol se comprueban antes de abrir la conexión con MySQL.
+  - `Content-Disposition: attachment` con fecha en el nombre y `Cache-Control: no-store` para que el navegador
+    descargue el archivo y no lo guarde en caché.
+  - `entrada.php` se elimina: no tenía código y nada lo usaba. Una futura importación sería un encargo propio.
+- Requisitos que cubre (RF/RNF): RNF-03, RNF-04, RF-07.
+- Cómo probarlo (pasos):
+  1. Sin sesión, abrir `servicios/salida.php`: `{"error":"No autenticado"}` (401).
+  2. Con un scouter o tutor: `No tienes permisos para esta operación` (403).
+  3. Como administrador: Configuración → «Descargar copia (JSON)». Se descarga `ingeriar-copia-<fecha>.json` y en `usuarios` no aparece `contraseña`.
+  4. `servicios/entrada.php` devuelve 404.
+- Impacto en la memoria (apartados que habría que revisar): seguridad (RNF-03), copias de seguridad (RNF-04), configuración (RF-07).
+- Pendiente o problemas: la copia no incluye los archivos de `storage/` (documentos, facturas, galería); habría que copiarlos aparte.
+  Probado desde la terminal con sesiones simuladas: sin sesión 401, tutor y scouter 403, administrador pasa la comprobación.
+
 ## 2026-11-16 · E-10 · Credenciales fuera del repositorio
 - Rama / commit: `feat/E-10-credenciales`
 - Qué se ha hecho: `database.php` ya no tiene una contraseña de MySQL por defecto; solo la lee de

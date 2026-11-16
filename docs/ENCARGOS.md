@@ -65,7 +65,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   Si se mantiene, excluir la columna `contraseña` y valorar ofrecerla como copia de seguridad desde la configuración (RNF-04).
 - Decidir con el usuario si `entrada.php` (importación) se implementa o se elimina.
 - Aceptación: sin sesión o con rol scouter/tutor la URL devuelve 401/403; como administrador funciona y no incluye contraseñas.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-08-salida`, pendiente de fusionar)
 
 ## E-09 · Proteger el instalador
 - Requisitos: RNF-03, RNF-05. Apartados de la memoria afectados: a determinar (instalación y seguridad).

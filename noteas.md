@@ -38,7 +38,7 @@ ingeriar v3/
 │   │   ├── graficas.js             Gráficas SVG sin librerías externas
 │   │   ├── exportacion.js          Exportación de tablas y dashboard
 │   │   └── documento-preview-worker.js
-│   └── servicios/                  Servicios públicos heredados
+│   └── servicios/salida.php        Entrada pública de la copia de seguridad
 ├── server/
 │   ├── api/
 │   │   ├── login.php               Inicio de sesión
@@ -54,7 +54,7 @@ ingeriar v3/
 │   │   ├── modeloDeDatos.txt        Modelo usado por el instalador
 │   │   ├── config.php               Configuración del grupo
 │   │   └── secciones.php            Cálculo de secciones por edad
-│   └── servicios/                  Servicios privados
+│   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
 ├── storage/
 │   ├── documentos/                  Circulares y entregas
 │   ├── facturas/                    Imágenes de facturas
@@ -205,6 +205,11 @@ MySQL
 Para datos normales, `superapi.php` recibe una ruta como `tabla`, `columnas`,
 `crear`, `editar` o `borrar`. Comprueba la sesión y el permiso antes de consultar
 o modificar la base de datos.
+
+La copia de seguridad (`servicios/salida.php`) descarga todas las tablas en
+JSON. Solo la puede usar un administrador (401 sin sesión, 403 con otro rol) y
+no incluye la columna `contraseña`. Se descarga desde la pantalla de
+configuración, en el bloque «Copia de seguridad».
 
 Para archivos, `archivo.php` comprueba el usuario, el evento, el educando y la
 ruta física antes de devolver el archivo. Los archivos no se sirven directamente
@@ -489,6 +494,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16 (E-08)
+
+- E-08: `salida.php` exige sesión de administrador, excluye las contraseñas y se
+  descarga desde configuración; se eliminó `entrada.php`, que estaba vacío.
 
 ### 2026-11-16 (E-10)
 

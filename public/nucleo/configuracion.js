@@ -215,7 +215,28 @@ class IngeriarConfiguracion {
             };
 
             seccion.appendChild(formulario);
+            seccion.appendChild(this.crearBloqueCopia());
         });
+    }
+
+    // Enlace de descarga de la copia de seguridad en JSON.
+    // El servidor comprueba que el usuario es administrador.
+    crearBloqueCopia() {
+        const bloque = document.createElement("div");
+        bloque.className = "formulario vista-superficie vista-formulario";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = "Copia de seguridad";
+        const ayuda = document.createElement("p");
+        ayuda.textContent =
+            "Descarga todas las tablas en un archivo JSON (sin contraseñas). " +
+            "Contiene datos personales: guárdalo en un lugar seguro.";
+        const enlace = document.createElement("a");
+        enlace.href = "servicios/salida.php";
+        enlace.className = "boton";
+        enlace.textContent = "Descargar copia (JSON)";
+        bloque.append(titulo, ayuda, enlace);
+        return bloque;
     }
 
     crearEditorCatalogo(titulo, elementos, incluyeEdades) {
