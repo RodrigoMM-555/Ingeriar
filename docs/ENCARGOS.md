@@ -74,7 +74,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Bloquear el instalador una vez instalada la aplicación. Opciones: marca en `storage/` tras la primera instalación,
   rechazarlo si ya existe la tabla `usuarios` con datos, o exigir sesión de administrador para reinstalar. Elegir con el usuario.
 - Aceptación: en una instalación en uso, el instalador responde 403 sin modificar la base de datos; en una instalación nueva funciona.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-09-instalador`, pendiente de fusionar)
 
 ## E-10 · Credenciales fuera del repositorio
 - Requisitos: RNF-03, RNF-05.

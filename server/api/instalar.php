@@ -2,7 +2,46 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
+require_once __DIR__ . '/../auth/sesion.php';
 header('Content-Type: text/html; charset=utf-8');
+
+// Indica si la aplicación ya está en uso: existe la base de datos y la tabla
+// usuarios tiene al menos una fila.
+function instalacionEnUso(): bool
+{
+    try {
+        $db = obtenerConexion();
+    } catch (PDOException $error) {
+        // 1049: la base de datos todavía no existe.
+        if ((int) ($error->errorInfo[1] ?? 0) === 1049) {
+            return false;
+        }
+        throw $error;
+    }
+    $stmt = $db->prepare(
+        "SELECT 1 FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios'"
+    );
+    $stmt->execute();
+    if (!$stmt->fetchColumn()) {
+        return false;
+    }
+    return (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0;
+}
+
+// El instalador no pide sesión en una instalación nueva (todavía no hay usuarios),
+// pero una vez en uso solo un administrador puede volver a ejecutarlo.
+// La comprobación se hace en el servidor antes de leer el modelo.
+try {
+    $enUso = instalacionEnUso();
+} catch (Throwable $error) {
+    http_response_code(500);
+    exit('No se pudo comprobar el estado de la instalación. Revisa la configuración de MySQL.');
+}
+if ($enUso && (usuarioActual()['rol'] ?? '') !== 'administrador') {
+    http_response_code(403);
+    exit('La aplicación ya está instalada. Solo un administrador con la sesión iniciada puede volver a ejecutar el instalador.');
+}
 
 $modelo = trim($_POST['modelo'] ?? '');
 if ($modelo === '') {
@@ -46,7 +85,15 @@ function crearSqlTabla(string $tabla, array $columnas): string
         throw new RuntimeException("Nombre de tabla no válido: {$tabla}");
     }
 
-    $definiciones = ['`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY'];
+    // Solo se añade la clave `id` automática si el modelo no declara otra clave
+    // primaria (los catálogos usan `codigo` y eventos_secciones una clave compuesta).
+    $tienePrimaria = false;
+    foreach ($columnas as $columna) {
+        if (preg_match('/\bPRIMARY\s+KEY\b/i', $columna)) {
+            $tienePrimaria = true;
+        }
+    }
+    $definiciones = $tienePrimaria ? [] : ['`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY'];
     foreach ($columnas as $columna) {
         if (preg_match('/^(PRIMARY KEY|UNIQUE(?: KEY)?|FOREIGN KEY|CHECK)\b/i', trim($columna))) {
             $definiciones[] = trim($columna);

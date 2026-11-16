@@ -435,7 +435,9 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 3. Configurar `public/` como `DocumentRoot`.
 4. Ejecutar el esquema o usar el instalador con `modeloDeDatos.txt`. El
    instalador puede crear además el primer administrador; solo lo hace si la
-   tabla `usuarios` está vacía.
+   tabla `usuarios` está vacía. Una vez que hay usuarios, el instalador
+   responde 403 salvo a un administrador con la sesión iniciada. El instalador
+   no carga los valores iniciales de los catálogos: para eso, usar `schema.sql`.
 5. Cargar `demo.sql` si se necesitan datos de prueba. La contraseña de cada
    usuario de prueba es `ingeriar-<numero>` (por ejemplo, `usuario1@ingeriar.test`
    / `ingeriar-1`).
@@ -494,6 +496,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16 (E-09)
+
+- E-09: el instalador queda bloqueado cuando la aplicación está en uso (solo
+  administrador). Se corrigió el instalador para que respete las claves primarias
+  del modelo y una línea partida de `modeloDeDatos.txt`; ya instala el modelo completo.
 
 ### 2026-11-16 (E-08)
 

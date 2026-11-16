@@ -42,8 +42,7 @@ facturas
 - concepto TEXT NOT NULL
 - precio DECIMAL(10,2) NOT NULL
 - categoria enum('envíos', 'comida', 'material', 'gasolina', 'otros', 'agua', 'luz', 'gas') NOT NULL
-- estado ENUM('pendiente', 'pagada', 'rechazada') NOT NULL
-  DEFAULT 'pendiente'
+- estado ENUM('pendiente', 'pagada', 'rechazada') NOT NULL DEFAULT 'pendiente'
 - imagen_factura VARCHAR(255) NULL
 
 usuarios_educandos

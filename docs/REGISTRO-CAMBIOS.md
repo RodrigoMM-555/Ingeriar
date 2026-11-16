@@ -15,6 +15,35 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-16 · E-09 · Proteger el instalador
+- Rama / commit: `feat/E-09-instalador` (sale de `feat/E-08-salida`)
+- Qué se ha hecho: el instalador solo funciona sin sesión en una instalación nueva (no existe la base de datos,
+  no existe la tabla `usuarios` o está vacía). Si la aplicación ya está en uso, responde 403 sin tocar la base de
+  datos, salvo a un administrador con la sesión iniciada. Al probarlo contra MySQL aparecieron dos fallos previos
+  que impedían instalar `modeloDeDatos.txt`, y se han corregido.
+- Archivos creados o modificados: `server/api/instalar.php`, `public/instalador.html`, `server/data/modeloDeDatos.txt`,
+  `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Se usa «hay usuarios» como señal de instalación en uso: no necesita archivos de marca y coincide con la regla
+    del administrador inicial de E-01. La comprobación se hace antes de leer el modelo.
+  - La página `instalador.html` sigue visible (es HTML estático), pero no sirve de nada sin permiso: el control está en el servidor.
+  - Fallo previo 1: el instalador añadía siempre `id … PRIMARY KEY`, lo que chocaba con los catálogos (`codigo` es la
+    clave) y con `eventos_secciones` (clave compuesta). Ahora solo añade `id` si el modelo no declara clave primaria.
+  - Fallo previo 2: en `modeloDeDatos.txt`, `DEFAULT 'pendiente'` estaba en una línea aparte y se leía como nombre de tabla.
+- Requisitos que cubre (RF/RNF): RNF-03, RNF-05.
+- Cómo probarlo (pasos):
+  1. Base de datos vacía: instalar con `modeloDeDatos.txt` → «Base de datos MySQL creada correctamente» (10 tablas).
+  2. Repetir rellenando el administrador con `abcdefgh` → error de contraseña; con `scouts2026` → «Se ha creado el administrador».
+  3. Sin sesión, volver a enviar el instalador → 403 «La aplicación ya está instalada…».
+  4. Iniciar sesión como administrador y enviarlo → funciona y dice «Ya existen usuarios: no se ha creado el administrador».
+  Probado así contra un MySQL 8.4 de pruebas con el servidor de PHP: los cuatro pasos dan el resultado esperado.
+- Impacto en la memoria (apartados que habría que revisar): instalación y despliegue, seguridad (RNF-03).
+- Pendiente o problemas (detectados, sin tocar):
+  - El instalador no crea las claves foráneas: MySQL ignora `REFERENCES` escrito dentro de una columna. Con `schema.sql` sí se crean.
+  - El instalador no inserta los valores iniciales de `tipos_evento`, `secciones` y `categorias_factura`; tras instalar
+    con él, los catálogos quedan vacíos hasta rellenarlos desde la configuración. `modeloDeDatos.txt` también
+    define `facturas.categoria` como `ENUM`, mientras que `schema.sql` usa `VARCHAR` con catálogo.
+
 ## 2026-11-16 · E-08 · Proteger la exportación completa
 - Rama / commit: `feat/E-08-salida` (sale de `feat/E-10-credenciales`)
 - Qué se ha hecho: `servicios/salida.php` pasa a ser una copia de seguridad en JSON solo para administradores.
