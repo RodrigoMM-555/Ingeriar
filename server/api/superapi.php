@@ -856,7 +856,8 @@ switch ($ruta) {
                    'eventos_secciones',
                    'tipos_evento',
                    'secciones',
-                   'categorias_factura'
+                   'categorias_factura',
+                   'galeria_fotos'
                )
              ORDER BY TABLE_NAME"
         )->fetchAll(PDO::FETCH_COLUMN);
@@ -1108,8 +1109,22 @@ switch ($ruta) {
         exigirPermisoTabla($usuario, $tabla, 'escritura');
         $columnas = obtenerColumnas($db, $tabla);
         $pk = array_values(array_filter($columnas, fn($columna) => $columna['pk']))[0]['name'] ?? 'id';
+        // Al borrar un evento, sus fotos se borran en cascada en la base de datos;
+        // se guardan antes los nombres para borrar también los archivos.
+        $fotosEvento = [];
+        if ($tabla === 'eventos' && tablaExiste($db, 'galeria_fotos')) {
+            $fotosStmt = $db->prepare('SELECT archivo FROM galeria_fotos WHERE id_evento = ?');
+            $fotosStmt->execute([$id]);
+            $fotosEvento = $fotosStmt->fetchAll(PDO::FETCH_COLUMN);
+        }
         $sql = 'DELETE FROM `' . str_replace('`', '``', $tabla) . '` WHERE `' . $pk . '` = ?';
         $db->prepare($sql)->execute([$id]);
+        foreach ($fotosEvento as $archivo) {
+            $rutaFoto = __DIR__ . '/../../storage/galeria/' . basename($archivo);
+            if (is_file($rutaFoto)) {
+                unlink($rutaFoto);
+            }
+        }
         responder(['ok' => true]);
 
     default:

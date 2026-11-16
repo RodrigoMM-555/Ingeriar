@@ -29,7 +29,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Decisión del usuario (2026-11-16): cada foto pertenece a un evento, pero la galería se organiza por carpetas
   ronda → tipo de evento (por ejemplo «Ronda 2026-2027 / Sábados», «Reuniones de familias», «Otros»), con una carpeta
   por cada tipo del catálogo `tipos_evento`, de modo que los tipos nuevos aparecen solos.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-03-galeria`, pendiente de fusionar)
 
 ## E-04 · Inventario en JSON
 - Requisitos: RF-06. Resultado de aprendizaje: Acceso a datos RA1 y RA5.

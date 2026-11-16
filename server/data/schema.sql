@@ -137,3 +137,18 @@ CREATE TABLE IF NOT EXISTS educandos_asistencias (
     FOREIGN KEY (id_evento) REFERENCES eventos(id)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- Galería de fotografías (E-03). El archivo se guarda en storage/galeria/ con un
+-- nombre aleatorio; la ronda y la carpeta se calculan a partir del evento.
+CREATE TABLE IF NOT EXISTS galeria_fotos (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_evento INT UNSIGNED NOT NULL,
+    archivo VARCHAR(255) NOT NULL UNIQUE,
+    nombre_original VARCHAR(255) NOT NULL,
+    id_usuario INT UNSIGNED NULL,
+    fecha_subida DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_evento) REFERENCES eventos(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;

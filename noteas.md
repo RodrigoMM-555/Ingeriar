@@ -34,6 +34,7 @@ ingeriar v3/
 │   │   ├── formulario.js           Formularios automáticos
 │   │   ├── tabla.js                Tablas, filtros y acciones
 │   │   ├── calendario.js           Calendario y asistencias
+│   │   ├── galeria.js              Galería de fotos por ronda y tipo de evento
 │   │   ├── dashboard.js            Indicadores y gráficas por rol
 │   │   ├── graficas.js             Gráficas SVG sin librerías externas
 │   │   ├── exportacion.js          Exportación de tablas y dashboard
@@ -45,6 +46,7 @@ ingeriar v3/
 │   │   ├── logout.php              Cierre de sesión
 │   │   ├── superapi.php            API principal de datos y permisos
 │   │   ├── archivo.php             Subida y descarga de documentos
+│   │   ├── galeria.php             Fotos de la galería (listar, ver, subir, borrar)
 │   │   └── instalar.php            Creación de la base de datos
 │   ├── auth/sesion.php              Sesión y autenticación
 │   ├── data/
@@ -365,6 +367,36 @@ La asistencia y las entregas no se pueden registrar después de la fecha de fin
 del evento. El visor de documentación muestra tarjetas con previsualización y
 permite descargar el archivo original.
 
+## 10 bis. Galería de fotografías
+
+Cada foto pertenece a un evento (tabla `galeria_fotos`). La galería no guarda
+carpetas: las calcula a partir del evento, así que si cambia la fecha o el tipo
+de un evento, sus fotos se recolocan solas.
+
+```text
+Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
+├── Sábados                (una carpeta por tipo del catálogo tipos_evento)
+│   └── Actividad 12/09    (cada evento con fotos)
+├── Reuniones de familias
+└── <tipo nuevo>           (los tipos añadidos en configuración aparecen solos)
+```
+
+- Archivos: `storage/galeria/` con nombre aleatorio (`bin2hex(random_bytes(16))`).
+  Se comprueba el tipo real con `finfo` (JPEG, PNG o WebP), el tamaño con
+  `tamano_maximo_archivos_mb` de la configuración y un máximo de 20 fotos por
+  subida. Se validan todas antes de guardar ninguna.
+- Las fotos solo se sirven a través de `api/galeria.php?accion=ver`, después de
+  comprobar los permisos, con `X-Content-Type-Options: nosniff`.
+- Permisos (en el servidor): administrador y scouter ven, suben y borran todo.
+  Un tutor solo ve las fotos de eventos que convocan alguna sección de sus
+  educandos, calculada con la edad que tenían en la fecha del evento. Un evento
+  sin secciones convoca a todas.
+- Las miniaturas las genera el Web Worker `documento-preview-worker.js`, con un
+  máximo de cuatro trabajadores a la vez. El visor permite pasar fotos con las
+  flechas del teclado y cerrar con Escape.
+- Al borrar un evento se borran en cascada sus filas de `galeria_fotos` y
+  `superapi.php` borra también los archivos.
+
 ## 11. Dashboard, gráficas y exportación
 
 El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
@@ -443,8 +475,14 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
    / `ingeriar-1`).
 6. Comprobar que existe la carpeta `storage/documentos/biblioteca/` y la
    circular fija.
-7. Dar permisos de escritura al servidor web sobre `storage/documentos/` y
-   `storage/facturas/`.
+7. Dar permisos de escritura al servidor web sobre `storage/documentos/`,
+   `storage/facturas/`, `storage/galeria/` y `storage/configuracion/`.
+8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
+   `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
+9. En bases ya creadas, ejecutar `server/data/migraciones/2026-11-galeria.sql`.
+
+El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
+aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
 
 `INGERIAR_DB_PASSWORD` es obligatoria: el código no tiene contraseña por
 defecto para que ninguna credencial quede en el repositorio. Si falta, la
@@ -496,6 +534,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16 (E-03)
+
+- E-03: galería de fotos por ronda y tipo de evento, con permisos por rol y por
+  sección, subida validada, miniaturas con el Web Worker y visor. Nuevo `.gitignore`
+  para no subir archivos de usuarios al repositorio.
 
 ### 2026-11-16 (E-09)
 

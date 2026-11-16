@@ -15,6 +15,52 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-16 · E-03 · Galería de fotografías
+- Rama / commit: `feat/E-03-galeria` (sale de `feat/E-09-instalador`)
+- Qué se ha hecho: nueva vista «Galería» para todos los roles. Las fotos se asocian a un evento y se navegan
+  por carpetas ronda → tipo de evento → evento → fotos, con miniaturas generadas por el Web Worker existente
+  y un visor. Administrador y scouter suben (varias a la vez) y borran; el tutor solo ve las fotos de los
+  eventos que convocan a las secciones de sus educandos. Las fotos solo se sirven a través de PHP.
+- Archivos creados o modificados:
+  - Nuevos: `server/api/galeria.php`, `public/api/galeria.php`, `public/nucleo/galeria.js`,
+    `server/data/migraciones/2026-11-galeria.sql`, `.gitignore`.
+  - `server/data/schema.sql` y `server/data/modeloDeDatos.txt`: tabla `galeria_fotos`.
+  - `server/api/superapi.php`: `galeria_fotos` no aparece como entidad; al borrar un evento se borran sus archivos.
+  - `public/codigo.js`, `public/index.html`: enlace «Galería». `public/estilo.css`: sección «GALERÍA».
+  - `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Decisión del usuario: agrupar por ronda y tipo de evento. Las carpetas no se guardan; se calculan con la fecha
+    (`rondaActual`, de septiembre a agosto) y el tipo del evento. Así los tipos nuevos crean su carpeta solos y
+    las fotos se recolocan si se corrige un evento. Los tipos antiguos fuera del catálogo tienen su propia carpeta.
+  - Archivos en `storage/galeria/` con nombre aleatorio y sin subcarpetas: el nombre original solo se guarda en la base de datos.
+  - Visibilidad del tutor: sección de cada educando calculada con su edad en la fecha del evento
+    (`seccionDeEducandoConCatalogo`), para que las fotos de rondas pasadas sigan correspondiendo a la sección de entonces.
+    Un tutor sin educandos con sección no ve fotos. La misma regla se aplica al listar y al servir cada foto.
+  - Tamaño máximo tomado de `tamano_maximo_archivos_mb` de la configuración; formatos JPEG, PNG y WebP comprobados
+    con `finfo`; máximo 20 fotos por subida; si una no es válida, no se guarda ninguna.
+  - Miniaturas con `documento-preview-worker.js` sin modificarlo, con una cola de 4 trabajadores simultáneos.
+  - `.gitignore` nuevo: excluye fotos, facturas, entregas y logo subidos, para que nunca lleguen al repositorio público (CLAUDE.md).
+- Requisitos que cubre (RF/RNF): RF-04, RNF-03 (y RNF-06 en el visor accesible con teclado).
+- Cómo probarlo (pasos):
+  1. Ejecutar `server/data/migraciones/2026-11-galeria.sql` (o recargar `schema.sql`).
+  2. Como scouter: Galería → «Subir fotos» → elegir un evento y varias imágenes. Aparecen en «Ronda … / <tipo> / <evento>».
+  3. Intentar subir un archivo de texto renombrado a `.jpg` → «no es una imagen JPEG, PNG o WebP».
+  4. Como tutor: solo aparecen eventos que convocan a las secciones de sus educandos; no hay botón de subir.
+     Con la sesión del tutor, abrir `api/galeria.php?accion=ver&id=<foto de otro evento>` → 403.
+  5. Abrir una foto, pasar con las flechas, descargarla y (como scouter) borrarla.
+  6. Pedir `/storage/galeria/<archivo>` desde el navegador → Apache lo deniega.
+  Probado contra MySQL 8.4 con el servidor de PHP: subida (tutor 403, imagen falsa 415, evento inexistente 400,
+  sin fotos 400, válidas 200), listado por rol, `ver` (sin sesión 401, tutor visible 200, tutor no visible 403,
+  descarga como adjunto), borrado (tutor 403, scouter 200 y archivo eliminado) y borrado de evento con sus archivos.
+- Impacto en la memoria (apartados que habría que revisar): 3.1, 3.4 (indicados en el encargo); diseño de la base de datos
+  (tabla `galeria_fotos`); interfaz (nueva vista); instalación (migración, permisos de `storage/galeria/`, límites de subida de `php.ini`).
+- Pendiente o problemas:
+  - La interfaz (`galeria.js` y los estilos) no se ha probado en un navegador desde aquí: solo se ha comprobado la sintaxis.
+    Hay que revisarla a mano, en especial el visor y el modo oscuro.
+  - Con el servidor de PHP de pruebas, una ruta inexistente devuelve `index.html`; la protección de `storage/` depende
+    de Apache (fuera del `DocumentRoot` y `Require all denied`).
+  - Sin miniaturas en el servidor: cada miniatura descarga la foto completa. Con muchas fotos grandes podría ser lento (RNF-07).
+
 ## 2026-11-16 · E-09 · Proteger el instalador
 - Rama / commit: `feat/E-09-instalador` (sale de `feat/E-08-salida`)
 - Qué se ha hecho: el instalador solo funciona sin sesión en una instalación nueva (no existe la base de datos,

@@ -33,6 +33,10 @@ const calendario = new IngeriarCalendario({
     formulario,
     contenedor: "section"
 });
+const galeria = new IngeriarGaleria({
+    utilidades,
+    contenedor: "main > section"
+});
 
 window.addEventListener("configuracion-actualizada", () => {
     if (vistaActual === "tabla" && tablaActual) {
@@ -74,6 +78,21 @@ function crearEnlaceCalendario() {
         vistaActual = "calendario";
         calendario.cargar("eventos").catch((error) => {
             document.querySelector("section").textContent = error.message;
+        });
+    };
+    document.querySelector("#entidades").prepend(enlace);
+}
+
+function crearEnlaceGaleria() {
+    let enlace = document.createElement("a");
+    enlace.href = "#";
+    enlace.textContent = "Galería";
+    enlace.onclick = function (evento) {
+        evento.preventDefault();
+        marcarEnlaceActivo(enlace);
+        vistaActual = "galeria";
+        galeria.cargar().catch((error) => {
+            document.querySelector("main > section").textContent = error.message;
         });
     };
     document.querySelector("#entidades").prepend(enlace);
@@ -138,6 +157,7 @@ function cargarEntidades() {
             });
 
             if (datos.length > 0) {
+                crearEnlaceGaleria();
                 crearEnlaceCalendario();
                 const enlaceDashboard = crearEnlaceDashboard();
                 tablaActual = datos[0];

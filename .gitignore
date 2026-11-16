@@ -1,0 +1,11 @@
+# Archivos subidos desde la aplicación: pueden contener datos reales de personas
+# (fotos, facturas, entregas). Nunca se suben al repositorio, que es público.
+storage/galeria/*
+!storage/galeria/.gitkeep
+storage/facturas/*
+!storage/facturas/.gitkeep
+storage/configuracion/*
+!storage/configuracion/.gitkeep
+storage/documentos/*
+!storage/documentos/.gitkeep
+!storage/documentos/biblioteca/

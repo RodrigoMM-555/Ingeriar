@@ -72,3 +72,10 @@ educandos_asistencias
 - estado ENUM('pendiente', 'si', 'no') NOT NULL DEFAULT 'pendiente'
 - archivo_entrega VARCHAR(255)
 - UNIQUE (id_educando, id_evento)
+
+galeria_fotos
+- id_evento INT UNSIGNED NOT NULL REFERENCES eventos(id) ON DELETE CASCADE
+- archivo VARCHAR(255) NOT NULL UNIQUE
+- nombre_original VARCHAR(255) NOT NULL
+- id_usuario INT UNSIGNED NULL REFERENCES usuarios(id) ON DELETE SET NULL
+- fecha_subida DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
