@@ -14,7 +14,9 @@ function obtenerConexion(bool $incluirBase = true): PDO
     $puerto = $obtenerVariable('INGERIAR_DB_PORT', '3306');
     $nombre = $obtenerVariable('INGERIAR_DB_NAME', 'ingeriar');
     $usuario = $obtenerVariable('INGERIAR_DB_USER', 'ingeriar_app');
-    $contrasena = $obtenerVariable('INGERIAR_DB_PASSWORD', 'contraseña1234$');
+    // Sin valor por defecto: la contraseña de MySQL solo puede venir de la
+    // configuración del servidor (variable de entorno), nunca del repositorio.
+    $contrasena = $obtenerVariable('INGERIAR_DB_PASSWORD');
 
     if ($contrasena === '') {
         throw new RuntimeException(

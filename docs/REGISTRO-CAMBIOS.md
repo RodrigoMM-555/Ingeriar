@@ -15,6 +15,26 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-16 · E-10 · Credenciales fuera del repositorio
+- Rama / commit: `feat/E-10-credenciales`
+- Qué se ha hecho: `database.php` ya no tiene una contraseña de MySQL por defecto; solo la lee de
+  `INGERIAR_DB_PASSWORD`. Si falta, se lanza el error de configuración que ya existía. Se ha revisado el
+  repositorio en busca de otras claves o datos reales.
+- Archivos creados o modificados: `server/data/database.php`, `noteas.md` (instalación y diario), `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Se mantienen los valores por defecto que no son secretos (host, puerto, nombre de base y usuario `ingeriar_app`).
+  - La contraseña antigua sigue en el historial de git: no se reescribe el historial (afectaría a todos los clones);
+    se documenta que cualquier servidor que la use debe cambiarla.
+  - Revisión: no hay más credenciales. Los PDF de `storage/documentos/biblioteca/` son el impreso de inscripción
+    en blanco (campos del formulario vacíos); `circular1.pdf` y `todas si.pdf` son idénticos. Los datos de `demo.sql` son ficticios.
+- Requisitos que cubre (RF/RNF): RNF-03, RNF-05.
+- Cómo probarlo (pasos):
+  1. Con `SetEnv INGERIAR_DB_PASSWORD …` en el VirtualHost, la aplicación funciona igual que antes.
+  2. Comentar esa línea y reiniciar Apache: el login muestra «No se pudo conectar con la base de datos…» y no se conecta con ninguna clave del código.
+- Impacto en la memoria (apartados que habría que revisar): instalación y configuración del servidor, seguridad (RNF-03).
+- Pendiente o problemas: si la instalación local dependía del valor por defecto, hay que añadir `SetEnv INGERIAR_DB_PASSWORD`
+  al VirtualHost antes de fusionar, o la aplicación dejará de conectar.
+
 ## 2026-11-16 · E-01 · Contraseñas con password_hash
 - Rama / commit: `feat/E-01-contrasenas`
 - Qué se ha hecho: las contraseñas se guardan con `password_hash` y se comprueban con `password_verify`.

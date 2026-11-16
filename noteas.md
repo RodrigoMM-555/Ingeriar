@@ -439,6 +439,11 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 7. Dar permisos de escritura al servidor web sobre `storage/documentos/` y
    `storage/facturas/`.
 
+`INGERIAR_DB_PASSWORD` es obligatoria: el código no tiene contraseña por
+defecto para que ninguna credencial quede en el repositorio. Si falta, la
+aplicación muestra un error de configuración. Una contraseña que haya estado
+alguna vez en el repositorio debe considerarse pública y cambiarse.
+
 No se debe usar `root` desde PHP. En Ubuntu puede fallar por autenticación
 `unix_socket`. Si aparece `using password: NO`, Apache no está transmitiendo
 `INGERIAR_DB_PASSWORD`; hay que revisar `mod_env`, el VirtualHost y reiniciar
@@ -484,6 +489,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16 (E-10)
+
+- E-10: se quitó la contraseña de MySQL por defecto de `database.php`; ahora solo
+  se lee de la variable de entorno. Revisado el repositorio sin otras credenciales.
 
 ### 2026-11-16
 

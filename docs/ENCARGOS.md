@@ -12,7 +12,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Migración transparente: si el hash guardado es sha256 y coincide, permitir el acceso y reescribirlo con `password_hash`.
 - Actualizar `demo.sql`, `schema.sql`, el instalador y cualquier alta de usuario en `superapi.php`.
 - Aceptación: login correcto e incorrecto; usuario antiguo entra y queda migrado; ninguna contraseña en claro ni en sha256 tras entrar.
-- Estado: hecho (rama `feat/E-01-contrasenas`, pendiente de fusionar)
+- Estado: fusionado
 
 ## E-02 · Capa de clases de dominio (acceso a datos con objetos)
 - Requisitos: RF-02, RF-03, RF-05, RNF-05. Resultado de aprendizaje: Acceso a datos RA3 y RA6.
@@ -26,6 +26,9 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Subida de imágenes a `storage/galeria/` con validación (tipo real, tamaño, nombre aleatorio), miniaturas con el Web Worker existente, visor y permisos por rol y por sección.
 - Las fotografías se sirven solo a través de PHP tras comprobar permisos.
 - Aceptación: un tutor solo ve fotos de las secciones de sus educandos; un monitor sube y borra; acceso directo a la ruta de `storage` denegado.
+- Decisión del usuario (2026-11-16): cada foto pertenece a un evento, pero la galería se organiza por carpetas
+  ronda → tipo de evento (por ejemplo «Ronda 2026-2027 / Sábados», «Reuniones de familias», «Otros»), con una carpeta
+  por cada tipo del catálogo `tipos_evento`, de modo que los tipos nuevos aparecen solos.
 - Estado: pendiente
 
 ## E-04 · Inventario en JSON
@@ -33,6 +36,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Almacenes, ubicaciones y materiales guardados en ficheros JSON bajo `storage/`, con lectura y escritura controladas desde PHP (bloqueo de fichero al escribir).
 - Plantillas de material por actividad y un informe que compare lo necesario con lo disponible y su ubicación.
 - Aceptación: alta, edición y borrado de material; una plantilla genera un informe de faltantes; el JSON no queda accesible desde la web.
+- En espera (2026-11-16): el usuario quiere explicar su idea del inventario antes de cerrar el alcance.
 - Estado: pendiente
 
 ## E-05 · Mejora del módulo de facturas
@@ -44,6 +48,8 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Regla: los archivos de un educando dado de baja se eliminan 5 años después de la baja (plazo configurable). Hace falta un campo de fecha de baja.
 - Registrar los accesos a documentación sensible (quién, qué, cuándo).
 - Aceptación: un proceso (script o botón de administración) lista y elimina lo vencido; los accesos quedan en una tabla de registro.
+- En revisión (2026-11-16): el usuario duda entre eliminar el registro del educando al irse del grupo o marcarlo
+  como baja y conservarlo durante un plazo. Hay que decidirlo antes de empezar; puede cambiar el texto de la regla.
 - Estado: pendiente
 
 ## E-07 · Plan de pruebas
@@ -77,4 +83,4 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   Documentar en `noteas.md` que la contraseña de cualquier servidor que la haya usado debe cambiarse (sigue en el historial de git).
 - Revisar el resto del repositorio en busca de claves o datos reales.
 - Aceptación: ninguna credencial en el código; sin la variable de entorno, la aplicación muestra el mensaje de configuración.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-10-credenciales`, pendiente de fusionar)
