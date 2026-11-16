@@ -12,7 +12,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Migración transparente: si el hash guardado es sha256 y coincide, permitir el acceso y reescribirlo con `password_hash`.
 - Actualizar `demo.sql`, `schema.sql`, el instalador y cualquier alta de usuario en `superapi.php`.
 - Aceptación: login correcto e incorrecto; usuario antiguo entra y queda migrado; ninguna contraseña en claro ni en sha256 tras entrar.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-01-contrasenas`, pendiente de fusionar)
 
 ## E-02 · Capa de clases de dominio (acceso a datos con objetos)
 - Requisitos: RF-02, RF-03, RF-05, RNF-05. Resultado de aprendizaje: Acceso a datos RA3 y RA6.

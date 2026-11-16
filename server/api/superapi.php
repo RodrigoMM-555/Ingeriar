@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/contrasenas.php';
 
 $db = obtenerConexion();
 $ruta = $_GET['ruta'] ?? '';
@@ -188,17 +189,23 @@ function obtenerColumnas(PDO $db, string $tabla): array
                 ?? null;
         }
 
+        // La contraseña nunca se envía al cliente: el formulario la trata como
+        // un campo de contraseña vacío y la tabla no la muestra.
+        $esContrasena = $tabla === 'usuarios' && $fila['COLUMN_NAME'] === 'contraseña';
+
         $columnas[] = [
             'name' => $fila['COLUMN_NAME'],
             'type' => strtoupper($fila['DATA_TYPE']),
             'pk' => $fila['COLUMN_KEY'] === 'PRI' ? 1 : 0,
-            'tipo_formulario' => $opciones
+            'tipo_formulario' => $esContrasena
+                ? 'PASSWORD'
+                : ($opciones
                 ? 'ENUM'
                 : (strtolower($fila['COLUMN_TYPE']) === 'tinyint(1)'
                     ? 'BOOLEAN'
-                    : strtoupper($fila['DATA_TYPE'])),
+                    : strtoupper($fila['DATA_TYPE']))),
             'required' => $fila['IS_NULLABLE'] === 'NO',
-            'defaultValue' => $fila['COLUMN_DEFAULT'],
+            'defaultValue' => $esContrasena ? null : $fila['COLUMN_DEFAULT'],
             'options' => $opciones,
             'relation' => $relacion,
         ];
@@ -896,6 +903,17 @@ switch ($ruta) {
         $stmt = $db->prepare($sql);
         $stmt->execute($parametros);
         $registros = $stmt->fetchAll();
+        if ($tabla === 'usuarios') {
+            // Se quita el hash de la contraseña: no debe salir nunca del servidor.
+            $columnas = array_values(array_filter(
+                $columnas,
+                fn($columna) => $columna['tipo_formulario'] !== 'PASSWORD'
+            ));
+            foreach ($registros as &$registro) {
+                unset($registro['contraseña']);
+            }
+            unset($registro);
+        }
         if ($tabla === 'eventos' && tablaExiste($db, 'eventos_secciones')) {
             $seccionesStmt = $db->query(
                 'SELECT id_evento, seccion FROM eventos_secciones ORDER BY seccion'
@@ -1000,6 +1018,22 @@ switch ($ruta) {
                     ['1', 'true', 'si', 'sí', 'yes'],
                     true
                 ) ? 1 : 0;
+            }
+        }
+        if ($tabla === 'usuarios') {
+            // La contraseña se guarda siempre con password_hash. Al editar, si llega
+            // vacía se conserva la actual; al crear es obligatoria.
+            $contrasena = (string) ($datosValidos['contraseña'] ?? '');
+            unset($datosValidos['contraseña']);
+            if ($contrasena === '' && $ruta === 'crear') {
+                responder(['error' => 'La contraseña es obligatoria'], 400);
+            }
+            if ($contrasena !== '') {
+                $errorContrasena = validarContrasena($contrasena);
+                if ($errorContrasena !== null) {
+                    responder(['error' => $errorContrasena], 400);
+                }
+                $datosValidos['contraseña'] = cifrarContrasena($contrasena);
             }
         }
         if ($tabla === 'facturas' && array_key_exists('responsable_id', $datosValidos)) {

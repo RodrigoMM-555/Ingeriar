@@ -144,7 +144,8 @@ se convierten en el servidor mediante `pdftoppm` para mostrar su primera página
 
 1. El usuario abre `public/login.html`.
 2. `login.js` envía el correo y la contraseña a `api/login.php`.
-3. El servidor consulta el usuario con PDO y verifica la contraseña.
+3. El servidor consulta el usuario con PDO y verifica la contraseña con
+   `password_verify` (ver «Contraseñas» más abajo).
 4. Se crea una sesión PHP con el identificador, nombre, apellidos y rol.
 5. El navegador redirige a `index.html`.
 6. `codigo.js` consulta `usuario_actual`.
@@ -154,6 +155,23 @@ se convierten en el servidor mediante `pdftoppm` para mostrar su primera página
 
 Si una petición devuelve un error HTTP o un objeto con `error`, las utilidades
 lo convierten en un error visible para el código que hizo la petición.
+
+### Contraseñas
+
+Las contraseñas se guardan con `password_hash` (bcrypt con sal) y se comprueban
+con `password_verify`. Las funciones comunes están en `server/auth/contrasenas.php`
+y las usan el login, el alta y edición de usuarios de `superapi.php` y el instalador.
+
+- Reglas para una contraseña nueva: mínimo 8 caracteres y al menos un número o
+  un carácter especial. Se comprueban en el servidor; el formulario solo orienta.
+- Migración transparente: las versiones anteriores guardaban sha256 sin sal. Si
+  el valor guardado tiene ese formato y coincide, el usuario entra y su
+  contraseña se reescribe con `password_hash` en ese momento.
+- El hash nunca sale del servidor: la ruta `tabla` de `usuarios` no lo devuelve
+  y el formulario muestra un campo de contraseña vacío. Al editar, dejarlo vacío
+  conserva la contraseña actual.
+- Si el email no existe, el login calcula igualmente un hash para que el tiempo
+  de respuesta no revele qué emails están registrados.
 
 ## 5. Flujo de datos
 
@@ -395,8 +413,12 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 ```
 
 3. Configurar `public/` como `DocumentRoot`.
-4. Ejecutar el esquema o usar el instalador con `modeloDeDatos.txt`.
-5. Cargar `demo.sql` si se necesitan datos de prueba.
+4. Ejecutar el esquema o usar el instalador con `modeloDeDatos.txt`. El
+   instalador puede crear además el primer administrador; solo lo hace si la
+   tabla `usuarios` está vacía.
+5. Cargar `demo.sql` si se necesitan datos de prueba. La contraseña de cada
+   usuario de prueba es `ingeriar-<numero>` (por ejemplo, `usuario1@ingeriar.test`
+   / `ingeriar-1`).
 6. Comprobar que existe la carpeta `storage/documentos/biblioteca/` y la
    circular fija.
 7. Dar permisos de escritura al servidor web sobre `storage/documentos/` y
@@ -447,6 +469,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16
+
+- E-01: contraseñas con `password_hash`/`password_verify`, migración automática
+  de sha256 al entrar, reglas de contraseña, hash oculto al cliente, primer
+  administrador opcional en el instalador y `demo.sql` con hashes bcrypt.
 
 ### 2026-11-09
 

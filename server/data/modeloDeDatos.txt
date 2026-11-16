@@ -23,6 +23,7 @@ usuarios
 - apellidos VARCHAR(150) NOT NULL
 - email VARCHAR(254) NOT NULL UNIQUE
 - telefono VARCHAR(20) NOT NULL UNIQUE
+# contraseña guarda el hash de password_hash(), nunca la contraseña en claro
 - contraseña VARCHAR(255) NOT NULL
 - rol ENUM('administrador', 'scouter', 'tutor') NOT NULL
 

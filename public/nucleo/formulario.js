@@ -165,6 +165,20 @@ class IngeriarFormulario {
             control.inputMode = "decimal";
         }
 
+        if (columna.tipo_formulario === "PASSWORD") {
+            // El servidor nunca envía la contraseña: el campo empieza vacío.
+            // Las reglas se comprueban en el servidor; aquí solo se orienta al usuario.
+            control.type = "password";
+            control.value = "";
+            control.autocomplete = "new-password";
+            control.minLength = 8;
+            control.required = registro === null;
+            control.placeholder = registro === null
+                ? "Mínimo 8 caracteres, con un número o símbolo"
+                : "Dejar vacía para no cambiarla";
+            return Promise.resolve(instancia);
+        }
+
         if (control.tagName !== "SELECT") {
             control.value = registro?.[columna.name]
                 ?? columna.defaultValue
@@ -424,6 +438,10 @@ class IngeriarFormulario {
         let datos = {};
         columnas.forEach((columna) => {
             let valor = this.formulario.elements[columna.name].value;
+            if (columna.tipo_formulario === "PASSWORD") {
+                datos[columna.name] = valor;
+                return;
+            }
             datos[columna.name] =
                 valor === "" && !columna.required ? null : valor;
         });
@@ -473,7 +491,8 @@ class IngeriarFormulario {
             "api/superapi.php?ruta=" + ruta,
             formData
         ).then(() => Promise.resolve(this.alGuardar()))
-            .then(() => this.cerrar());
+            .then(() => this.cerrar())
+            .catch((error) => alert(error.message));
     }
 
 }

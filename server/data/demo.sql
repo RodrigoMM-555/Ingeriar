@@ -1,25 +1,41 @@
 USE ingeriar;
 
--- 30 usuarios de prueba. La contraseña de cada uno es demo-<numero>.
+-- 30 usuarios de prueba. La contraseña de cada uno es ingeriar-<numero>
+-- (por ejemplo, usuario1@ingeriar.test / ingeriar-1).
+-- Los hashes se han generado con password_hash() de PHP (bcrypt, con sal).
 INSERT INTO usuarios
     (nombre, apellidos, email, telefono, `contraseña`, rol)
-WITH RECURSIVE numeros AS (
-    SELECT 1 AS numero
-    UNION ALL
-    SELECT numero + 1 FROM numeros WHERE numero < 30
-)
-SELECT
-    CONCAT('Usuario ', numero),
-    CONCAT('Apellido ', numero),
-    CONCAT('usuario', numero, '@ingeriar.test'),
-    CONCAT('600', LPAD(numero, 6, '0')),
-    SHA2(CONCAT('demo-', numero), 256),
-    CASE MOD(numero, 3)
-        WHEN 1 THEN 'administrador'
-        WHEN 2 THEN 'scouter'
-        ELSE 'tutor'
-    END
-FROM numeros;
+VALUES
+    ('Usuario 1', 'Apellido 1', 'usuario1@ingeriar.test', '600000001', '$2y$12$a27ESG0Hk1cWm1LLoVyga.o9KGC6BiI225xUCtEGRKjFRXMUeZxmS', 'administrador'),
+    ('Usuario 2', 'Apellido 2', 'usuario2@ingeriar.test', '600000002', '$2y$12$9Y5tck53fKEd0JA4PwyVkOcOlX6DHm.vhNQoJLXqer2j.Mv68EalC', 'scouter'),
+    ('Usuario 3', 'Apellido 3', 'usuario3@ingeriar.test', '600000003', '$2y$12$0MFeGb958XARr8jfSdldg.yUW6A8T5s9/SpimAb4odm2iS0Auvx5.', 'tutor'),
+    ('Usuario 4', 'Apellido 4', 'usuario4@ingeriar.test', '600000004', '$2y$12$5C/nP4RUEEun9bNBlnDOjuYQTZWKLwHJdGPwD6zb5t1NsjA6HgaMy', 'administrador'),
+    ('Usuario 5', 'Apellido 5', 'usuario5@ingeriar.test', '600000005', '$2y$12$Lidozffc7bztPlxrPl59heHNm1wciCO28gMtG/qE4PxS11ESLioZS', 'scouter'),
+    ('Usuario 6', 'Apellido 6', 'usuario6@ingeriar.test', '600000006', '$2y$12$./eKsoeO4fuPY08ESVhrWefgm6bVwAkPXxQ1.okOxLZwCrr3.xbwW', 'tutor'),
+    ('Usuario 7', 'Apellido 7', 'usuario7@ingeriar.test', '600000007', '$2y$12$003FqjEcx3OU0A72kC5nf.W3Ntd74eFPVmjj.dqzzbrDDtwjAvvEq', 'administrador'),
+    ('Usuario 8', 'Apellido 8', 'usuario8@ingeriar.test', '600000008', '$2y$12$ZmiMJTIPUmd4oDep/mMfYuj74SduScINW9sYUAorxPvWXI0iXuu1a', 'scouter'),
+    ('Usuario 9', 'Apellido 9', 'usuario9@ingeriar.test', '600000009', '$2y$12$a8RdTUKRzneSWSRGmZXrOOvrE7ksFgI/AypPGgS6ImuWwRc6FY9Ga', 'tutor'),
+    ('Usuario 10', 'Apellido 10', 'usuario10@ingeriar.test', '600000010', '$2y$12$B53mW8SU2hpev7uMH/dKGuwkWy9IIEJerZ01xFBXAFKIXsbi8Ifvy', 'administrador'),
+    ('Usuario 11', 'Apellido 11', 'usuario11@ingeriar.test', '600000011', '$2y$12$ZiiYIvZmNipxuDDXlJdfYe5lanP568kFHqpebO7wvrKu5NqIvUVUu', 'scouter'),
+    ('Usuario 12', 'Apellido 12', 'usuario12@ingeriar.test', '600000012', '$2y$12$8PEQXTw33KVPPSECJEtrQuDX3UZ4lhVkVz1mJxAIXO0UrEbTq/l2W', 'tutor'),
+    ('Usuario 13', 'Apellido 13', 'usuario13@ingeriar.test', '600000013', '$2y$12$CtPZcLlzzjdXQi0k3LBG9.3D6U.xWz45DQRwMgj5k9z2zJ/dQZsFW', 'administrador'),
+    ('Usuario 14', 'Apellido 14', 'usuario14@ingeriar.test', '600000014', '$2y$12$gW7ap/xyd/.crUc7iLrYeuFF..EwC1g/frNc1PTXHqSmYi4qHyvNy', 'scouter'),
+    ('Usuario 15', 'Apellido 15', 'usuario15@ingeriar.test', '600000015', '$2y$12$MYA1qMsEBuj7F8SvSKLTNOXrNGvRG93CT289qRUt83UwKP3GI0kxS', 'tutor'),
+    ('Usuario 16', 'Apellido 16', 'usuario16@ingeriar.test', '600000016', '$2y$12$FD.Hv76E2UNhUUtzeNfEge4P2659gnez6GhxiSq.QxSHNlwrjQDTa', 'administrador'),
+    ('Usuario 17', 'Apellido 17', 'usuario17@ingeriar.test', '600000017', '$2y$12$I3Cw6QMf8uH8pYpKaNDfIOBVxwK401aKRtX/aQC0jixY4JuIKLK.2', 'scouter'),
+    ('Usuario 18', 'Apellido 18', 'usuario18@ingeriar.test', '600000018', '$2y$12$TnP3P94YfFpr9jJX6OtfMO1P2M9fmyPmAu.Eu/jLXZ1ASqrkyYYmu', 'tutor'),
+    ('Usuario 19', 'Apellido 19', 'usuario19@ingeriar.test', '600000019', '$2y$12$d8tT3J/AMsskFvl0Y1vSuOYrgJZuSUISC4a8H565P436xsIH8l5me', 'administrador'),
+    ('Usuario 20', 'Apellido 20', 'usuario20@ingeriar.test', '600000020', '$2y$12$6Xr4WHSHBVDjaGRADgV44usQqtDl7aH.KQeJKMwj1KS0Jjmo1LRGy', 'scouter'),
+    ('Usuario 21', 'Apellido 21', 'usuario21@ingeriar.test', '600000021', '$2y$12$gNTxW495TeLmHSrlSilKbuqPIunTzv7nLFDV9U616pkMuJQbsIXVi', 'tutor'),
+    ('Usuario 22', 'Apellido 22', 'usuario22@ingeriar.test', '600000022', '$2y$12$UtcvBWsJPsdA8PjOJRIn3OEjcSYoCTK80gv7Yhg.1dpQ5A5aPpdua', 'administrador'),
+    ('Usuario 23', 'Apellido 23', 'usuario23@ingeriar.test', '600000023', '$2y$12$LgtiwxDl.4sCnMlaAlnBzOZR4AQQPFjQBb7cmZ6kGE5wUEhZG/CWa', 'scouter'),
+    ('Usuario 24', 'Apellido 24', 'usuario24@ingeriar.test', '600000024', '$2y$12$FGdQpmDJF8KCbNDbyUFMKOyQbarSLwFylcKN/LgjPPU6WzED3fZ6u', 'tutor'),
+    ('Usuario 25', 'Apellido 25', 'usuario25@ingeriar.test', '600000025', '$2y$12$6EdV3AT1GZNTYWMQLHBRBuFHnr1JPvRYiqqo6krwy4xqzTiljMhca', 'administrador'),
+    ('Usuario 26', 'Apellido 26', 'usuario26@ingeriar.test', '600000026', '$2y$12$HVAgOP/GtVLmfCG3aUZhpuGTTcokHOW9krxNhZy0Yv5TpaTN22QZq', 'scouter'),
+    ('Usuario 27', 'Apellido 27', 'usuario27@ingeriar.test', '600000027', '$2y$12$NPLHLWc/NfI.bMKy2/Ke3OnyWZiSL/yu8AU.9OnDg6CWsrb5/dLAi', 'tutor'),
+    ('Usuario 28', 'Apellido 28', 'usuario28@ingeriar.test', '600000028', '$2y$12$PKZIlZEFkNdEKNJ07W3xCOjrFo8DK5hJyMBM.jVAp2NB.R0PsRzdC', 'administrador'),
+    ('Usuario 29', 'Apellido 29', 'usuario29@ingeriar.test', '600000029', '$2y$12$7dGuvp40ZipEM4OI8oBgWuixPtTbBxhIsBReNDf1alspb5u1vPe6.', 'scouter'),
+    ('Usuario 30', 'Apellido 30', 'usuario30@ingeriar.test', '600000030', '$2y$12$LmyPpc/pf1N8ss9FDwhWIeRTfohwbnjVNixozIxRjhVlwMGqTXW3C', 'tutor');
 
 -- 100 educandos con DNI y fechas de nacimiento únicas.
 INSERT INTO educandos (nombre, apellidos, DNI, naz)

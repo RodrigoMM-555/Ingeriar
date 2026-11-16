@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/contrasenas.php';
 
 function responderLogin(array $datos, int $estado = 200): never
 {
@@ -38,8 +39,27 @@ try {
     ], 500);
 }
 
-if (!$usuario || !hash_equals((string) $usuario['contraseña'], hash('sha256', $contrasena))) {
+if (!$usuario) {
+    // Se calcula un hash igualmente para que la respuesta tarde lo mismo
+    // tanto si el email existe como si no.
+    password_verify($contrasena, HASH_COMPARACION_VACIA);
     responderLogin(['error' => 'Email o contraseña incorrectos'], 401);
+}
+
+$guardada = (string) $usuario['contraseña'];
+if (!verificarContrasena($contrasena, $guardada)) {
+    responderLogin(['error' => 'Email o contraseña incorrectos'], 401);
+}
+
+// Migración transparente: si la contraseña estaba en sha256 (versiones anteriores)
+// o con un algoritmo antiguo, se reescribe con password_hash al entrar.
+if (contrasenaNecesitaActualizarse($guardada)) {
+    try {
+        $db->prepare('UPDATE usuarios SET `contraseña` = ? WHERE id = ?')
+            ->execute([cifrarContrasena($contrasena), (int) $usuario['id']]);
+    } catch (Throwable $error) {
+        // Si no se puede actualizar, el usuario entra igualmente y se reintenta en el próximo acceso.
+    }
 }
 
 session_regenerate_id(true);

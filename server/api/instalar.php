@@ -1,12 +1,38 @@
 <?php
 
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/../auth/contrasenas.php';
 header('Content-Type: text/html; charset=utf-8');
 
 $modelo = trim($_POST['modelo'] ?? '');
 if ($modelo === '') {
     http_response_code(400);
     exit('No se ha recibido ningún modelo de datos.');
+}
+
+// Datos opcionales del primer administrador. Si todos están vacíos, solo se crean las tablas.
+$administrador = [
+    'nombre' => trim($_POST['admin_nombre'] ?? ''),
+    'apellidos' => trim($_POST['admin_apellidos'] ?? ''),
+    'email' => trim($_POST['admin_email'] ?? ''),
+    'telefono' => trim($_POST['admin_telefono'] ?? ''),
+    'contrasena' => (string) ($_POST['admin_contrasena'] ?? ''),
+];
+$crearAdministrador = implode('', $administrador) !== '';
+if ($crearAdministrador) {
+    if (in_array('', $administrador, true)) {
+        http_response_code(400);
+        exit('Para crear el administrador hay que rellenar todos sus campos.');
+    }
+    if (filter_var($administrador['email'], FILTER_VALIDATE_EMAIL) === false) {
+        http_response_code(400);
+        exit('El email del administrador no es válido.');
+    }
+    $errorContrasena = validarContrasena($administrador['contrasena']);
+    if ($errorContrasena !== null) {
+        http_response_code(400);
+        exit(htmlspecialchars($errorContrasena) . '.');
+    }
 }
 
 function identificadorValido(string $valor): bool
@@ -81,6 +107,29 @@ try {
     foreach ($tablas as $sql) {
         $db->exec($sql);
     }
+
+    // El administrador inicial solo se crea si todavía no hay ningún usuario.
+    // Así el instalador no sirve para darse de alta en una instalación ya en uso.
+    $mensajeAdministrador = '';
+    if ($crearAdministrador) {
+        $hayUsuarios = (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0;
+        if ($hayUsuarios) {
+            $mensajeAdministrador = 'Ya existen usuarios: no se ha creado el administrador.';
+        } else {
+            $db->prepare(
+                "INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`, rol)
+                 VALUES (?, ?, ?, ?, ?, 'administrador')"
+            )->execute([
+                $administrador['nombre'],
+                $administrador['apellidos'],
+                $administrador['email'],
+                $administrador['telefono'],
+                cifrarContrasena($administrador['contrasena']),
+            ]);
+            $mensajeAdministrador = 'Se ha creado el administrador '
+                . $administrador['email'] . '.';
+        }
+    }
 } catch (Throwable $error) {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
@@ -97,6 +146,9 @@ try {
 
 echo '<h1>Base de datos MySQL creada correctamente</h1>';
 echo '<p>Se han procesado ' . count($tablas) . ' tablas.</p>';
+if ($mensajeAdministrador !== '') {
+    echo '<p>' . htmlspecialchars($mensajeAdministrador) . '</p>';
+}
 foreach ($tablas as $sql) {
     echo '<pre>' . htmlspecialchars($sql) . ';</pre>';
 }
