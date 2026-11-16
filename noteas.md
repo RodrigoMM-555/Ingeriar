@@ -56,6 +56,7 @@ ingeriar v3/
 │   │   ├── modeloDeDatos.txt        Modelo usado por el instalador
 │   │   ├── config.php               Configuración del grupo
 │   │   └── secciones.php            Cálculo de secciones por edad
+│   ├── pruebas/pruebas.php         Pruebas automáticas por HTTP (solo terminal)
 │   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
 ├── storage/
 │   ├── documentos/                  Circulares y entregas
@@ -494,6 +495,17 @@ No se debe usar `root` desde PHP. En Ubuntu puede fallar por autenticación
 `INGERIAR_DB_PASSWORD`; hay que revisar `mod_env`, el VirtualHost y reiniciar
 Apache.
 
+### Pruebas
+
+`docs/PLAN-PRUEBAS.md` recoge las pruebas funcionales y de permisos por rol con
+su resultado y fecha. Las automáticas se repiten con:
+
+```bash
+INGERIAR_DB_PASSWORD=... php server/pruebas/pruebas.php http://localhost:8000 --confirmar
+```
+
+Solo contra una base de datos de pruebas: el script crea y borra sus propios datos.
+
 ## 14. Migraciones para bases antiguas
 
 Añadir las columnas que no existan:
@@ -534,6 +546,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-16 (E-07)
+
+- E-07: plan de pruebas en `docs/PLAN-PRUEBAS.md` (37 pruebas automáticas superadas
+  y 20 manuales) y script `server/pruebas/pruebas.php` para repetirlas.
 
 ### 2026-11-16 (E-03)
 

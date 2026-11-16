@@ -55,7 +55,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 ## E-07 · Plan de pruebas
 - Requisitos: todos. Apartados afectados: 3.9, 5.1, 5.2, 5.7.
 - Lista de pruebas funcionales y de permisos por rol, con resultado (superada o no) y fecha. Un script o una página de comprobación para repetirlas.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-07-pruebas`, pendiente de fusionar). Se ampliará al terminar E-02, E-04, E-05 y E-06.
 
 ## E-08 · Proteger la exportación completa (`servicios/salida.php`)
 - Requisitos: RNF-03, RNF-04, RF-07. Apartados de la memoria afectados: a determinar por el chat del documento (seguridad y copias).

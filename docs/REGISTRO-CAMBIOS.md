@@ -15,6 +15,29 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-16 · E-07 · Plan de pruebas
+- Rama / commit: `feat/E-07-pruebas` (sale de `feat/E-03-galeria`)
+- Qué se ha hecho: `docs/PLAN-PRUEBAS.md` con 37 pruebas automáticas (autenticación, contraseñas, permisos por rol,
+  copia de seguridad, instalador y galería), cada una con su requisito, resultado y fecha, y 20 pruebas manuales de
+  la interfaz para marcar a mano. El script `server/pruebas/pruebas.php` repite las automáticas por HTTP.
+- Archivos creados o modificados: nuevos `docs/PLAN-PRUEBAS.md` y `server/pruebas/pruebas.php`; `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Script PHP de línea de comandos en lugar de una página web: no queda expuesto en el servidor
+    (está en `server/`, fuera del `DocumentRoot`, y además rechaza ejecutarse fuera de la terminal).
+  - Prueba la aplicación de verdad por HTTP con cURL (una sesión por rol), no las funciones sueltas, para comprobar
+    que los permisos se aplican en el servidor tal como los recibe un navegador.
+  - Crea sus propios usuarios, educando y eventos y los borra al terminar (también si falla), así no depende de
+    `demo.sql` ni deja datos. Exige `--confirmar` porque escribe en la base de datos.
+  - El PNG de prueba se genera con `gzcompress` y `crc32`, sin la extensión gd.
+- Requisitos que cubre (RF/RNF): RF-01 a RF-05 y RF-07 en las pruebas; RNF-03, RNF-04 y RNF-05.
+- Cómo probarlo (pasos): ver «Cómo ejecutar las pruebas automáticas» en `docs/PLAN-PRUEBAS.md`.
+  Resultado de hoy (MySQL 8.4 y servidor integrado de PHP): 37 de 37 superadas, sin datos residuales.
+- Impacto en la memoria (apartados que habría que revisar): 3.9, 5.1, 5.2, 5.7 (indicados en el encargo).
+- Pendiente o problemas:
+  - Las pruebas manuales están en «Pendiente»: las tiene que hacer el usuario en el navegador.
+  - No cubre aún E-02, E-04, E-05 ni E-06; habrá que añadir sus pruebas al terminarlos.
+  - Las pruebas se han ejecutado con el servidor integrado de PHP, no con Apache: MAN-19 comprueba en Apache que `storage/` y `server/` no son accesibles.
+
 ## 2026-11-16 · E-03 · Galería de fotografías
 - Rama / commit: `feat/E-03-galeria` (sale de `feat/E-09-instalador`)
 - Qué se ha hecho: nueva vista «Galería» para todos los roles. Las fotos se asocian a un evento y se navegan
