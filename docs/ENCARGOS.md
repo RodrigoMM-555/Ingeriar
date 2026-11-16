@@ -50,3 +50,31 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Requisitos: todos. Apartados afectados: 3.9, 5.1, 5.2, 5.7.
 - Lista de pruebas funcionales y de permisos por rol, con resultado (superada o no) y fecha. Un script o una página de comprobación para repetirlas.
 - Estado: pendiente
+
+## E-08 · Proteger la exportación completa (`servicios/salida.php`)
+- Requisitos: RNF-03, RNF-04, RF-07. Apartados de la memoria afectados: a determinar por el chat del documento (seguridad y copias).
+- Hoy `public/servicios/salida.php` devuelve todas las tablas en JSON sin comprobar la sesión: cualquiera que conozca la URL descarga
+  educandos, usuarios y hashes de contraseñas. `public/servicios/entrada.php` delega en `server/servicios/entrada.php`, que está vacío.
+- Exigir sesión de administrador en el servidor (`exigirRol(['administrador'])`) o, si no se usa, eliminar ambos servicios.
+  Si se mantiene, excluir la columna `contraseña` y valorar ofrecerla como copia de seguridad desde la configuración (RNF-04).
+- Decidir con el usuario si `entrada.php` (importación) se implementa o se elimina.
+- Aceptación: sin sesión o con rol scouter/tutor la URL devuelve 401/403; como administrador funciona y no incluye contraseñas.
+- Estado: pendiente
+
+## E-09 · Proteger el instalador
+- Requisitos: RNF-03, RNF-05. Apartados de la memoria afectados: a determinar (instalación y seguridad).
+- Hoy `public/instalador.html` y `public/api/instalar.php` se pueden ejecutar sin sesión en cualquier momento y crean tablas con el modelo recibido.
+  Desde E-01 no permiten crear un administrador si ya hay usuarios, pero siguen abiertos.
+- Bloquear el instalador una vez instalada la aplicación. Opciones: marca en `storage/` tras la primera instalación,
+  rechazarlo si ya existe la tabla `usuarios` con datos, o exigir sesión de administrador para reinstalar. Elegir con el usuario.
+- Aceptación: en una instalación en uso, el instalador responde 403 sin modificar la base de datos; en una instalación nueva funciona.
+- Estado: pendiente
+
+## E-10 · Credenciales fuera del repositorio
+- Requisitos: RNF-03, RNF-05.
+- `server/data/database.php` usa como valor por defecto una contraseña de MySQL escrita en el código, visible en el repositorio público.
+- Quitar el valor por defecto: si falta `INGERIAR_DB_PASSWORD`, mostrar el error de configuración que ya existe.
+  Documentar en `noteas.md` que la contraseña de cualquier servidor que la haya usado debe cambiarse (sigue en el historial de git).
+- Revisar el resto del repositorio en busca de claves o datos reales.
+- Aceptación: ninguna credencial en el código; sin la variable de entorno, la aplicación muestra el mensaje de configuración.
+- Estado: pendiente

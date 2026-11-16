@@ -53,10 +53,11 @@ Añadir las entradas nuevas arriba. Formato:
   6. Instalador: con usuarios existentes, rellenar el administrador → «Ya existen usuarios». En una base vacía → se crea y puede entrar.
   7. Comprobación general: ``SELECT COUNT(*) FROM usuarios WHERE `contraseña` NOT LIKE '$2y$%';`` debe ser 0 cuando todos hayan entrado al menos una vez.
 - Impacto en la memoria (apartados que habría que revisar): 2.6, 3.1, 4.4, 5.2. Además, en los datos de prueba, las contraseñas son ahora `ingeriar-<n>`.
+  El código de migración sha256 es temporal; `noteas.md` (apartado «Contraseñas») explica cuándo se puede retirar.
 - Pendiente o problemas:
   - Los usuarios dados de alta con la versión anterior tienen la contraseña guardada en claro y no podrán entrar
     (no es ni sha256 ni `password_hash`). Un administrador debe asignarles una contraseña nueva desde la edición de usuarios.
-  - Problemas de seguridad detectados fuera de este encargo (propuestos como encargos nuevos, sin tocar):
+  - Problemas de seguridad detectados fuera de este encargo (añadidos a `ENCARGOS.md` como E-08, E-09 y E-10, sin tocar el código):
     `servicios/salida.php` devuelve toda la base de datos sin pedir sesión; `api/instalar.php` no pide sesión;
     `database.php` contiene una contraseña de MySQL por defecto en el repositorio público.
   - No se ha probado contra MySQL desde este equipo: se ha comprobado la sintaxis de PHP y JS y la lógica de contraseñas con un script de 16 casos.

@@ -173,6 +173,21 @@ y las usan el login, el alta y edición de usuarios de `superapi.php` y el insta
 - Si el email no existe, el login calcula igualmente un hash para que el tiempo
   de respuesta no revele qué emails están registrados.
 
+La migración solo mejora cómo se guarda la contraseña, no la contraseña en sí:
+una contraseña antigua que no cumpla las reglas sigue siendo válida hasta que se
+cambie. El código que acepta sha256 es temporal. Mientras queden hashes sha256,
+una copia robada de la base de datos permitiría descifrarlos con facilidad porque
+no llevan sal. Para comprobar cuántos quedan:
+
+```sql
+SELECT COUNT(*) FROM usuarios WHERE `contraseña` NOT LIKE '$2%';
+```
+
+Cuando el resultado sea 0, o tras un plazo razonable, se puede eliminar la rama
+sha256 de `verificarContrasena`; a quien no haya entrado, un administrador le
+asigna una contraseña nueva. Los usuarios creados con versiones anteriores cuya
+contraseña quedó guardada en claro no pueden entrar y también necesitan una nueva.
+
 ## 5. Flujo de datos
 
 El cliente no accede directamente a MySQL:
