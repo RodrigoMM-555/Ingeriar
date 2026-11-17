@@ -139,9 +139,9 @@ class IngeriarDashboard {
         return zona;
     }
 
-    // Asistencias del próximo sábado (2026-11-17): una gráfica de anillo por sección con
-    // los tonos de su color, de claro a oscuro: asiste y ha entregado la circular, asiste
-    // sin entregarla, no ha respondido y no asiste.
+    // Asistencias del próximo sábado (2026-11-17): un anillo doble con las secciones por
+    // dentro y, por fuera, sus tramos con los tonos de su color, de claro a oscuro: asiste y
+    // ha entregado la circular, asiste sin entregarla, no ha respondido y no asiste.
     renderAsistenciasSabado(datos = {}) {
         const zona = document.createElement("section");
         zona.className = "dashboard-bloque dashboard-asistencias";
@@ -158,29 +158,25 @@ class IngeriarDashboard {
         }
         const conCircular = Boolean(datos.evento.circular);
         const etiquetas = conCircular
-            ? ["Asiste y entregó", "Asiste, sin circ.", "Sin responder", "No asiste"]
+            ? ["Asiste y entregó", "Asiste sin circular", "Sin responder", "No asiste"]
             : ["Asiste", "Sin responder", "No asiste"];
-        const rejilla = document.createElement("div");
-        rejilla.className = "graficas-secciones";
-        this.ordenarSecciones(Object.keys(datos.secciones || {})).forEach((seccion) => {
-            const grupos = datos.secciones[seccion];
-            const valores = conCircular
-                ? [grupos.asiste_entregada, grupos.asiste_sin_circular, grupos.pendiente, grupos.no]
-                : [grupos.asiste_entregada, grupos.pendiente, grupos.no];
+        // Un solo anillo doble: secciones dentro y, por fuera, sus tramos con los tonos de su color.
+        const grupos = this.ordenarSecciones(Object.keys(datos.secciones || {})).map((seccion) => {
+            const tramos = datos.secciones[seccion];
             const tonos = this.tonosSeccion(seccion);
-            const tarjeta = document.createElement("article");
-            tarjeta.className = "grafica-card vista-superficie";
-            rejilla.appendChild(tarjeta);
-            this.graficas.crear(
-                tarjeta,
-                "anillo",
-                etiquetas,
-                valores,
-                this.nombreSeccion(seccion),
-                conCircular ? tonos : [tonos[0], tonos[2], tonos[3]]
-            );
+            return {
+                nombre: this.nombreSeccion(seccion),
+                color: tonos[2],
+                tonos: conCircular ? tonos : [tonos[0], tonos[2], tonos[3]],
+                valores: conCircular
+                    ? [tramos.asiste_entregada, tramos.asiste_sin_circular, tramos.pendiente, tramos.no]
+                    : [tramos.asiste_entregada, tramos.pendiente, tramos.no]
+            };
         });
-        zona.appendChild(rejilla);
+        const tarjeta = document.createElement("article");
+        tarjeta.className = "grafica-card vista-superficie";
+        this.graficas.crearAnilloAgrupado(tarjeta, grupos, etiquetas, "educandos");
+        zona.appendChild(tarjeta);
         return zona;
     }
 

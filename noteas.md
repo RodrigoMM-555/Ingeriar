@@ -550,12 +550,13 @@ quitada a petición del usuario el 2026-11-17, ni otras gráficas (próximos eve
 tipo, usuarios por cargo, estado de asistencias del tutor). Según los permisos muestra
 las asistencias del próximo sábado y el panel de pendientes del tutor.
 
-Asistencias del próximo sábado (monitores): una gráfica de anillo por sección con
-los tonos de su color, de claro a oscuro: asiste y ha entregado la circular, asiste
-sin entregarla, no ha respondido y no asiste. Si el sábado no lleva circular, los dos
-primeros tramos se juntan en «Asiste». Solo cuenta el próximo evento de tipo sábado y
-las secciones que convoca, en una cuadrícula de dos columnas (una en pantallas
-estrechas). `graficas.js` admite una paleta propia (`colores`).
+Asistencias del próximo sábado (monitores): un único anillo doble. Por dentro, una
+porción por sección (proporcional a sus educandos convocados, con su color); por
+fuera, encima de cada sección, sus tramos con los tonos de su color, de claro a
+oscuro: asiste y ha entregado la circular, asiste sin entregarla, no ha respondido y no
+asiste. Al lado, una tabla con todas las cifras. Si el sábado no lleva circular, los
+dos primeros tramos se juntan en «Asiste». Solo cuenta el próximo evento de tipo
+sábado y las secciones que convoca. Lo dibuja `DarkorangeGraficas.crearAnilloAgrupado`.
 
 `graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. Los tooltips
 indican valor y porcentaje.
@@ -766,6 +767,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (anillo doble del sábado)
+
+- Las asistencias del sábado pasan de cinco gráficas a un único anillo doble
+  (secciones por dentro, tramos por fuera) con una tabla de cifras al lado.
 
 ### 2026-11-17 (gráficas del dashboard)
 

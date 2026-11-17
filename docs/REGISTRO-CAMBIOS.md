@@ -15,6 +15,23 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: asistencias del sábado en un único anillo doble
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario (con cinco gráficas no se veía bien), las asistencias del sábado se muestran en un
+  solo círculo: anillo interior con una porción por sección (proporcional a sus educandos convocados) y anillo exterior con
+  los tramos de cada sección (asiste y entregó, asiste sin circular, sin responder, no asiste) en los tonos de su color.
+  Al lado, una tabla con las cifras por sección y tramo y el total. Al pasar el ratón se ve la cifra y el porcentaje.
+- Archivos creados o modificados: `public/nucleo/graficas.js` (nuevo `crearAnilloAgrupado`), `public/nucleo/dashboard.js`
+  (`renderAsistenciasSabado`), `public/estilo.css` (`.anillo-agrupado`, `.tabla-grafica-agrupada`, `.muestra-color`;
+  fuera `.graficas-secciones`), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: anillo doble (tipo «sunburst») para ver a la vez el peso de cada sección y su desglose;
+  la tabla evita tener que adivinar cifras pequeñas. La tabla no usa el estilo general (cabecera de color) para no
+  recargar el bloque. Comprobado con capturas de Firefox sin ventana.
+- Requisitos que cubre (RF/RNF): RF-03, RF-07, RNF-06.
+- Cómo probarlo (pasos): entrar como monitor y pasar el ratón por el anillo.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard), gráficas SVG.
+- Pendiente o problemas: ninguno conocido.
+
 ## 2026-11-17 · Dashboard: solo las gráficas del sábado, más grandes
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, se quitan las demás gráficas del dashboard («Próximos eventos por tipo»,

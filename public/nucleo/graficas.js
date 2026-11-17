@@ -57,6 +57,113 @@ class DarkorangeGraficas {
         }
     }
 
+    // Anillo doble por grupos (asistencias del sábado por sección):
+    //   - anillo interior: una porción por grupo, de tamaño proporcional a su total;
+    //   - anillo exterior: encima de cada grupo, sus partes con los tonos de su color;
+    //   - al lado, una tabla con todas las cifras.
+    // grupos: [{nombre, color, tonos: [...], valores: [...]}]; etiquetas: nombre de cada parte.
+    static crearAnilloAgrupado(contenedor, grupos, etiquetas, textoCentro = "") {
+        const elemento = typeof contenedor === "string"
+            ? document.querySelector(contenedor)
+            : contenedor;
+        if (!elemento) {
+            return;
+        }
+        elemento.innerHTML = "";
+        const total = grupos.reduce((suma, grupo) =>
+            suma + grupo.valores.reduce((parcial, valor) => parcial + valor, 0), 0);
+        if (!total) {
+            elemento.insertAdjacentHTML("beforeend", '<p class="vacio">Sin datos para representar</p>');
+            return;
+        }
+
+        const svg = this.crearNodo("svg", {viewBox: "0 0 320 320", role: "img", "aria-label": textoCentro || "Gráfica"});
+        svg.classList.add("grafica-svg", "grafica-agrupada");
+        const tooltip = this.obtenerTooltip();
+        const centro = 160;
+        const punto = (distancia, angulo) => [
+            centro + distancia * Math.cos(angulo),
+            centro + distancia * Math.sin(angulo)
+        ];
+        const sector = (radio, radioInterior, inicio, amplitud, color, dato, totalDato) => {
+            if (!amplitud) {
+                return;
+            }
+            const figura = this.crearNodo("path", {
+                d: this.crearRutaCircular(centro, centro, radio, radioInterior, inicio,
+                    inicio + amplitud, amplitud, punto),
+                fill: color,
+                stroke: "#fff",
+                "stroke-width": 1.5,
+                "fill-rule": "evenodd"
+            });
+            svg.appendChild(figura);
+            this.activarTooltip(figura, dato, totalDato, tooltip);
+        };
+
+        let angulo = -Math.PI / 2;
+        grupos.forEach((grupo) => {
+            const totalGrupo = grupo.valores.reduce((suma, valor) => suma + valor, 0);
+            const amplitudGrupo = totalGrupo / total * Math.PI * 2;
+            sector(100, 60, angulo, amplitudGrupo, grupo.color,
+                {label: grupo.nombre, valor: totalGrupo}, total);
+            let anguloParte = angulo;
+            grupo.valores.forEach((valor, indice) => {
+                const amplitud = valor / total * Math.PI * 2;
+                sector(152, 104, anguloParte, amplitud, grupo.tonos[indice],
+                    {label: grupo.nombre + " · " + etiquetas[indice], valor}, totalGrupo);
+                anguloParte += amplitud;
+            });
+            angulo += amplitudGrupo;
+        });
+        const numero = this.crearNodo("text", {x: centro, y: centro + 4, "text-anchor": "middle",
+            "font-size": 30, "font-weight": 700, fill: "currentColor"});
+        numero.textContent = String(total);
+        const leyenda = this.crearNodo("text", {x: centro, y: centro + 24, "text-anchor": "middle",
+            "font-size": 12, fill: "currentColor"});
+        leyenda.textContent = textoCentro;
+        svg.append(numero, leyenda);
+
+        // Tabla con las cifras: una fila por grupo y una columna por parte.
+        const tabla = document.createElement("table");
+        tabla.className = "tabla-grafica-agrupada";
+        const cabecera = document.createElement("tr");
+        ["", ...etiquetas, "Total"].forEach((texto) => {
+            const celda = document.createElement("th");
+            celda.textContent = texto;
+            cabecera.appendChild(celda);
+        });
+        tabla.appendChild(document.createElement("thead")).appendChild(cabecera);
+        const cuerpo = tabla.appendChild(document.createElement("tbody"));
+        grupos.forEach((grupo) => {
+            const fila = document.createElement("tr");
+            const nombre = document.createElement("th");
+            nombre.scope = "row";
+            const muestra = document.createElement("span");
+            muestra.className = "muestra-color";
+            muestra.style.background = grupo.color;
+            nombre.append(muestra, grupo.nombre);
+            fila.appendChild(nombre);
+            grupo.valores.forEach((valor, indice) => {
+                const celda = document.createElement("td");
+                const tono = document.createElement("span");
+                tono.className = "muestra-color";
+                tono.style.background = grupo.tonos[indice];
+                celda.append(tono, String(valor));
+                fila.appendChild(celda);
+            });
+            const totalCelda = document.createElement("td");
+            totalCelda.textContent = String(grupo.valores.reduce((suma, valor) => suma + valor, 0));
+            fila.appendChild(totalCelda);
+            cuerpo.appendChild(fila);
+        });
+
+        const envoltorio = document.createElement("div");
+        envoltorio.className = "anillo-agrupado";
+        envoltorio.append(svg, tabla);
+        elemento.appendChild(envoltorio);
+    }
+
     static crearSvg(tipo, titulo) {
         const svg = this.crearNodo("svg", {
             viewBox: "0 0 440 260",
