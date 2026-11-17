@@ -459,6 +459,33 @@ switch ($ruta) {
             $datos['tutor'] = ['pendientes' => $pendientes];
         }
 
+        // Tesorería: facturas por revisar (pendiente) y por pagar (revisada). Lo ve quien
+        // puede cambiar el estado de las facturas.
+        if (tienePermiso('facturas.cambiar_estado')) {
+            $facturasAbiertas = $consultarTodos(
+                "SELECT f.id, f.concepto, f.precio, f.fecha_compra, f.estado,
+                        CONCAT(u.nombre, ' ', u.apellidos) AS responsable
+                 FROM facturas f
+                 JOIN usuarios u ON u.id = f.responsable_id
+                 WHERE f.estado IN ('pendiente', 'revisada')
+                 ORDER BY f.fecha_compra, f.id"
+            );
+            $porEstado = fn(string $estado): array => array_values(array_map(
+                fn($factura): array => [
+                    'id' => (int) $factura['id'],
+                    'concepto' => $factura['concepto'],
+                    'precio' => (float) $factura['precio'],
+                    'fecha_compra' => $factura['fecha_compra'],
+                    'responsable' => $factura['responsable'],
+                ],
+                array_filter($facturasAbiertas, fn($factura): bool => $factura['estado'] === $estado)
+            ));
+            $datos['tesoreria'] = [
+                'por_revisar' => $porEstado('pendiente'),
+                'por_pagar' => $porEstado('revisada'),
+            ];
+        }
+
         responder($datos);
 
     case 'asistencia_tutor':

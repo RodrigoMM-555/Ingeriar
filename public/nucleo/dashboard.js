@@ -41,6 +41,9 @@ class IngeriarDashboard {
                 this.contenedor.appendChild(this.renderPendientesTutor(datos.tutor.pendientes || []));
                 this.contenedor.appendChild(this.renderCalendarioTutor(datos.mini_calendario || []));
             }
+            if (datos.tesoreria) {
+                this.contenedor.appendChild(this.renderFacturasTesoreria(datos.tesoreria));
+            }
         } catch (error) {
             this.contenedor.innerHTML = "";
 
@@ -274,6 +277,63 @@ class IngeriarDashboard {
         });
         zona.appendChild(lista);
         return zona;
+    }
+
+    // Tesorería: dos columnas con las facturas por revisar y por pagar (mismos colores que
+    // el tablero de facturas).
+    renderFacturasTesoreria(tesoreria) {
+        const zona = document.createElement("section");
+        zona.className = "dashboard-bloque dashboard-tesoreria";
+        const titulo = document.createElement("h3");
+        titulo.textContent = "Facturas";
+        zona.appendChild(titulo);
+        const columnas = document.createElement("div");
+        columnas.className = "columnas-tesoreria";
+        [
+            ["Pendientes de revisar", tesoreria.por_revisar || [], "pendiente"],
+            ["Pendientes de pagar", tesoreria.por_pagar || [], "revisada"],
+        ].forEach(([texto, facturas, estado]) => {
+            const columna = document.createElement("section");
+            columna.className = "columna-facturas columna-" + estado;
+            const cabecera = document.createElement("h3");
+            const total = facturas.reduce((suma, factura) => suma + Number(factura.precio), 0);
+            cabecera.textContent = texto + " (" + facturas.length + ") · " + this.formatearImporte(total);
+            columna.appendChild(cabecera);
+            // Se muestran las más antiguas; el resto se consulta en Facturas.
+            const maximo = 8;
+            facturas.slice(0, maximo).forEach((factura) => {
+                const ficha = document.createElement("article");
+                ficha.className = "tarjeta-factura factura-dashboard";
+                const concepto = document.createElement("strong");
+                concepto.textContent = factura.concepto;
+                const importe = document.createElement("span");
+                importe.className = "importe-factura-dashboard";
+                importe.textContent = this.formatearImporte(factura.precio);
+                const detalle = document.createElement("small");
+                detalle.textContent = factura.responsable + " · " + this.formatearFecha(factura.fecha_compra);
+                ficha.append(concepto, importe, detalle);
+                columna.appendChild(ficha);
+            });
+            if (facturas.length > maximo) {
+                const resto = document.createElement("p");
+                resto.className = "resto-facturas";
+                resto.textContent = "Y " + (facturas.length - maximo) + " más en el apartado Facturas.";
+                columna.appendChild(resto);
+            }
+            if (!facturas.length) {
+                const vacio = document.createElement("p");
+                vacio.className = "sin-datos";
+                vacio.textContent = "Ninguna.";
+                columna.appendChild(vacio);
+            }
+            columnas.appendChild(columna);
+        });
+        zona.appendChild(columnas);
+        return zona;
+    }
+
+    formatearImporte(valor) {
+        return Number(valor).toLocaleString("es-ES", {style: "currency", currency: "EUR"});
     }
 
     // Calendario del tutor: próximos eventos del trimestre de las secciones de sus educandos.

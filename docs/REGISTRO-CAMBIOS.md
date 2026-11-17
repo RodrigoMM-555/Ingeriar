@@ -15,6 +15,25 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: facturas pendientes de revisar y de pagar (tesorería)
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, el dashboard de tesorería muestra el bloque «Facturas» con dos columnas:
+  «Pendientes de revisar» (estado `pendiente`) y «Pendientes de pagar» (estado `revisada`). Cada columna indica el
+  número de facturas y el importe total, y lista las 8 más antiguas (concepto, importe, responsable, fecha de compra);
+  si hay más, indica cuántas quedan en el apartado Facturas.
+- Archivos creados o modificados: `server/api/superapi.php` (`tesoreria.por_revisar` y `tesoreria.por_pagar`),
+  `public/nucleo/dashboard.js` (`renderFacturasTesoreria`, `formatearImporte`), `public/estilo.css`, versión de los
+  scripts, `noteas.md`.
+- Decisiones técnicas y motivo: el bloque depende del permiso `facturas.cambiar_estado` (comprobado en el servidor),
+  igual que el resto de bloques del dashboard desde E-13; por eso también lo ve el administrador. Las columnas
+  reutilizan los estilos del tablero de facturas (mismos colores por estado).
+- Requisitos que cubre (RF/RNF): RF-07, RNF-03.
+- Cómo probarlo (pasos): entrar con un usuario con el cargo de tesorería (o administrador): aparece el bloque; con un
+  monitor o un tutor no aparece ni el servidor envía los datos.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard por cargo), facturas (E-05).
+- Pendiente o problemas: los datos de demostración no tienen ningún usuario con el cargo de tesorería; se ha
+  comprobado con el administrador.
+
 ## 2026-11-17 · Dashboard: mini calendario limitado al trimestre
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, el mini calendario del dashboard («Calendario del trimestre») solo incluye

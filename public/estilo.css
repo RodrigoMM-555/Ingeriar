@@ -29,6 +29,45 @@
     margin:0 0 16px;
 }
 
+/* Tesorería: facturas por revisar y por pagar (reutiliza las columnas del tablero) */
+.columnas-tesoreria{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+    align-items:start;
+}
+
+.columnas-tesoreria .columna-facturas{
+    min-height:0;
+}
+
+.factura-dashboard{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:4px 10px;
+}
+
+.factura-dashboard small{
+    grid-column:1 / -1;
+    color:var(--color_secundario);
+}
+
+.importe-factura-dashboard{
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.resto-facturas{
+    margin:2px 0 0;
+    color:var(--color_secundario);
+    font-size:13px;
+}
+
+@media (max-width:700px){
+    .columnas-tesoreria{
+        grid-template-columns:1fr;
+    }
+}
+
 /* Las tarjetas se reparten el ancho: tres para el tutor, cuatro para los demás */
 .dashboard-resumen{
     display:flex;
