@@ -253,7 +253,6 @@ switch ($ruta) {
 
         $datos = [
             'rol' => $usuario['rol_basico'],
-            'graficas' => [],
         ];
         $eventosDashboard = $consultarTodos(
             "SELECT id, nombre, fecha_inicio, fecha_fin, tipo, lugar, circular
@@ -347,44 +346,8 @@ switch ($ruta) {
             ],
             $eventosVisibles
         );
-        $eventosProximos = $consultarTodos(
-            "SELECT tipo, COUNT(*) AS cantidad
-             FROM eventos
-             WHERE fecha_fin >= NOW()
-             GROUP BY tipo
-             ORDER BY cantidad DESC, tipo"
-        );
-        $nombresTiposEvento = [];
-        if (tablaExiste($db, 'tipos_evento')) {
-            $nombresTiposEvento = $db->query(
-                'SELECT codigo, nombre FROM tipos_evento'
-            )->fetchAll(PDO::FETCH_KEY_PAIR);
-        }
-        $datos['graficas'][] = [
-            'tipo' => 'anillo',
-            'titulo' => 'Próximos eventos por tipo',
-            'etiquetas' => array_map(
-                fn($tipo): string => $nombresTiposEvento[$tipo] ?? $tipo,
-                array_column($eventosProximos, 'tipo')
-            ),
-            'valores' => array_map('intval', array_column($eventosProximos, 'cantidad')),
-        ];
-
         // Bloques del dashboard según los permisos (E-13). Con varios cargos se suman los
         // bloques de cada uno.
-        if (tienePermiso('usuarios.gestionar')) {
-            $usuariosPorCargo = $consultarTodos(
-                'SELECT r.nombre AS cargo, COUNT(*) AS cantidad
-                 FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
-                 GROUP BY r.codigo, r.nombre, r.orden ORDER BY r.orden'
-            );
-            $datos['graficas'][] = [
-                'tipo' => 'barras',
-                'titulo' => 'Usuarios por cargo',
-                'etiquetas' => array_column($usuariosPorCargo, 'cargo'),
-                'valores' => array_map('intval', array_column($usuariosPorCargo, 'cantidad')),
-            ];
-        }
         if (tienePermiso('asistencia.ver_todas')) {
             $sabado = $sabadosProximos[0] ?? null;
             $asistenciaSabado = [];
@@ -447,16 +410,6 @@ switch ($ruta) {
                    AND educ.fecha_baja IS NULL",
                 [$usuario['id']]
             );
-            $datos['graficas'][] = [
-                'tipo' => 'tarta',
-                'titulo' => 'Estado de próximas asistencias',
-                'etiquetas' => ['Confirmadas', 'No asisten', 'Pendientes'],
-                'valores' => array_map('intval', [
-                    $asistencias['confirmadas'] ?? 0,
-                    $asistencias['ausencias'] ?? 0,
-                    $asistencias['pendientes'] ?? 0,
-                ]),
-            ];
             $eventosVisiblesIds = array_map(
                 'intval',
                 array_column($eventosVisibles, 'id')

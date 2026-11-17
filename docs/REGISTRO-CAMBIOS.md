@@ -15,6 +15,19 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: solo las gráficas del sábado, más grandes
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, se quitan las demás gráficas del dashboard («Próximos eventos por tipo»,
+  «Usuarios por cargo» y «Estado de próximas asistencias» del tutor) y las gráficas del sábado se colocan en una
+  cuadrícula de dos columnas (una en pantallas de menos de 900 px) para que se vean más grandes.
+- Archivos creados o modificados: `server/api/superapi.php` (ya no calcula ni envía `graficas`), `public/nucleo/dashboard.js`
+  (sin `renderGraficas`), `public/estilo.css` (`.graficas-secciones` en dos columnas; fuera `.dashboard-graficas`),
+  versión de los scripts, `noteas.md`.
+- Requisitos que cubre (RF/RNF): RF-07, RNF-06.
+- Cómo probarlo (pasos): entrar como monitor: solo aparecen las gráficas del sábado, dos por fila.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard).
+- Pendiente o problemas: con cinco secciones la última queda sola en su fila.
+
 ## 2026-11-17 · Dashboard: asistencias del sábado en gráficas por sección
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, la tabla de asistencias del próximo sábado se sustituye por una gráfica de anillo

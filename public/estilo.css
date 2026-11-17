@@ -1600,25 +1600,24 @@ body.modal-abierto{
 /* Asistencias del sábado: una gráfica por sección */
 .graficas-secciones{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-    gap:14px;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:18px;
+}
+
+/* Sin altura mínima: la gráfica ocupa el ancho de su columna y no deja huecos */
+.graficas-secciones .grafica-svg{
+    min-height:0;
+}
+
+@media(max-width:900px){
+    .graficas-secciones{
+        grid-template-columns:1fr;
+    }
 }
 
 .graficas-secciones .grafica-card h3{
     margin:0 0 6px;
     font-size:16px;
-}
-
-.dashboard-graficas{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:20px;
-}
-
-.dashboard-graficas .grafica-card:first-child:last-child{
-    grid-column:1 / -1;
-    justify-self:center;
-    width:min(100%, 680px);
 }
 
 
@@ -1695,10 +1694,6 @@ body.modal-abierto{
 
     .cabecera-dashboard .controles-exportacion{
         width:100%;
-    }
-
-    .dashboard-graficas{
-        grid-template-columns:1fr;
     }
 }
 
@@ -2683,10 +2678,6 @@ tr.fila-baja td{
         align-items:flex-start;
 
         flex-direction:column;
-    }
-
-    .dashboard-graficas{
-        grid-template-columns:1fr;
     }
 
     table{

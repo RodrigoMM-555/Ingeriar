@@ -42,7 +42,6 @@ class IngeriarDashboard {
                     datos.mini_calendario
                 ));
             }
-            this.contenedor.appendChild(this.renderGraficas(datos.graficas));
         } catch (error) {
             this.contenedor.innerHTML = "";
 
@@ -99,34 +98,6 @@ class IngeriarDashboard {
         textos.append(titulo, descripcion);
         cabecera.append(textos, exportacion);
         this.contenedor.appendChild(cabecera);
-    }
-
-    renderGraficas(graficas) {
-        const zona = document.createElement("div");
-        zona.className = "dashboard-graficas";
-
-        if (!graficas.length) {
-            const mensaje = document.createElement("p");
-            mensaje.className = "sin-datos";
-            mensaje.textContent = "No hay datos para representar.";
-            zona.appendChild(mensaje);
-            return zona;
-        }
-
-        graficas.forEach((grafica) => {
-            const tarjeta = document.createElement("article");
-            tarjeta.className = "grafica-card vista-superficie";
-            zona.appendChild(tarjeta);
-            this.graficas.crear(
-                tarjeta,
-                grafica.tipo,
-                grafica.etiquetas,
-                grafica.valores,
-                grafica.titulo
-            );
-        });
-
-        return zona;
     }
 
     renderResumen(resumen = {}) {

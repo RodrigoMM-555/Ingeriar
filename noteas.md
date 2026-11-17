@@ -546,14 +546,16 @@ calculan exclusivamente desde `educandos`; los usuarios no tienen fecha de
 nacimiento para este propósito.
 
 El dashboard ya no muestra la fila de indicadores numéricos (`article.indicador`),
-quitada a petición del usuario el 2026-11-17. Según los permisos muestra las
-asistencias del próximo sábado, el panel de pendientes del tutor y las gráficas.
+quitada a petición del usuario el 2026-11-17, ni otras gráficas (próximos eventos por
+tipo, usuarios por cargo, estado de asistencias del tutor). Según los permisos muestra
+las asistencias del próximo sábado y el panel de pendientes del tutor.
 
 Asistencias del próximo sábado (monitores): una gráfica de anillo por sección con
 los tonos de su color, de claro a oscuro: asiste y ha entregado la circular, asiste
 sin entregarla, no ha respondido y no asiste. Si el sábado no lleva circular, los dos
 primeros tramos se juntan en «Asiste». Solo cuenta el próximo evento de tipo sábado y
-las secciones que convoca. `graficas.js` admite una paleta propia (`colores`).
+las secciones que convoca, en una cuadrícula de dos columnas (una en pantallas
+estrechas). `graficas.js` admite una paleta propia (`colores`).
 
 `graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. Los tooltips
 indican valor y porcentaje.
@@ -764,6 +766,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (gráficas del dashboard)
+
+- Se quitan las demás gráficas del dashboard; las del sábado van en dos columnas para
+  que se vean más grandes.
 
 ### 2026-11-17 (asistencias del sábado)
 
