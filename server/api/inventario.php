@@ -9,6 +9,8 @@
 //   borrar_ubicacion   POST  {id}                         solo si está vacía
 //   guardar_material   POST  {id?, nombre, unidad, notas, existencias:[{ubicacion, cantidad}]}
 //   borrar_material    POST  {id}
+//   mover_material     POST  {material, origen, destino, cantidad}   pasa unidades de una
+//                            ubicación a otra (plano del inventario, E-15)
 //   guardar_lista      POST  {id?, nombre, es_plantilla, origen, lineas, compras}
 //   copiar_lista       POST  {id, nombre, es_plantilla}   plantilla ↔ lista, o versión nueva
 //   borrar_lista       POST  {id}
@@ -197,6 +199,53 @@ try {
                     fn($material) => $material['id'] !== $id
                 ));
                 return $inventario;
+            });
+            responder(['ok' => true, 'inventario' => $resultado]);
+
+        case 'mover_material':
+            // Todo dentro del bloqueo: se comprueba lo que hay en el origen con los datos
+            // actuales, así dos movimientos a la vez no pueden dejar cantidades negativas.
+            $resultado = $almacen->modificar('inventario', INVENTARIO_VACIO, function (array $inventario) use ($datos) {
+                $materialId = (string) ($datos['material'] ?? '');
+                $origen = (string) ($datos['origen'] ?? '');
+                $destino = (string) ($datos['destino'] ?? '');
+                $cantidad = cantidadValida($datos['cantidad'] ?? '', 'lo que se mueve');
+                $ubicaciones = porId($inventario['ubicaciones']);
+                if (!isset($ubicaciones[$origen], $ubicaciones[$destino])) {
+                    fallar('La ubicación de origen o de destino no existe', 404);
+                }
+                if ($origen === $destino) {
+                    fallar('El origen y el destino son la misma ubicación');
+                }
+                if ($cantidad === 0) {
+                    fallar('Indica cuántas unidades se mueven');
+                }
+                foreach ($inventario['materiales'] as &$material) {
+                    if ($material['id'] !== $materialId) {
+                        continue;
+                    }
+                    $hay = 0;
+                    foreach ($material['existencias'] as $existencia) {
+                        if ($existencia['ubicacion'] === $origen) {
+                            $hay = $existencia['cantidad'];
+                        }
+                    }
+                    if ($hay < $cantidad) {
+                        fallar("En el origen solo hay {$hay}", 409);
+                    }
+                    $cantidades = array_column($material['existencias'], 'cantidad', 'ubicacion');
+                    $cantidades[$origen] -= $cantidad;
+                    $cantidades[$destino] = ($cantidades[$destino] ?? 0) + $cantidad;
+                    // Si el origen se queda vacío, deja de aparecer en el material.
+                    $material['existencias'] = [];
+                    foreach ($cantidades as $ubicacion => $valor) {
+                        if ($valor > 0) {
+                            $material['existencias'][] = ['ubicacion' => (string) $ubicacion, 'cantidad' => $valor];
+                        }
+                    }
+                    return $inventario;
+                }
+                fallar('El material no existe', 404);
             });
             responder(['ok' => true, 'inventario' => $resultado]);
 

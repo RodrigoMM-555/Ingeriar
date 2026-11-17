@@ -2424,6 +2424,187 @@ tr.fila-baja td{
 
 /* ==================== INVENTARIO ==================== */
 
+/* Plano del inventario (E-15): cada ubicación es una caja con sus fichas de material */
+.selector-vista-inventario{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.plano-inventario{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:14px;
+    align-items:start;
+    min-height:120px;
+    padding:6px;
+    border-radius:var(--radio);
+}
+
+.rejilla-editor .plano-inventario{
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+}
+
+.caja-ubicacion{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:0;
+    padding:10px;
+    border:2px solid var(--color_borde);
+    border-radius:var(--radio);
+}
+
+.caja-ubicacion.nivel-par{
+    background:var(--color_superficie);
+}
+
+.caja-ubicacion.nivel-impar{
+    background:var(--color_fondo);
+}
+
+.caja-sin-existencias{
+    border-style:dashed;
+    background:var(--color_fondo);
+}
+
+.caja-ubicacion.columna-destino,
+.plano-inventario.columna-destino{
+    background:color-mix(in srgb,var(--color_corporativo) 6%,white);
+}
+
+.cabecera-caja{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.cabecera-caja strong{
+    flex:1;
+    min-width:0;
+    overflow-wrap:anywhere;
+}
+
+.asa-caja{
+    cursor:grab;
+}
+
+.fichas-caja{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.hijas-caja{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));
+    gap:8px;
+}
+
+.caja-vacia{
+    margin:0;
+    color:var(--color_secundario);
+    font-size:12px;
+    font-style:italic;
+}
+
+.ficha-material{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    max-width:100%;
+    padding:3px 4px 3px 10px;
+    border:1px solid color-mix(in srgb,var(--color_corporativo) 25%,white);
+    border-radius:999px;
+    background:color-mix(in srgb,var(--color_corporativo) 8%,white);
+    font-size:13px;
+}
+
+.ficha-material[draggable="true"]{
+    cursor:grab;
+}
+
+.nombre-ficha{
+    min-width:0;
+    padding:0;
+    border:0;
+    color:var(--color_texto);
+    background:none;
+    font:inherit;
+    text-align:left;
+    overflow-wrap:anywhere;
+    cursor:inherit;
+}
+
+.vista-inventario .ficha-material .nombre-ficha[aria-label]{
+    cursor:pointer;
+}
+
+.cantidad-ficha{
+    padding:1px 8px;
+    border-radius:999px;
+    color:#fff;
+    background:var(--color_corporativo);
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.boton-ficha{
+    padding:0 6px;
+    border:0;
+    color:var(--color_texto);
+    background:none;
+    font-size:14px;
+    line-height:1.4;
+}
+
+.ficha-material.coincide{
+    outline:2px solid var(--color_corporativo);
+}
+
+.ficha-material.atenuada,
+.ficha-material.agotada{
+    opacity:0.35;
+}
+
+.arrastrando{
+    opacity:0.5;
+}
+
+.asa-toma{
+    padding:0 4px;
+    color:var(--color_secundario);
+    cursor:grab;
+    user-select:none;
+}
+
+.vista-formulario > .ayuda-inventario,
+.campo-cantidad-mover{
+    grid-column:1 / -1;
+}
+
+.vista-formulario > .ayuda-inventario{
+    margin-bottom:12px;
+    font-size:15px;
+    color:var(--color_texto);
+}
+
+.campo-cantidad-mover label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.campo-cantidad-mover input[type="number"]{
+    width:100px;
+}
+
+.campo-cantidad-mover input[type="range"]{
+    width:100%;
+    margin-top:8px;
+    accent-color:var(--color_corporativo);
+}
+
 .pestanas-inventario{
     display:flex;
     flex-wrap:wrap;

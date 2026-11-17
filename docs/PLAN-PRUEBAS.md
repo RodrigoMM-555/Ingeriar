@@ -148,13 +148,17 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | INV-08 | No se puede coger de un sitio más de lo que hay → 400 | RF-06 | Superada | 2026-11-17 |
 | INV-09 | Una lista se guarda como plantilla y de la plantilla sale una lista nueva | RF-06 | Superada | 2026-11-17 |
 | INV-10 | Diez escrituras simultáneas no pierden ningún dato (bloqueo de fichero) | RF-06, RNF-03 | Superada | 2026-11-17 |
+| INV-11 | Mover material entre ubicaciones resta del origen y suma en el destino | RF-06 | Superada | 2026-11-17 |
+| INV-12 | No se mueve más de lo que hay en el origen → 409 | RF-06 | Superada | 2026-11-17 |
+| INV-13 | Mover a la misma ubicación o 0 unidades → 400 | RF-06 | Superada | 2026-11-17 |
+| INV-14 | Un tutor no puede mover material → 403 | RF-06, RNF-03 | Superada | 2026-11-17 |
 
 | COP-01 | Un monitor no ve las copias de seguridad → 403 | RNF-03, RNF-04 | Superada | 2026-11-17 |
 | COP-02 | El administrador ve la lista de copias | RNF-04 | Superada | 2026-11-17 |
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-Resultado: 111 de 111 superadas el 2026-11-17.
+Resultado: 115 de 115 superadas el 2026-11-17 (con las pruebas de E-15).
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 
@@ -251,3 +255,7 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-39 | Monitor | Guardar como plantilla y «Usar para una salida» | Se crea la lista con el contenido de la plantilla | RF-06 | Pendiente | |
 | MAN-40 | Sin sesión | Instalador en una base vacía: recorrer los 4 pasos con el modelo de Ingeriar | Se instala y se puede entrar con el administrador | RNF-05, RNF-06 | Pendiente | |
 | MAN-41 | Sin sesión | Instalador: añadir una tabla con una clave foránea, descargar y volver a cargar el modelo JSON | La vista previa muestra la tabla y la clave | RNF-05 | Pendiente | |
+| MAN-42 | Monitor | Plano del inventario: arrastrar una ficha a otra caja y elegir la cantidad | Se resta del origen y se suma en el destino | RF-06 | Pendiente | |
+| MAN-43 | Monitor | Plano: arrastrar el título de una caja dentro de otra, y luego al fondo | Pasa a ser sububicación y luego ubicación principal | RF-06 | Pendiente | |
+| MAN-44 | Monitor | Plano con teclado: botón «⇄» de una ficha | Pide destino y cantidad y mueve el material | RF-06, RNF-06 | Pendiente | |
+| MAN-45 | Monitor | Lista: arrastrar fichas del plano a la derecha y una toma (⠿) de vuelta al plano | Las fichas muestran lo que queda; la toma se quita | RF-06 | Pendiente | |

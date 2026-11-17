@@ -15,6 +15,33 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-15 Inventario visual con arrastrar y soltar
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, el inventario es más interactivo:
+  - «Material y ubicaciones» se ve como un plano: cada ubicación es una caja (sus sububicaciones van dentro) con una
+    ficha por material y su cantidad. Selector «Plano / Tabla»; la tabla anterior se mantiene. Los materiales sin
+    existencias salen en una caja «Sin existencias». La búsqueda resalta las fichas que coinciden.
+  - Arrastrar una ficha a otra caja abre un cuadro con la cantidad (número y deslizador, por defecto todo) y la mueve;
+    si el destino ya tenía ese material, se suma. Arrastrar el título de una caja a otra la convierte en sububicación;
+    al fondo del plano, en ubicación principal. Botón «⇄» en cada ficha para hacerlo sin ratón.
+  - Listas de material: el panel «Lo que hay» es el mismo plano, con lo que queda después de lo que ya coge la lista.
+    Las fichas se arrastran a la derecha (o «→») y una toma se arrastra de vuelta (asa ⠿) para quitarla. El cuadro de
+    cantidad sustituye al `prompt` del navegador.
+- Archivos creados o modificados: `server/api/inventario.php` (acción `mover_material`), `public/nucleo/inventario.js`
+  (plano, arrastrar y soltar, cuadro de cantidad), `public/estilo.css` (sección INVENTARIO), versión de los scripts,
+  `server/pruebas/pruebas.php` (INV-11 a INV-14), `docs/PLAN-PRUEBAS.md` (también MAN-42 a MAN-45), `docs/ENCARGOS.md`,
+  `noteas.md`.
+- Decisiones técnicas y motivo: arrastrar y soltar nativo de HTML, sin librerías (como el tablero de facturas). Lo
+  arrastrado se guarda en el objeto (`this.arrastre`) y cada caja decide si lo acepta; la más interior recoge el evento y
+  soltar sobre la caja de origen no hace nada. El movimiento se hace en el servidor en una sola operación dentro del
+  bloqueo del JSON, así dos movimientos simultáneos no dejan cantidades negativas. Mover una caja reutiliza
+  `guardar_ubicacion`, que ya impedía meter una ubicación dentro de sí misma.
+- Requisitos que cubre (RF/RNF): RF-06, RNF-03 (permiso `inventario.gestionar` en el servidor), RNF-06 (alternativa con
+  teclado).
+- Cómo probarlo (pasos): pruebas automáticas (115 de 115) y MAN-42 a MAN-45 como monitor.
+- Impacto en la memoria (apartados que habría que revisar): RF-06 (inventario y listas), capturas de la interfaz.
+- Pendiente o problemas: en pantallas táctiles el arrastre nativo de HTML no funciona; ahí se usan los botones «⇄» y «→».
+
 ## 2026-11-17 · Facturas: tablero agrupado por responsable
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, en el tablero de facturas, quien ve las facturas de todos (tesorería y

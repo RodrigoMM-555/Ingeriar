@@ -970,6 +970,43 @@ try {
         return $creadas === 10 && array_unique($codigos) === [200] ?: "creadas {$creadas} de 10, códigos " . implode(',', $codigos);
     });
 
+    $existenciasPrueba = function () use ($datosInventario, $idUbicacion): array {
+        foreach ($datosInventario()['inventario']['materiales'] ?? [] as $material) {
+            if ($material['nombre'] === 'Prueba bolígrafos') {
+                $cantidades = array_column($material['existencias'], 'cantidad', 'ubicacion');
+                return [$cantidades[$idUbicacion('Prueba Zona A')] ?? 0, $cantidades[$idUbicacion('Prueba Local')] ?? 0];
+            }
+        }
+        return [];
+    };
+    prueba('INV-11', 'Mover material entre ubicaciones resta del origen y suma en el destino', function () use ($inventarioApi, $scouter, $idUbicacion, $idMaterial, $existenciasPrueba) {
+        $antes = $existenciasPrueba();
+        $respuesta = $inventarioApi($scouter, 'mover_material', [
+            'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Zona A'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 5,
+        ]);
+        $despues = $existenciasPrueba();
+        return esperar($respuesta, 200) === true && $despues === [$antes[0] - 5, $antes[1] + 5]
+            ?: json_encode([$antes, $despues, $respuesta['texto']]);
+    });
+    prueba('INV-12', 'No se mueve más de lo que hay en el origen → 409', function () use ($inventarioApi, $scouter, $idUbicacion, $idMaterial, $existenciasPrueba) {
+        $antes = $existenciasPrueba();
+        $respuesta = $inventarioApi($scouter, 'mover_material', [
+            'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Zona A'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 9999,
+        ]);
+        return esperar($respuesta, 409) === true && $existenciasPrueba() === $antes ?: $respuesta['texto'];
+    });
+    prueba('INV-13', 'Mover a la misma ubicación o 0 unidades → 400', function () use ($inventarioApi, $scouter, $idUbicacion, $idMaterial) {
+        $misma = $inventarioApi($scouter, 'mover_material', [
+            'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Local'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 1,
+        ])['codigo'];
+        $cero = $inventarioApi($scouter, 'mover_material', [
+            'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Zona A'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 0,
+        ])['codigo'];
+        return $misma === 400 && $cero === 400 ?: "misma {$misma}, cero {$cero}";
+    });
+    prueba('INV-14', 'Un tutor no puede mover material → 403', fn() => esperar($inventarioApi($tutor, 'mover_material', [
+        'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Zona A'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 1,
+    ]), 403));
     echo "\nCopias de seguridad desde la web (E-12)\n";
     require_once __DIR__ . '/../copias/comun-copias.php';
     $copiaFalsa = carpetaCopias() . '/ingeriar-copia-1999-01-01-000000.zip';

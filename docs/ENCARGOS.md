@@ -224,3 +224,15 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Aceptación: el tutor descarga las plantillas y sube los documentos de sus educandos (no de otros); el monitor los ve y
   los revisa; el administrador cambia las plantillas; volver a subir deja el documento pendiente; pruebas automáticas nuevas.
 - Estado: hecho (rama `feat/E-14-documentacion`, pendiente de fusionar)
+
+## E-15 · Inventario visual con arrastrar y soltar
+- Requisitos: RF-06, RNF-06. Pedido por el usuario el 2026-11-17 (amplía E-04).
+- La pestaña «Material y ubicaciones» se ve como un plano: cada ubicación es una caja con sus sububicaciones dentro y una
+  ficha por material con su cantidad. Se mantiene la tabla anterior como vista alternativa (decisión del usuario).
+- Arrastrar una ficha a otra caja mueve la cantidad elegida (por defecto todo; si el destino ya tiene ese material, se
+  suma). Arrastrar una caja dentro de otra la convierte en sububicación; al fondo, en ubicación principal.
+- Las listas de material usan el mismo plano a la izquierda: se arrastran fichas a la derecha y una toma de vuelta al
+  plano la quita de la lista.
+- Alternativa sin ratón: botones en cada ficha. Acción nueva en el servidor `mover_material`, dentro del bloqueo del JSON.
+- Aceptación: mover material y ubicaciones arrastrando; el servidor rechaza mover más de lo que hay; pruebas automáticas nuevas.
+- Estado: hecho (rama `feat/E-15-inventario-visual`, pendiente de fusionar)

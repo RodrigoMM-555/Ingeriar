@@ -522,8 +522,19 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
   y comprueba que no se pierde ninguna.
 - Ubicaciones en árbol libre (Trastero › Zona A › Estantería 1). No se puede borrar una
   ubicación con otras dentro o con material, ni mover una dentro de sí misma.
-- Listas: a la izquierda lo que hay y dónde, a la derecha lo que se lleva. Se pasa
-  material arrastrando o con «→»; el monitor elige de qué ubicación coge cada cantidad.
+- Plano (E-15): la pestaña «Material y ubicaciones» muestra cada ubicación como una caja
+  con sus sububicaciones dentro y una ficha por material con su cantidad (selector
+  «Plano / Tabla»; la tabla es la vista anterior). Arrastrar una ficha a otra caja abre
+  un cuadro con la cantidad (número y deslizador, por defecto todo) y llama a
+  `mover_material`, que comprueba dentro del bloqueo que haya bastante en el origen (409
+  si no) y suma en el destino. Arrastrar el título de una caja a otra la mete dentro
+  (`guardar_ubicacion`); al fondo del plano, pasa a principal. El botón «⇄» de cada ficha
+  hace lo mismo sin ratón. Arrastrar y soltar es el nativo de HTML: lo arrastrado se
+  guarda en `this.arrastre` y la caja más interior que lo acepta recoge el evento.
+- Listas: a la izquierda lo que hay y dónde (el mismo plano, con lo que queda tras lo
+  que ya coge la lista), a la derecha lo que se lleva. Se pasa material arrastrando o
+  con «→»; el monitor elige de qué ubicación coge cada cantidad. Arrastrar una toma (⠿)
+  de vuelta al plano la quita.
   A comprar = necesarios − lo que se coge, más las compras de cosas que no hay. La lista
   no descuenta del inventario. El documento para imprimir agrupa por ubicación.
 - Plantillas: una lista se guarda como plantilla; de una plantilla sale una lista nueva o
@@ -787,6 +798,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-15 inventario visual)
+
+- Inventario como plano de cajas con fichas: mover material y ubicaciones arrastrando,
+  `mover_material` en el servidor, listas con el mismo plano. Pruebas INV-11 a INV-14.
 
 ### 2026-11-17 (facturas por responsable)
 
