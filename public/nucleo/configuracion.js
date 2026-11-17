@@ -490,7 +490,7 @@ class IngeriarConfiguracion {
             "Contiene datos personales: guárdalo en un lugar seguro.";
         const enlace = document.createElement("a");
         enlace.href = "servicios/salida.php";
-        enlace.className = "boton";
+        enlace.className = "boton boton-descargar";
         enlace.textContent = "Descargar copia (JSON)";
         bloque.append(titulo, ayuda, enlace);
         return bloque;

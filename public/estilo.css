@@ -1156,6 +1156,17 @@ table tbody tr td *{
     color:white;
 }
 
+/* Descargas: mismo aspecto que editar o borrar, en azul. También para enlaces <a>. */
+.boton-descargar{
+    display:inline-block;
+
+    background:#2563eb;
+
+    color:white;
+
+    text-decoration:none;
+}
+
 
 .boton-cancelar{
     background:#6c757d;
@@ -1754,6 +1765,23 @@ span{
 }
 
 
+/* Campos de sí o no del formulario genérico */
+.campo-si-no{
+    border:0;
+    margin:0;
+    padding:0;
+}
+
+.campo-si-no legend{
+    margin-bottom:6px;
+    font-weight:600;
+}
+
+.opciones-si-no{
+    display:flex;
+    gap:20px;
+}
+
 /* Cargos y permisos (E-13) */
 .contenedor-tabla-roles{
     max-width:100%;
@@ -1846,22 +1874,38 @@ tr.fila-baja td{
     margin-bottom:12px;
 }
 
+/* Migas: en fila y con el mismo aspecto que la barra de filtros de las tablas */
 .migas-galeria{
     display:flex;
+    flex-direction:row;
     flex-wrap:wrap;
     align-items:center;
     gap:8px;
     margin-bottom:20px;
-    color:var(--color_secundario);
+    padding:10px 14px;
+    border-radius:var(--radio);
+    color:#fff;
+    background:var(--color_corporativo);
+    font-size:14px;
 }
 
 .migas-galeria a{
-    color:var(--color_corporativo);
+    color:#fff;
+    text-decoration:underline;
+    text-underline-offset:3px;
+}
+
+.migas-galeria a:hover,
+.migas-galeria a:focus-visible{
+    opacity:.85;
+}
+
+.migas-galeria span[aria-hidden]{
+    opacity:.7;
 }
 
 .migas-galeria [aria-current]{
-    color:var(--color_texto);
-    font-weight:600;
+    font-weight:700;
 }
 
 .rejilla-carpetas{

@@ -15,6 +15,26 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Correcciones de interfaz (E-03 y E-05)
+- Rama / commit: `feat/E-05-facturas` (commit propio después del de E-05)
+- Qué se ha hecho: arreglos pedidos por el usuario al probar en el navegador.
+  - Las miniaturas de la galería y de las facturas se quedaban en «Cargando…». Dos fallos: se encolaban antes de que
+    la tarjeta estuviera en la página (la cola las descartaba) y el Web Worker recibía una ruta relativa que resolvía
+    desde `nucleo/` (404). Ahora se procesan cuando la vista ya está montada y con la dirección completa.
+  - Migas de la galería en fila y con el aspecto de la barra de filtros de las tablas (fondo del color del grupo,
+    texto blanco). Usaban `<nav>` y heredaban los estilos del menú lateral (en columna y poco legibles).
+  - Botón «Descargar» (galería, facturas, copia de seguridad) con aspecto de botón, en azul (`.boton-descargar`).
+  - Campos de sí o no del formulario genérico (por ejemplo «circular» en eventos) con dos botones de radio en lugar
+    de un desplegable.
+- Archivos creados o modificados: `public/nucleo/utilidades.js`, `galeria.js`, `facturas.js`, `configuracion.js`,
+  `formulario.js`, `public/estilo.css`.
+- Decisiones técnicas y motivo: la corrección de la cola está en `utilidades.js`, que comparten galería y facturas.
+- Requisitos que cubre (RF/RNF): RF-03, RF-04, RF-05, RNF-06.
+- Cómo probarlo (pasos): Galería → abrir un evento: las miniaturas aparecen. Facturas: las tarjetas muestran la imagen.
+  Crear o editar un evento: «Circular» con Sí / No.
+- Impacto en la memoria (apartados que habría que revisar): interfaz (galería, facturas, formularios).
+- Pendiente o problemas: ninguno conocido; comprobado por el usuario en el navegador antes de estas correcciones.
+
 ## 2026-11-17 · E-05 · Facturas en tablero
 - Rama / commit: `feat/E-05-facturas` (sale de `feat/E-13-roles-permisos`)
 - Qué se ha hecho: nueva vista «Facturas» con tres columnas (Pendientes, Revisadas, Pagadas), tarjetas con miniatura,

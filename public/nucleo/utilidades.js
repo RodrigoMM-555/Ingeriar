@@ -15,8 +15,13 @@ class IngeriarUtilidades {
     encolarMiniatura(url, contenedor, nombre) {
         this.colaMiniaturas ??= [];
         this.trabajadoresActivos ??= 0;
-        this.colaMiniaturas.push({url, contenedor, nombre});
-        this.procesarCola();
+        // El Web Worker resuelve las rutas relativas desde su propia carpeta (nucleo/),
+        // así que se le pasa la dirección completa.
+        const direccion = new URL(url, document.baseURI).href;
+        this.colaMiniaturas.push({url: direccion, contenedor, nombre});
+        // Se espera a que la vista termine de añadir los elementos a la página:
+        // los que no están en el documento se descartan.
+        setTimeout(() => this.procesarCola(), 0);
     }
 
     procesarCola() {

@@ -111,8 +111,10 @@ class IngeriarGaleria {
     }
 
     crearMigas() {
-        const migas = document.createElement("nav");
+        // No se usa <nav> para no heredar los estilos del menú lateral.
+        const migas = document.createElement("div");
         migas.className = "migas-galeria";
+        migas.setAttribute("role", "navigation");
         migas.setAttribute("aria-label", "Ubicación en la galería");
         const niveles = [{texto: "Todas las rondas", ruta: {ronda: null, tipo: null, evento: null}}];
         if (this.ruta.ronda) {
@@ -220,7 +222,7 @@ class IngeriarGaleria {
         pie.className = "pie-visor";
         const nombre = document.createElement("span");
         const descargar = document.createElement("a");
-        descargar.className = "boton";
+        descargar.className = "boton boton-descargar";
         descargar.textContent = "Descargar";
         pie.append(nombre, descargar);
 

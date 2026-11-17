@@ -120,7 +120,6 @@ class IngeriarFormulario {
     plantilla(columna) {
         if (
             columna.tipo_formulario === "ENUM" ||
-            columna.tipo_formulario === "BOOLEAN" ||
             this.esRelacion(columna)
         ) {
             return document.querySelector("#plantilla-select");
@@ -143,6 +142,9 @@ class IngeriarFormulario {
     }
 
     crearControl(columna, registro) {
+        if (columna.tipo_formulario === "BOOLEAN") {
+            return Promise.resolve(this.crearControlSiNo(columna, registro));
+        }
         let instancia = this.plantilla(columna).content.cloneNode(true);
         let etiqueta = instancia.querySelector("label");
         let control = instancia.querySelector("input, select");
@@ -186,12 +188,7 @@ class IngeriarFormulario {
         }
 
         const relacion = this.obtenerRelacion(columna);
-        let opciones = columna.tipo_formulario === "BOOLEAN"
-            ? Promise.resolve([
-                {valor: "0", etiqueta: "No"},
-                {valor: "1", etiqueta: "Sí"}
-            ])
-            : relacion !== null
+        let opciones = relacion !== null
             ? this.obtenerOpcionesRelacion(relacion, columna).then((registros) =>
                 registros.map((registroRelacionado) => ({
                     valor: registroRelacionado[relacion.campo_valor],
@@ -222,15 +219,39 @@ class IngeriarFormulario {
             });
             const valorActual = registro?.[columna.name]
                 ?? columna.defaultValue;
-            const valorInicial = columna.tipo_formulario === "BOOLEAN"
-                ? (["1", 1, true, "true"].includes(valorActual)
-                    ? "1" : "0")
-                : (valorActual ?? (columna.required
-                    ? valores[0]?.valor ?? ""
-                    : ""));
+            const valorInicial = valorActual ?? (columna.required
+                ? valores[0]?.valor ?? ""
+                : "");
             control.value = valorInicial;
             return instancia;
         });
+    }
+
+    // Campos de sí o no (por ejemplo «circular» en eventos): dos opciones con
+    // botones de radio en lugar de un desplegable.
+    crearControlSiNo(columna, registro) {
+        const grupo = document.createElement("fieldset");
+        grupo.className = "campo campo-si-no";
+        const leyenda = document.createElement("legend");
+        leyenda.textContent = this.utilidades.capitalizar(columna.name);
+        grupo.appendChild(leyenda);
+        const valorActual = registro?.[columna.name] ?? columna.defaultValue;
+        const marcado = ["1", 1, true, "true"].includes(valorActual) ? "1" : "0";
+        const opciones = document.createElement("div");
+        opciones.className = "opciones-si-no";
+        [["1", "Sí"], ["0", "No"]].forEach(([valor, texto]) => {
+            const etiqueta = document.createElement("label");
+            const control = document.createElement("input");
+            control.type = "radio";
+            control.name = columna.name;
+            control.value = valor;
+            control.checked = valor === marcado;
+            control.required = true;
+            etiqueta.append(control, " " + texto);
+            opciones.appendChild(etiqueta);
+        });
+        grupo.appendChild(opciones);
+        return grupo;
     }
 
     etiquetaOpcion(columna, valor) {

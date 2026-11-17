@@ -208,7 +208,7 @@ class IngeriarFacturas {
         acciones.className = "acciones-formulario";
         if (factura.tiene_imagen) {
             const descargar = document.createElement("a");
-            descargar.className = "boton";
+            descargar.className = "boton boton-descargar";
             descargar.href = this.urlImagen(factura.id) + "&descargar=1";
             descargar.textContent = "Descargar imagen";
             acciones.appendChild(descargar);
