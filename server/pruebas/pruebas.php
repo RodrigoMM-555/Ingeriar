@@ -971,8 +971,7 @@ try {
     });
 
     echo "\nDashboard\n";
-    // Mañana, para que sea el primero de los próximos sábados (solo convoca a colonia).
-    $eventoColoniaFuturo = crearEvento($db, 'Prueba automática colonia futura', 'colonia', date('Y-m-d', strtotime('+1 day')));
+    $eventoColoniaFuturo = crearEvento($db, 'Prueba automática colonia futura', 'colonia', '2099-02-04');
     $eventoTropaPendiente = crearEvento($db, 'Prueba automática tropa pendiente', 'tropa', '2099-03-04');
     crearEducando($db, '99999993Z', null, null);
     $db->prepare("UPDATE educandos SET naz = ? WHERE DNI = '99999993Z'")->execute([date('Y-m-d', strtotime('-10 years'))]);
