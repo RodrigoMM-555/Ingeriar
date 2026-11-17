@@ -71,7 +71,20 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | GAL-08 | Tutor no puede borrar fotos → 403 | RF-04, RNF-03 | Superada | 2026-11-16 |
 | GAL-09 | Scouter borra una foto y su archivo | RF-04 | Superada | 2026-11-16 |
 
-Resultado: 37 de 37 superadas.
+| BAJ-01 | El tutor no ve a su educando dado de baja | RF-02, RNF-03 | Superada | 2026-11-17 |
+| BAJ-02 | El tutor confirma la asistencia de un educando activo | RF-03 | Superada | 2026-11-17 |
+| BAJ-03 | El tutor no confirma la asistencia de un educando de baja → 400 | RF-03, RNF-03 | Superada | 2026-11-17 |
+| BAJ-04 | El administrador sigue viendo al educando de baja | RF-02 | Superada | 2026-11-17 |
+| BAJ-05 | La descarga de la copia completa queda registrada | RNF-03 | Superada | 2026-11-17 |
+| BAJ-06 | Ver una entrega queda registrado | RF-04, RNF-03 | Superada | 2026-11-17 |
+| BAJ-07 | Archivos sin sesión → 401 | RNF-03 | Superada | 2026-11-17 |
+| BAJ-08 | Nadie puede borrar el registro de accesos, ni el administrador → 403 | RNF-03 | Superada | 2026-11-17 |
+| BAJ-09 | Scouter no accede a los datos vencidos → 403 | RNF-03 | Superada | 2026-11-17 |
+| BAJ-10 | Se lista el educando vencido y no el dado de baja ayer | RF-02, RNF-03 | Superada | 2026-11-17 |
+| BAJ-11 | No se puede borrar un educando que no ha vencido → 400 | RNF-03 | Superada | 2026-11-17 |
+| BAJ-12 | Eliminar vencidos borra educando, tutor elegido y archivos | RF-02, RF-04, RNF-03 | Superada | 2026-11-17 |
+
+Resultado: 49 de 49 superadas (las 37 primeras se repitieron el 2026-11-17 con el mismo resultado).
 
 ## Pruebas manuales (interfaz)
 
@@ -101,3 +114,6 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-18 | Todos | Pantalla estrecha (móvil) | La galería y las tablas se pueden usar sin desbordarse | RNF-02, RNF-06 | Pendiente | |
 | MAN-19 | Cualquiera | Abrir `/storage/galeria/<archivo>` y `/server/` en Apache | Acceso denegado | RNF-03 | Pendiente | |
 | MAN-20 | Sin sesión | Abrir `instalador.html` y enviarlo con la aplicación en uso | «La aplicación ya está instalada…» | RNF-03 | Pendiente | |
+| MAN-21 | Administrador | Poner `fecha_baja` a un educando desde su formulario | Sale en cursiva al final de la tabla; desaparece del tutor y del dashboard | RF-02 | Pendiente | |
+| MAN-22 | Administrador | Configuración → «Datos vencidos» con un educando de baja de hace más de 5 años | Aparece con su número de archivos; al eliminar desaparece | RF-02, RNF-03 | Pendiente | |
+| MAN-23 | Administrador | Abrir la tabla `registro_accesos` tras ver una entrega | Aparece la fila; editar o borrar da error | RNF-03 | Pendiente | |

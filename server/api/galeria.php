@@ -61,12 +61,12 @@ function filtroVisibilidad(PDO $db, array $usuario): callable
     }
 
     $stmt = $db->prepare(
-        'SELECT e.naz FROM educandos e
+        'SELECT e.naz, e.fecha_baja FROM educandos e
          JOIN usuarios_educandos ue ON ue.id_educando = e.id
          WHERE ue.id_usuario = ? AND e.naz IS NOT NULL'
     );
     $stmt->execute([$usuario['id']]);
-    $nacimientos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $educandos = $stmt->fetchAll();
 
     $catalogo = $db->query(
         'SELECT codigo, edad_minima, edad_maxima FROM secciones
@@ -78,11 +78,16 @@ function filtroVisibilidad(PDO $db, array $usuario): callable
         $convocatorias[(int) $fila['id_evento']][] = $fila['seccion'];
     }
 
-    return static function (array $evento) use ($nacimientos, $catalogo, $convocatorias): bool {
+    return static function (array $evento) use ($educandos, $catalogo, $convocatorias): bool {
         $fecha = new DateTimeImmutable($evento['fecha_inicio']);
         $seccionesTutor = [];
-        foreach ($nacimientos as $nacimiento) {
-            $seccion = seccionDeEducandoConCatalogo($nacimiento, $catalogo, $fecha);
+        foreach ($educandos as $educando) {
+            // Un educando dado de baja solo cuenta para los eventos anteriores a su baja.
+            if ($educando['fecha_baja'] !== null
+                && $fecha->format('Y-m-d') > $educando['fecha_baja']) {
+                continue;
+            }
+            $seccion = seccionDeEducandoConCatalogo($educando['naz'], $catalogo, $fecha);
             if ($seccion !== null) {
                 $seccionesTutor[] = $seccion;
             }

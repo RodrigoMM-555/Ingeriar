@@ -15,6 +15,45 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-06 · Bajas, conservación y registro de accesos
+- Rama / commit: `feat/E-06-conservacion` (sale de `feat/E-07-pruebas`)
+- Qué se ha hecho: los educandos tienen `fecha_baja`; al darlos de baja salen de las vistas activas pero se conservan.
+  Pasado el plazo de conservación (configurable, 5 años), el administrador los elimina definitivamente desde
+  Configuración → «Datos vencidos», junto con sus archivos y, si lo marca, los tutores que se quedan sin educandos.
+  Los accesos a documentación sensible quedan en `registro_accesos`, que no se puede modificar.
+- Archivos creados o modificados:
+  - Nuevos: `server/auth/registro.php`, `server/data/migraciones/2026-11-bajas-accesos.sql`.
+  - `server/api/superapi.php`: filtro de bajas (dashboard, cumpleaños, asistencias, tabla del tutor, `tutorTieneEducando`),
+    ruta `conservacion`, registro no modificable, plazo en la configuración.
+  - `server/api/archivo.php`: tutor solo con educandos activos; registro de ver, previsualizar y subir entregas;
+    función `responder()` (sin ella, una petición sin sesión acababa en error fatal en lugar de 401).
+  - `server/servicios/salida.php`: registra la descarga de la copia. `server/api/galeria.php`: bajas según la fecha del evento.
+  - `public/nucleo/configuracion.js` (plazo y bloque «Datos vencidos»), `public/nucleo/tabla.js` y `public/estilo.css` (filas de baja).
+  - `server/data/schema.sql`, `modeloDeDatos.txt`, `config.php`; `server/pruebas/pruebas.php` (12 pruebas nuevas);
+    `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - **Cambio de requisito acordado con el usuario**: el encargo decía «se eliminan los archivos»; ahora se elimina
+    también el registro del educando al vencer el plazo (principio de limitación del plazo de conservación del RGPD),
+    y se conserva mientras tanto (historial, posibles reclamaciones). El texto de E-06 en `ENCARGOS.md` está actualizado.
+  - Borrado en dos pasos: lista previa y confirmación. El servidor recalcula lo vencido y descarta cualquier id que no lo esté.
+    La base de datos se borra en una transacción y los archivos después del `commit`.
+  - Tutores sin educandos: no se borran solos; el administrador los marca (decisión propuesta y aceptada).
+  - El registro guarda identificadores, no nombres, para no conservar datos del educando tras borrarlo.
+    No registra la galería (cada miniatura sería un acceso). Si falta la tabla, el acceso no se bloquea (se anota en el log de PHP).
+- Requisitos que cubre (RF/RNF): RF-02, RF-04, RNF-03.
+- Cómo probarlo (pasos):
+  1. Ejecutar `server/data/migraciones/2026-11-bajas-accesos.sql` (o recargar `schema.sql`).
+  2. Poner `fecha_baja` de hoy a un educando de un tutor: el tutor deja de verlo; el administrador lo ve en cursiva al final.
+  3. Ponerle `fecha_baja` de hace 6 años: aparece en Configuración → «Datos vencidos»; al eliminar desaparecen él y sus entregas.
+  4. Ver una entrega y abrir la tabla `registro_accesos`: aparece la fila; intentar borrarla → error.
+  5. `php server/pruebas/pruebas.php <url> --confirmar`: 49 de 49 superadas (MySQL 8.4 y servidor integrado de PHP).
+- Impacto en la memoria (apartados que habría que revisar): requisitos (texto de RF-02/RF-04 sobre conservación),
+  modelo de datos (`fecha_baja`, `registro_accesos`), seguridad y protección de datos (RNF-03), plan de pruebas (3.9, 5.x).
+- Pendiente o problemas:
+  - El registro de accesos crece sin límite; podría necesitar su propio plazo de conservación.
+  - No hay ningún aviso automático de que hay datos vencidos: hay que entrar en Configuración.
+  - La interfaz nueva (bloque «Datos vencidos», filas de baja) no se ha visto en un navegador desde aquí.
+
 ## 2026-11-16 · E-07 · Plan de pruebas
 - Rama / commit: `feat/E-07-pruebas` (sale de `feat/E-03-galeria`)
 - Qué se ha hecho: `docs/PLAN-PRUEBAS.md` con 37 pruebas automáticas (autenticación, contraseñas, permisos por rol,

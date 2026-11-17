@@ -31,26 +31,37 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   por cada tipo del catálogo `tipos_evento`, de modo que los tipos nuevos aparecen solos.
 - Estado: hecho (rama `feat/E-03-galeria`, pendiente de fusionar)
 
-## E-04 · Inventario en JSON
+## E-04 · Inventario en JSON y listas de material
 - Requisitos: RF-06. Resultado de aprendizaje: Acceso a datos RA1 y RA5.
-- Almacenes, ubicaciones y materiales guardados en ficheros JSON bajo `storage/`, con lectura y escritura controladas desde PHP (bloqueo de fichero al escribir).
-- Plantillas de material por actividad y un informe que compare lo necesario con lo disponible y su ubicación.
-- Aceptación: alta, edición y borrado de material; una plantilla genera un informe de faltantes; el JSON no queda accesible desde la web.
-- En espera (2026-11-16): el usuario quiere explicar su idea del inventario antes de cerrar el alcance.
+- Definido con el usuario el 2026-11-17 (amplía el texto original de «plantillas e informe de faltantes»):
+  - **Inventario**: árbol libre de ubicaciones (por ejemplo Trastero → Zona A → Estantería 1; Local → Estantería 2) y
+    materiales con su cantidad en cada ubicación. Un mismo material puede estar en varias ubicaciones.
+  - **Listas de material** (por ejemplo «Acampada de verano»): a la izquierda lo que hay y dónde; a la derecha lo que se lleva.
+    Se pasa la cantidad deseada arrastrando o con un botón. La lista **no descuenta del inventario**: sirve para generar un documento.
+  - **Reparto y compras**: si se piden 60 bolígrafos y hay 40 (20 en un almacén y 20 en otro), el documento indica de qué
+    ubicación coger cada cantidad y que hay que comprar 20. También se pueden apuntar a mano cosas que no están en el inventario.
+  - **Documento** para imprimir o guardar en PDF y enviarlo al resto de monitores.
+  - **Plantillas**: cualquier lista se guarda como plantilla; de una plantilla se crea una lista nueva, se modifica y se
+    puede guardar como otra plantilla (versiones).
+- Datos en ficheros JSON en `storage/inventario/`, leídos y escritos solo desde PHP con bloqueo (`flock`), fuera del repositorio.
+- Permisos (decisión del usuario): administrador y scouter gestionan el inventario y las listas; el tutor no tiene acceso.
+- Aceptación: alta, edición y borrado de ubicaciones y material; una lista calcula de dónde coger cada cosa y qué comprar;
+  las plantillas se guardan y se reutilizan; el JSON no queda accesible desde la web.
 - Estado: pendiente
 
 ## E-05 · Mejora del módulo de facturas
 - Requisitos: RF-05. Pendiente de definir con el usuario qué mejoras concretas (preguntar antes de empezar).
 - Estado: pendiente
 
-## E-06 · Conservación y registro de accesos
-- Requisitos: RF-04, RNF-03.
-- Regla: los archivos de un educando dado de baja se eliminan 5 años después de la baja (plazo configurable). Hace falta un campo de fecha de baja.
-- Registrar los accesos a documentación sensible (quién, qué, cuándo).
-- Aceptación: un proceso (script o botón de administración) lista y elimina lo vencido; los accesos quedan en una tabla de registro.
-- En revisión (2026-11-16): el usuario duda entre eliminar el registro del educando al irse del grupo o marcarlo
-  como baja y conservarlo durante un plazo. Hay que decidirlo antes de empezar; puede cambiar el texto de la regla.
-- Estado: pendiente
+## E-06 · Bajas, conservación y registro de accesos
+- Requisitos: RF-02, RF-04, RNF-03.
+- Regla (decidida con el usuario el 2026-11-17, sustituye a «se eliminan los archivos»): cuando un educando deja el grupo
+  se le pone `fecha_baja`; desaparece de las vistas activas pero sus datos se conservan. Cuando pasa el plazo configurable
+  (5 años por defecto) se borran definitivamente sus archivos **y su registro** (con asistencias y vínculos). Los tutores
+  que se quedan sin educandos se muestran y el administrador decide si borrar también su cuenta.
+- Registrar los accesos a documentación sensible (quién, qué, cuándo) en una tabla que nadie puede modificar.
+- Aceptación: un proceso (botón de administración) lista y elimina lo vencido; los accesos quedan en una tabla de registro.
+- Estado: hecho (rama `feat/E-06-conservacion`, pendiente de fusionar)
 
 ## E-07 · Plan de pruebas
 - Requisitos: todos. Apartados afectados: 3.9, 5.1, 5.2, 5.7.

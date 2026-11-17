@@ -398,6 +398,26 @@ Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
 - Al borrar un evento se borran en cascada sus filas de `galeria_fotos` y
   `superapi.php` borra también los archivos.
 
+## 10 ter. Bajas, conservación y registro de accesos
+
+- **Baja**: un educando con `fecha_baja` deja de aparecer en el dashboard, los
+  cumpleaños, las asistencias y la vista del tutor, y el tutor ya no puede operar
+  con él (`tutorTieneEducando` solo admite educandos activos). El administrador lo
+  sigue viendo en la tabla, en cursiva y al final; quitar la fecha deshace la baja.
+  En la galería cuenta solo para los eventos anteriores a su baja.
+- **Conservación**: `plazo_conservacion_anos` (5 por defecto) en la configuración.
+  Configuración → «Datos vencidos» (ruta `conservacion`, solo administrador) lista los
+  educandos con baja anterior al plazo y los tutores que se quedarían sin educandos.
+  Al confirmar se borran el educando (asistencias y vínculos en cascada), los tutores
+  marcados y los archivos de entregas con sus carpetas vacías. El servidor vuelve a
+  comprobar qué está vencido: no borra nada que no lo esté aunque se le pida.
+- **Registro de accesos** (`registro_accesos`): quién, acción, recurso, educando,
+  fecha e IP. Se registran ver, previsualizar y subir entregas, la descarga de la copia
+  completa y el borrado de datos vencidos. No se registran las fotos de la galería (cada
+  miniatura sería un acceso). El detalle no guarda nombres, solo identificadores. El
+  administrador lo consulta como una tabla, pero nadie puede editarlo ni borrarlo.
+- Bases existentes: ejecutar `server/data/migraciones/2026-11-bajas-accesos.sql`.
+
 ## 11. Dashboard, gráficas y exportación
 
 El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
@@ -480,7 +500,8 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
    `storage/facturas/`, `storage/galeria/` y `storage/configuracion/`.
 8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
    `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
-9. En bases ya creadas, ejecutar `server/data/migraciones/2026-11-galeria.sql`.
+9. En bases ya creadas, ejecutar `server/data/migraciones/2026-11-galeria.sql` y
+   `server/data/migraciones/2026-11-bajas-accesos.sql`.
 
 El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
 aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
@@ -546,6 +567,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-06)
+
+- E-06: bajas de educandos con plazo de conservación configurable, borrado de datos
+  vencidos desde configuración y registro de accesos a documentación sensible.
 
 ### 2026-11-16 (E-07)
 

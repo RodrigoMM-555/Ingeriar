@@ -3,8 +3,19 @@
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/registro.php';
 
 const CIRCULAR_FIJA = 'biblioteca/circular1.pdf';
+
+// sesion.php usa responder() cuando no hay sesión; sin esta función la petición
+// terminaba en un error fatal en lugar de un 401.
+function responder($datos, int $estado = 200): never
+{
+    http_response_code($estado);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 $usuario = exigirAutenticacion();
 $db = obtenerConexion();
@@ -14,9 +25,11 @@ $educandoId = (int) ($_GET['educando'] ?? 0);
 
 function tutorTieneEducandoArchivo(PDO $db, int $usuarioId, int $educandoId): bool
 {
+    // Solo educandos activos: tras la baja el tutor deja de acceder a sus documentos.
     $stmt = $db->prepare(
-        'SELECT 1 FROM usuarios_educandos
-         WHERE id_usuario = ? AND id_educando = ?'
+        'SELECT 1 FROM usuarios_educandos ue
+         JOIN educandos e ON e.id = ue.id_educando
+         WHERE ue.id_usuario = ? AND ue.id_educando = ? AND e.fecha_baja IS NULL'
     );
     $stmt->execute([$usuarioId, $educandoId]);
     return (bool) $stmt->fetchColumn();
@@ -113,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          ON DUPLICATE KEY UPDATE archivo_entrega = VALUES(archivo_entrega)"
     );
     $stmt->execute([$educandoId, $eventoId, $rutaRelativa]);
+    registrarAcceso($db, $usuario, 'subir', 'entrega', $educandoId, 'evento ' . $eventoId);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['ok' => true, 'nombre' => $rutaRelativa]);
     exit;
@@ -175,6 +189,18 @@ if (
 ) {
     http_response_code(404);
     exit('No existe el archivo solicitado');
+}
+
+// Las entregas son documentación personal del educando: cada acceso queda registrado.
+if ($tipo === 'entrega' || $tipo === 'preview') {
+    registrarAcceso(
+        $db,
+        $usuario,
+        $tipo === 'entrega' ? 'ver' : 'previsualizar',
+        'entrega',
+        $educandoId,
+        'evento ' . $eventoId
+    );
 }
 
 $mime = mime_content_type($ruta) ?: 'application/octet-stream';

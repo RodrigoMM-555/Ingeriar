@@ -180,6 +180,11 @@ class IngeriarTabla {
             if (this.tabla === "educandos" && registro.seccion) {
                 fila.className = "fila-seccion-" + registro.seccion;
             }
+            if (this.tabla === "educandos" && registro.fecha_baja) {
+                // Educando dado de baja: se conserva hasta que vence el plazo.
+                fila.classList.add("fila-baja");
+                fila.title = "Dado de baja el " + registro.fecha_baja;
+            }
             nombres.forEach((nombre, indice) => {
                 let celda = document.createElement("td");
                 celda.textContent = registro[nombre] ?? "";

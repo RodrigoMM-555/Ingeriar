@@ -4,6 +4,7 @@ require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/../auth/sesion.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
+require_once __DIR__ . '/../auth/registro.php';
 
 $db = obtenerConexion();
 $ruta = $_GET['ruta'] ?? '';
@@ -215,9 +216,11 @@ function obtenerColumnas(PDO $db, string $tabla): array
 
 function tutorTieneEducando(PDO $db, int $usuarioId, int $educandoId): bool
 {
+    // Un educando dado de baja deja de estar a cargo del tutor en la aplicación.
     $stmt = $db->prepare(
-        'SELECT 1 FROM usuarios_educandos
-         WHERE id_usuario = ? AND id_educando = ?'
+        'SELECT 1 FROM usuarios_educandos ue
+         JOIN educandos e ON e.id = ue.id_educando
+         WHERE ue.id_usuario = ? AND ue.id_educando = ? AND e.fecha_baja IS NULL'
     );
     $stmt->execute([$usuarioId, $educandoId]);
     return (bool) $stmt->fetchColumn();
@@ -225,6 +228,10 @@ function tutorTieneEducando(PDO $db, int $usuarioId, int $educandoId): bool
 
 function exigirPermisoTabla(array $usuario, string $tabla, string $operacion): void
 {
+    // El registro de accesos solo lo escribe el servidor: nadie lo edita ni lo borra.
+    if ($tabla === 'registro_accesos' && $operacion === 'escritura') {
+        responder(['error' => 'El registro de accesos no se puede modificar'], 403);
+    }
     if ($usuario['rol'] === 'administrador') {
         return;
     }
@@ -286,7 +293,7 @@ switch ($ruta) {
             $educandosUsuario = $consultarTodos(
                 'SELECT naz FROM educandos e
                  JOIN usuarios_educandos ue ON ue.id_educando = e.id
-                 WHERE ue.id_usuario = ?',
+                 WHERE ue.id_usuario = ? AND e.fecha_baja IS NULL',
                 [$usuario['id']]
             );
             foreach ($educandosUsuario as $educando) {
@@ -335,7 +342,8 @@ switch ($ruta) {
         $hoy = new DateTimeImmutable('today');
         $finSemana = $hoy->modify('+7 days');
         foreach ($consultarTodos(
-            'SELECT nombre, apellidos, naz FROM educandos WHERE naz IS NOT NULL'
+            'SELECT nombre, apellidos, naz FROM educandos
+             WHERE naz IS NOT NULL AND fecha_baja IS NULL'
         ) as $educando) {
             $nacimiento = new DateTimeImmutable($educando['naz']);
             $cumple = new DateTimeImmutable(
@@ -399,7 +407,7 @@ switch ($ruta) {
             );
             $datos['indicadores'] = [
                 ['nombre' => 'Usuarios', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM usuarios')['cantidad'] ?? 0, 'detalle' => 'Cuentas registradas'],
-                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'],
+                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'],
                 ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'],
                 ['nombre' => 'Gasto registrado', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => $facturas['cantidad'] . ' facturas'],
             ];
@@ -415,7 +423,8 @@ switch ($ruta) {
             if ($sabado) {
                 $educandos = $consultarTodos(
                     'SELECT e.id, e.nombre, e.apellidos, e.naz
-                     FROM educandos e ORDER BY e.apellidos, e.nombre'
+                     FROM educandos e WHERE e.fecha_baja IS NULL
+                     ORDER BY e.apellidos, e.nombre'
                 );
                 $estados = $consultarTodos(
                     'SELECT id_educando, estado FROM educandos_asistencias
@@ -444,14 +453,16 @@ switch ($ruta) {
                 [$usuario['id']]
             );
             $datos['indicadores'] = [
-                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos')['cantidad'] ?? 0, 'detalle' => 'A tu cargo en la aplicación'],
+                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'A tu cargo en la aplicación'],
                 ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'],
                 ['nombre' => 'Mis facturas', 'valor' => $facturas['cantidad'], 'detalle' => 'Facturas registradas'],
                 ['nombre' => 'Mi gasto', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => 'Total de mis facturas'],
             ];
         } else {
             $educandos = $consultar(
-                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos WHERE id_usuario = ?',
+                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL',
                 [$usuario['id']]
             );
             $asistencias = $consultar(
@@ -460,10 +471,12 @@ switch ($ruta) {
                     SUM(ea.estado = 'no') AS ausencias,
                     SUM(ea.estado = 'pendiente' OR ea.estado IS NULL) AS pendientes
                  FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
                  CROSS JOIN eventos e
                  LEFT JOIN educandos_asistencias ea
                     ON ea.id_educando = ue.id_educando AND ea.id_evento = e.id
-                 WHERE ue.id_usuario = ? AND e.fecha_fin >= NOW()",
+                 WHERE ue.id_usuario = ? AND e.fecha_fin >= NOW()
+                   AND educ.fecha_baja IS NULL",
                 [$usuario['id']]
             );
             $datos['indicadores'] = [
@@ -489,10 +502,11 @@ switch ($ruta) {
             $pendientesCirculares = $consultarTodos(
                 "SELECT e.id AS evento_id
                  FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
                  JOIN eventos e ON e.fecha_fin >= NOW() AND e.circular = 1
                  LEFT JOIN educandos_asistencias ea
                    ON ea.id_evento = e.id AND ea.id_educando = ue.id_educando
-                 WHERE ue.id_usuario = ?
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL
                    AND (ea.estado IS NULL OR ea.estado <> 'si')",
                 [$usuario['id']]
             );
@@ -532,7 +546,7 @@ switch ($ruta) {
                  JOIN eventos e ON e.id = ?
                  LEFT JOIN educandos_asistencias ea
                     ON ea.id_evento = e.id AND ea.id_educando = educ.id
-                 WHERE ue.id_usuario = ?
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL
                  ORDER BY educ.naz IS NULL, educ.naz DESC,
                           educ.apellidos, educ.nombre"
             );
@@ -801,6 +815,12 @@ switch ($ruta) {
                     FILTER_VALIDATE_BOOLEAN
                 );
             }
+            if (isset($recibida['plazo_conservacion_anos'])) {
+                $configuracion['plazo_conservacion_anos'] = max(
+                    1,
+                    min(30, (int) $recibida['plazo_conservacion_anos'])
+                );
+            }
             if (isset($recibida['tamano_maximo_archivos_mb'])) {
                 $configuracion['tamano_maximo_archivos_mb'] = max(
                     1,
@@ -841,6 +861,142 @@ switch ($ruta) {
             responder(['ok' => true]);
         }
         responder(['error' => 'Método no permitido']);
+
+    case 'conservacion':
+        // E-06: educandos dados de baja cuyo plazo de conservación ha vencido.
+        // GET lista lo que se borraría; POST lo borra (archivos y registro).
+        exigirRol(['administrador']);
+        $configuracion = json_decode(
+            (string) file_get_contents(__DIR__ . '/../data/config.php'),
+            true
+        );
+        $plazo = max(1, (int) ($configuracion['plazo_conservacion_anos'] ?? 5));
+        $limite = (new DateTimeImmutable('today'))->modify("-{$plazo} years")->format('Y-m-d');
+        $vencidosStmt = $db->prepare(
+            'SELECT id, nombre, apellidos, fecha_baja FROM educandos
+             WHERE fecha_baja IS NOT NULL AND fecha_baja <= ?
+             ORDER BY fecha_baja, apellidos, nombre'
+        );
+        $vencidosStmt->execute([$limite]);
+        $vencidos = $vencidosStmt->fetchAll();
+        $idsVencidos = array_map('intval', array_column($vencidos, 'id'));
+
+        $archivosDe = function (int $educandoId) use ($db): array {
+            $stmt = $db->prepare(
+                'SELECT archivo_entrega FROM educandos_asistencias
+                 WHERE id_educando = ? AND archivo_entrega IS NOT NULL'
+            );
+            $stmt->execute([$educandoId]);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        };
+        // Tutores cuyos educandos están todos vencidos: se quedarían sin ninguno.
+        $tutoresSinEducandos = [];
+        if ($idsVencidos) {
+            $marcas = implode(',', array_fill(0, count($idsVencidos), '?'));
+            $tutoresStmt = $db->prepare(
+                "SELECT u.id, u.nombre, u.apellidos, u.email
+                 FROM usuarios u
+                 WHERE u.rol = 'tutor'
+                   AND EXISTS (SELECT 1 FROM usuarios_educandos ue
+                               WHERE ue.id_usuario = u.id AND ue.id_educando IN ({$marcas}))
+                   AND NOT EXISTS (SELECT 1 FROM usuarios_educandos ue
+                                   WHERE ue.id_usuario = u.id AND ue.id_educando NOT IN ({$marcas}))
+                 ORDER BY u.apellidos, u.nombre"
+            );
+            $tutoresStmt->execute([...$idsVencidos, ...$idsVencidos]);
+            $tutoresSinEducandos = $tutoresStmt->fetchAll();
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            foreach ($vencidos as &$vencido) {
+                $vencido['archivos'] = count($archivosDe((int) $vencido['id']));
+            }
+            unset($vencido);
+            responder([
+                'plazo_anos' => $plazo,
+                'fecha_limite' => $limite,
+                'educandos' => $vencidos,
+                'tutores_sin_educandos' => $tutoresSinEducandos,
+            ]);
+        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            responder(['error' => 'Método no permitido'], 405);
+        }
+
+        $datos = json_decode(file_get_contents('php://input'), true);
+        // Solo se borra lo que el servidor confirma como vencido, aunque el cliente envíe otros ids.
+        $borrarEducandos = array_values(array_intersect(
+            $idsVencidos,
+            array_map('intval', (array) ($datos['educandos'] ?? []))
+        ));
+        $borrarTutores = array_values(array_intersect(
+            array_map('intval', array_column($tutoresSinEducandos, 'id')),
+            array_map('intval', (array) ($datos['tutores'] ?? []))
+        ));
+        if (!$borrarEducandos && !$borrarTutores) {
+            responder(['error' => 'No hay nada vencido seleccionado'], 400);
+        }
+
+        $archivos = [];
+        foreach ($borrarEducandos as $educandoId) {
+            $archivos = [...$archivos, ...$archivosDe($educandoId)];
+        }
+        $db->beginTransaction();
+        try {
+            $borrarEducando = $db->prepare('DELETE FROM educandos WHERE id = ?');
+            foreach ($borrarEducandos as $educandoId) {
+                // Las asistencias y los vínculos con tutores se borran en cascada.
+                $borrarEducando->execute([$educandoId]);
+            }
+            $borrarTutor = $db->prepare(
+                "DELETE FROM usuarios WHERE id = ? AND rol = 'tutor'
+                 AND NOT EXISTS (SELECT 1 FROM usuarios_educandos WHERE id_usuario = ?)"
+            );
+            foreach ($borrarTutores as $tutorId) {
+                $borrarTutor->execute([$tutorId, $tutorId]);
+            }
+            $db->commit();
+        } catch (Throwable $error) {
+            $db->rollBack();
+            responder(['error' => 'No se pudo completar el borrado: ' . $error->getMessage()], 500);
+        }
+
+        // Los archivos se borran después de confirmar el borrado en la base de datos.
+        $baseDocumentos = realpath(__DIR__ . '/../../storage/documentos');
+        $archivosBorrados = 0;
+        foreach ($archivos as $archivo) {
+            $ruta = $baseDocumentos !== false
+                ? realpath($baseDocumentos . '/' . ltrim((string) $archivo, '/'))
+                : false;
+            if ($ruta && is_file($ruta)
+                && str_starts_with($ruta, $baseDocumentos . DIRECTORY_SEPARATOR)
+                && unlink($ruta)) {
+                $archivosBorrados++;
+                // Se quitan las carpetas que quedan vacías (educando, sección y ronda).
+                $carpeta = dirname($ruta);
+                while ($carpeta !== $baseDocumentos
+                    && str_starts_with($carpeta, $baseDocumentos . DIRECTORY_SEPARATOR)
+                    && count(scandir($carpeta)) === 2) {
+                    rmdir($carpeta);
+                    $carpeta = dirname($carpeta);
+                }
+            }
+        }
+        registrarAcceso(
+            $db,
+            $usuario,
+            'eliminar',
+            'datos_vencidos',
+            null,
+            count($borrarEducandos) . ' educandos, ' . count($borrarTutores)
+                . ' tutores, ' . $archivosBorrados . ' archivos'
+        );
+        responder([
+            'ok' => true,
+            'educandos' => count($borrarEducandos),
+            'tutores' => count($borrarTutores),
+            'archivos' => $archivosBorrados,
+        ]);
 
     case 'modulos':
         responder([]);
@@ -895,11 +1051,16 @@ switch ($ruta) {
                 : 'SELECT * FROM `' . str_replace('`', '``', $tabla) . '`');
         $parametros = [];
         if ($usuario['rol'] === 'tutor' && $tabla === 'educandos') {
-            $sql .= ' WHERE id IN (SELECT id_educando FROM usuarios_educandos WHERE id_usuario = ?)';
+            $sql .= ' WHERE fecha_baja IS NULL
+                      AND id IN (SELECT id_educando FROM usuarios_educandos WHERE id_usuario = ?)';
             $parametros[] = $usuario['id'];
         }
         if ($tabla === 'educandos') {
-            $sql .= ' ORDER BY naz IS NULL, naz DESC, apellidos, nombre';
+            // Primero los activos; los dados de baja quedan al final.
+            $sql .= ' ORDER BY fecha_baja IS NOT NULL, naz IS NULL, naz DESC, apellidos, nombre';
+        }
+        if ($tabla === 'registro_accesos') {
+            $sql .= ' ORDER BY fecha DESC, id DESC';
         }
         $stmt = $db->prepare($sql);
         $stmt->execute($parametros);

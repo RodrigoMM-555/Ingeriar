@@ -70,7 +70,10 @@ CREATE TABLE IF NOT EXISTS educandos (
     nombre VARCHAR(100) NOT NULL,
     apellidos VARCHAR(150) NOT NULL,
     DNI CHAR(9) NOT NULL UNIQUE,
-    naz DATE
+    naz DATE,
+    -- Fecha en la que deja el grupo (NULL = activo). Sus datos se borran
+    -- cuando pasa el plazo de conservación de la configuración.
+    fecha_baja DATE NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS facturas (
@@ -150,5 +153,23 @@ CREATE TABLE IF NOT EXISTS galeria_fotos (
     FOREIGN KEY (id_evento) REFERENCES eventos(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- Registro de accesos a documentación sensible (E-06). Solo se inserta desde PHP.
+CREATE TABLE IF NOT EXISTS registro_accesos (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_usuario INT UNSIGNED NULL,
+    usuario_email VARCHAR(254) NOT NULL,
+    accion VARCHAR(30) NOT NULL,
+    recurso VARCHAR(30) NOT NULL,
+    id_educando INT UNSIGNED NULL,
+    detalle VARCHAR(255) NULL,
+    ip VARCHAR(45) NULL,
+    INDEX indice_registro_fecha (fecha),
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (id_educando) REFERENCES educandos(id)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;

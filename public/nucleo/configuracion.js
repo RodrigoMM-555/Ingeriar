@@ -117,6 +117,9 @@ class IngeriarConfiguracion {
                     ["permitir_asistencia_pasada", "Permitir asistencia en eventos pasados", "checkbox"],
                     ["tamano_maximo_archivos_mb", "Tamaño máximo de archivos (MB)", "number"],
                     ["formatos_entrega", "Formatos de entrega", "text"]
+                ]],
+                ["Conservación de datos", [
+                    ["plazo_conservacion_anos", "Años que se conservan los datos de un educando dado de baja", "number"]
                 ]]
             ];
             const catalogos = configuracion.catalogos || {
@@ -216,14 +219,124 @@ class IngeriarConfiguracion {
 
             seccion.appendChild(formulario);
             seccion.appendChild(this.crearBloqueCopia());
+            seccion.appendChild(this.crearBloqueVencidos());
         });
+    }
+
+    // Datos vencidos (E-06): educandos de baja cuyo plazo de conservación ha pasado.
+    // El servidor decide qué está vencido y solo borra eso.
+    crearBloqueVencidos() {
+        const bloque = document.createElement("div");
+        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = "Datos vencidos";
+        const contenido = document.createElement("div");
+        contenido.textContent = "Cargando…";
+        bloque.append(titulo, contenido);
+
+        const crearCasilla = (nombre, valor, texto) => {
+            const etiqueta = document.createElement("label");
+            etiqueta.className = "casilla-vencido";
+            const casilla = document.createElement("input");
+            casilla.type = "checkbox";
+            casilla.name = nombre;
+            casilla.value = valor;
+            casilla.checked = true;
+            etiqueta.append(casilla, " " + texto);
+            return etiqueta;
+        };
+
+        const cargar = () => this.utilidades.obtenerJson(
+            "api/superapi.php?ruta=conservacion"
+        ).then((datos) => {
+            contenido.replaceChildren();
+            const ayuda = document.createElement("p");
+            ayuda.textContent = "Se borran definitivamente los educandos dados de baja " +
+                "hace " + datos.plazo_anos + " años o más (baja anterior o igual al " +
+                datos.fecha_limite + "), con sus entregas y asistencias.";
+            contenido.appendChild(ayuda);
+            if (datos.educandos.length === 0) {
+                const vacio = document.createElement("p");
+                vacio.className = "sin-datos";
+                vacio.textContent = "No hay datos vencidos.";
+                contenido.appendChild(vacio);
+                return;
+            }
+            const lista = document.createElement("div");
+            lista.className = "lista-vencidos";
+            datos.educandos.forEach((educando) => {
+                lista.appendChild(crearCasilla(
+                    "educandos",
+                    educando.id,
+                    educando.nombre + " " + educando.apellidos +
+                    " · baja " + educando.fecha_baja + " · " +
+                    educando.archivos + " archivos"
+                ));
+            });
+            contenido.appendChild(lista);
+            if (datos.tutores_sin_educandos.length > 0) {
+                const textoTutores = document.createElement("p");
+                textoTutores.textContent = "Estos tutores se quedarían sin educandos. " +
+                    "Marca los que quieras borrar también:";
+                const listaTutores = document.createElement("div");
+                listaTutores.className = "lista-vencidos";
+                datos.tutores_sin_educandos.forEach((tutor) => {
+                    const casilla = crearCasilla(
+                        "tutores",
+                        tutor.id,
+                        tutor.nombre + " " + tutor.apellidos + " (" + tutor.email + ")"
+                    );
+                    casilla.querySelector("input").checked = false;
+                    listaTutores.appendChild(casilla);
+                });
+                contenido.append(textoTutores, listaTutores);
+            }
+            const borrar = document.createElement("button");
+            borrar.type = "button";
+            borrar.className = "boton boton-borrar";
+            borrar.textContent = "Eliminar definitivamente";
+            borrar.onclick = () => {
+                const marcados = (nombre) => Array.from(
+                    contenido.querySelectorAll('input[name="' + nombre + '"]:checked')
+                ).map((casilla) => Number(casilla.value));
+                const seleccion = {
+                    educandos: marcados("educandos"),
+                    tutores: marcados("tutores")
+                };
+                if (seleccion.educandos.length + seleccion.tutores.length === 0) {
+                    alert("No hay nada seleccionado.");
+                    return;
+                }
+                if (!confirm("Se borrarán " + seleccion.educandos.length +
+                    " educandos y " + seleccion.tutores.length +
+                    " tutores con sus archivos. No se puede deshacer. ¿Continuar?")) {
+                    return;
+                }
+                this.utilidades.enviarJson(
+                    "api/superapi.php?ruta=conservacion",
+                    seleccion
+                ).then((resultado) => {
+                    alert("Borrados: " + resultado.educandos + " educandos, " +
+                        resultado.tutores + " tutores y " +
+                        resultado.archivos + " archivos.");
+                    return cargar();
+                }).catch((error) => alert(error.message));
+            };
+            contenido.appendChild(borrar);
+        }).catch((error) => {
+            contenido.textContent = error.message;
+        });
+
+        cargar();
+        return bloque;
     }
 
     // Enlace de descarga de la copia de seguridad en JSON.
     // El servidor comprueba que el usuario es administrador.
     crearBloqueCopia() {
         const bloque = document.createElement("div");
-        bloque.className = "formulario vista-superficie vista-formulario";
+        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
         titulo.textContent = "Copia de seguridad";

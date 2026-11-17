@@ -18,5 +18,6 @@
     "mostrar_educandos_sin_seccion": true,
     "permitir_asistencia_pasada": false,
     "tamano_maximo_archivos_mb": 10,
-    "formatos_entrega": "pdf, jpg, png, docx"
+    "formatos_entrega": "pdf, jpg, png, docx",
+    "plazo_conservacion_anos": 5
 }

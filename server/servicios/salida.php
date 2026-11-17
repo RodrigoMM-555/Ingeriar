@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/registro.php';
 
 function responderSalida(array $datos, int $estado): never
 {
@@ -24,6 +25,7 @@ if ($usuario['rol'] !== 'administrador') {
 }
 
 $db = obtenerConexion();
+registrarAcceso($db, $usuario, 'descargar', 'copia_completa');
 $tablas = $db->query(
     "SELECT TABLE_NAME
      FROM information_schema.TABLES

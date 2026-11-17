@@ -32,6 +32,7 @@ $formatoMarkdown = in_array('--markdown', $argumentos, true);
 
 const DOMINIO_PRUEBAS = '@pruebas.ingeriar.test';
 const CONTRASENA_PRUEBAS = 'pruebas-2026';
+const CARPETA_PRUEBAS = 'pruebas-automaticas';
 
 // ---------- Cliente HTTP con su propia sesión (una cookie por rol) ----------
 
@@ -172,8 +173,52 @@ function limpiarDatosPrueba(PDO $db): void
         }
         $db->prepare('DELETE FROM eventos WHERE id = ?')->execute([$evento]);
     }
-    $db->prepare("DELETE FROM educandos WHERE DNI = '99999999Z'")->execute();
+    $db->prepare("DELETE FROM educandos WHERE DNI LIKE '9999999_Z'")->execute();
+    $db->prepare('DELETE FROM registro_accesos WHERE usuario_email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare('DELETE FROM usuarios WHERE email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
+    borrarCarpeta(__DIR__ . '/../../storage/documentos/' . CARPETA_PRUEBAS);
+}
+
+function borrarCarpeta(string $carpeta): void
+{
+    if (!is_dir($carpeta)) {
+        return;
+    }
+    foreach (array_diff(scandir($carpeta), ['.', '..']) as $elemento) {
+        $ruta = $carpeta . '/' . $elemento;
+        is_dir($ruta) ? borrarCarpeta($ruta) : unlink($ruta);
+    }
+    rmdir($carpeta);
+}
+
+function crearEducando(PDO $db, string $dni, ?string $fechaBaja, ?int $tutorId): int
+{
+    $db->prepare(
+        "INSERT INTO educandos (nombre, apellidos, DNI, naz, fecha_baja)
+         VALUES ('Educando', 'Prueba', ?, '2015-03-01', ?)"
+    )->execute([$dni, $fechaBaja]);
+    $id = (int) $db->lastInsertId();
+    if ($tutorId !== null) {
+        $db->prepare('INSERT INTO usuarios_educandos (id_usuario, id_educando) VALUES (?, ?)')
+            ->execute([$tutorId, $id]);
+    }
+    return $id;
+}
+
+// Crea un archivo de entrega de prueba y su asistencia confirmada.
+function crearEntrega(PDO $db, int $educandoId, int $eventoId): string
+{
+    $relativa = CARPETA_PRUEBAS . '/seccion/educando-' . $educandoId . '/entrega.pdf';
+    $ruta = __DIR__ . '/../../storage/documentos/' . $relativa;
+    if (!is_dir(dirname($ruta))) {
+        mkdir(dirname($ruta), 0770, true);
+    }
+    file_put_contents($ruta, "%PDF-1.4\n% prueba\n");
+    $db->prepare(
+        "INSERT INTO educandos_asistencias (id_educando, id_evento, estado, archivo_entrega)
+         VALUES (?, ?, 'si', ?)"
+    )->execute([$educandoId, $eventoId, $relativa]);
+    return $ruta;
 }
 
 function crearUsuario(PDO $db, string $nombre, string $rol, string $telefono, ?string $hash = null): int
@@ -191,15 +236,17 @@ function crearUsuario(PDO $db, string $nombre, string $rol, string $telefono, ?s
     return (int) $db->lastInsertId();
 }
 
-function crearEvento(PDO $db, string $nombre, string $seccion): int
+function crearEvento(PDO $db, string $nombre, ?string $seccion, string $fecha = '2026-10-10'): int
 {
     $db->prepare(
         "INSERT INTO eventos (nombre, fecha_inicio, fecha_fin, tipo)
-         VALUES (?, '2026-10-10 10:00:00', '2026-10-10 13:00:00', 'sabado')"
-    )->execute([$nombre]);
+         VALUES (?, ?, ?, 'sabado')"
+    )->execute([$nombre, $fecha . ' 10:00:00', $fecha . ' 13:00:00']);
     $id = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO eventos_secciones (id_evento, seccion) VALUES (?, ?)')
-        ->execute([$id, $seccion]);
+    if ($seccion !== null) {
+        $db->prepare('INSERT INTO eventos_secciones (id_evento, seccion) VALUES (?, ?)')
+            ->execute([$id, $seccion]);
+    }
     return $id;
 }
 
@@ -216,17 +263,19 @@ try {
     $antiguoId = crearUsuario($db, 'antiguo', 'tutor', '699000004', hash('sha256', CONTRASENA_PRUEBAS));
     crearUsuario($db, 'enclaro', 'tutor', '699000005', CONTRASENA_PRUEBAS);
 
+    $tutorVencidoId = crearUsuario($db, 'tutorvencido', 'tutor', '699000006');
+
     // Educando con 11 años al empezar la ronda 2026-2027: sección tropa.
-    $db->prepare(
-        "INSERT INTO educandos (nombre, apellidos, DNI, naz)
-         VALUES ('Educando', 'Prueba', '99999999Z', '2015-03-01')"
-    )->execute();
-    $educandoId = (int) $db->lastInsertId();
-    $db->prepare('INSERT INTO usuarios_educandos (id_usuario, id_educando) VALUES (?, ?)')
-        ->execute([$tutorId, $educandoId]);
+    $educandoId = crearEducando($db, '99999999Z', null, $tutorId);
+    // Dado de baja ayer (se conserva) y hace 10 años (vencido), con tutor propio.
+    $educandoBajaId = crearEducando($db, '99999998Z', date('Y-m-d', strtotime('-1 day')), $tutorId);
+    $educandoVencidoId = crearEducando($db, '99999997Z', date('Y-m-d', strtotime('-10 years')), $tutorVencidoId);
 
     $eventoTropa = crearEvento($db, 'Prueba automática tropa', 'tropa');
     $eventoColonia = crearEvento($db, 'Prueba automática colonia', 'colonia');
+    $eventoFuturo = crearEvento($db, 'Prueba automática futura', null, '2099-01-09');
+    $entregaActiva = crearEntrega($db, $educandoId, $eventoTropa);
+    $entregaVencida = crearEntrega($db, $educandoVencidoId, $eventoTropa);
 
     $anonimo = new ClienteHttp($base);
     $admin = new ClienteHttp($base);
@@ -379,6 +428,73 @@ try {
         $resultado = esperar($scouter->post('/api/galeria.php?accion=borrar', ['id' => (string) $id]), 200);
         $existe = is_file(__DIR__ . '/../../storage/galeria/' . $archivo);
         return $resultado === true && !$existe ?: ($resultado === true ? 'el archivo sigue en disco' : $resultado);
+    });
+
+    echo "\nBajas, conservación y registro de accesos\n";
+    prueba('BAJ-01', 'El tutor no ve a su educando dado de baja', function () use ($tutor, $educandoId) {
+        $ids = array_map('intval', array_column(
+            (array) ($tutor->get('/api/superapi.php?ruta=tabla&tabla=educandos')['json']['registros'] ?? []), 'id'));
+        return $ids === [$educandoId] ?: 'recibió: ' . implode(', ', $ids);
+    });
+    $asistencia = fn(int $educando) => $tutor->json('/api/superapi.php?ruta=asistencia_tutor', [
+        'evento' => $eventoFuturo, 'educando' => $educando, 'estado' => 'si',
+    ]);
+    prueba('BAJ-02', 'El tutor confirma la asistencia de un educando activo', fn() => esperar($asistencia($educandoId), 200));
+    prueba('BAJ-03', 'El tutor no confirma la asistencia de un educando de baja → 400', fn() => esperar($asistencia($educandoBajaId), 400));
+    prueba('BAJ-04', 'El administrador sigue viendo al educando de baja', function () use ($admin, $educandoBajaId) {
+        $ids = array_map('intval', array_column(
+            (array) ($admin->get('/api/superapi.php?ruta=tabla&tabla=educandos')['json']['registros'] ?? []), 'id'));
+        return in_array($educandoBajaId, $ids, true) ?: 'no aparece';
+    });
+    $registros = function (string $recurso, string $email) use ($db): int {
+        $stmt = $db->prepare('SELECT COUNT(*) FROM registro_accesos WHERE recurso = ? AND usuario_email = ?');
+        $stmt->execute([$recurso, $email . DOMINIO_PRUEBAS]);
+        return (int) $stmt->fetchColumn();
+    };
+    prueba('BAJ-05', 'La descarga de la copia completa queda registrada', fn() => $registros('copia_completa', 'admin') >= 1
+        ?: 'no hay registro');
+    prueba('BAJ-06', 'Ver una entrega queda registrado', function () use ($admin, $registros, $eventoTropa, $educandoId) {
+        $respuesta = $admin->get("/api/archivo.php?tipo=entrega&evento={$eventoTropa}&educando={$educandoId}");
+        return esperar($respuesta, 200) === true && $registros('entrega', 'admin') >= 1
+            ?: 'código ' . $respuesta['codigo'] . ', registros ' . $registros('entrega', 'admin');
+    });
+    prueba('BAJ-07', 'Archivos sin sesión → 401', fn() => esperar(
+        $anonimo->get("/api/archivo.php?tipo=entrega&evento={$eventoTropa}&educando={$educandoId}"), 401));
+    prueba('BAJ-08', 'Nadie puede borrar el registro de accesos, ni el administrador → 403', function () use ($admin, $db) {
+        $id = (int) $db->query('SELECT MAX(id) FROM registro_accesos')->fetchColumn();
+        return esperar($admin->post('/api/superapi.php?ruta=borrar', ['tabla' => 'registro_accesos', 'id' => (string) $id]), 403);
+    });
+    prueba('BAJ-09', 'Scouter no accede a los datos vencidos → 403', fn() => esperar($scouter->get('/api/superapi.php?ruta=conservacion'), 403));
+    prueba('BAJ-10', 'Se lista el educando vencido y no el dado de baja ayer', function () use ($admin, $educandoVencidoId, $educandoBajaId, $tutorVencidoId) {
+        $datos = $admin->get('/api/superapi.php?ruta=conservacion')['json'] ?? [];
+        $ids = array_map('intval', array_column($datos['educandos'] ?? [], 'id'));
+        $tutores = array_map('intval', array_column($datos['tutores_sin_educandos'] ?? [], 'id'));
+        return in_array($educandoVencidoId, $ids, true) && !in_array($educandoBajaId, $ids, true)
+            && in_array($tutorVencidoId, $tutores, true)
+            ?: 'educandos: ' . implode(', ', $ids) . '; tutores: ' . implode(', ', $tutores);
+    });
+    prueba('BAJ-11', 'No se puede borrar un educando que no ha vencido → 400', function () use ($admin, $db, $educandoBajaId) {
+        $respuesta = $admin->json('/api/superapi.php?ruta=conservacion', ['educandos' => [$educandoBajaId]]);
+        $sigue = (bool) $db->query('SELECT 1 FROM educandos WHERE id = ' . $educandoBajaId)->fetchColumn();
+        return esperar($respuesta, 400) === true && $sigue ?: 'se borró o respondió ' . $respuesta['codigo'];
+    });
+    prueba('BAJ-12', 'Eliminar vencidos borra educando, tutor elegido y archivos', function () use (
+        $admin, $db, $educandoVencidoId, $tutorVencidoId, $entregaVencida, $entregaActiva
+    ) {
+        $respuesta = $admin->json('/api/superapi.php?ruta=conservacion', [
+            'educandos' => [$educandoVencidoId], 'tutores' => [$tutorVencidoId],
+        ]);
+        $educando = (bool) $db->query('SELECT 1 FROM educandos WHERE id = ' . $educandoVencidoId)->fetchColumn();
+        $tutor = (bool) $db->query('SELECT 1 FROM usuarios WHERE id = ' . $tutorVencidoId)->fetchColumn();
+        $fallos = array_filter([
+            esperar($respuesta, 200) === true ? null : 'código ' . $respuesta['codigo'],
+            $educando ? 'el educando sigue' : null,
+            $tutor ? 'el tutor sigue' : null,
+            is_file($entregaVencida) ? 'el archivo vencido sigue' : null,
+            is_dir(dirname($entregaVencida)) ? 'queda la carpeta vacía' : null,
+            is_file($entregaActiva) ? null : 'se borró un archivo que no estaba vencido',
+        ]);
+        return $fallos ? implode('; ', $fallos) : true;
     });
 } finally {
     limpiarDatosPrueba($db);
