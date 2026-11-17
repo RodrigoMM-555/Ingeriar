@@ -29,18 +29,69 @@
     margin:0 0 16px;
 }
 
+/* Las tarjetas se reparten el ancho: tres para el tutor, cuatro para los demás */
 .dashboard-resumen{
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    display:flex;
+    flex-wrap:wrap;
     gap:14px;
 }
 
-.dashboard-resumen h3{
-    grid-column:1 / -1;
+.dashboard-resumen > .dashboard-info-tarjeta{
+    flex:1 1 200px;
 }
 
-.dashboard-info-tarjeta,
-.dashboard-pendientes article{
+/* Pendientes del tutor: fichas con el color de la sección del educando */
+.lista-pendientes-tutor{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:12px;
+}
+
+.pendiente-tutor{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:12px 14px;
+    border:1px solid rgba(0,0,0,0.08);
+    border-radius:var(--radio);
+    color:#252525;
+}
+
+.pendiente-tutor span{
+    font-size:13px;
+}
+
+.etiquetas-pendiente{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.etiqueta-pendiente{
+    padding:2px 8px;
+    border-radius:999px;
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+}
+
+.etiqueta-confirmar{
+    background:#555;
+}
+
+.etiqueta-circular{
+    background:#1e63c6;
+}
+
+.etiqueta-falta-documentacion{
+    background:var(--color_peligro);
+}
+
+.dashboard-resumen h3{
+    flex-basis:100%;
+}
+
+.dashboard-info-tarjeta{
     display:flex;
     flex-direction:column;
     gap:7px;
@@ -50,14 +101,12 @@
     background:var(--color_fondo);
 }
 
-.dashboard-info-tarjeta strong,
-.dashboard-pendientes strong{
+.dashboard-info-tarjeta strong{
     color:var(--color_secundario);
     font-size:13px;
 }
 
-.dashboard-info-tarjeta b,
-.dashboard-pendientes b{
+.dashboard-info-tarjeta b{
     color:var(--color_corporativo);
     font-size:20px;
 }
@@ -73,12 +122,6 @@
     margin:0;
 }
 
-.dashboard-pendientes{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:14px;
-    margin-bottom:18px;
-}
 
 .mini-calendario{
     display:grid;
@@ -1562,16 +1605,13 @@ body.modal-abierto{
         position:static;
     }
 
-    .dashboard-resumen{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+    .dashboard-resumen > .dashboard-info-tarjeta{
+        flex-basis:100%;
     }
 }
 
 @media (max-width:520px){
     .dashboard-resumen,
-    .dashboard-pendientes{
-        grid-template-columns:1fr;
-    }
 }
 
 

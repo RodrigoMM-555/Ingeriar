@@ -537,7 +537,15 @@ solo se necesitan resúmenes.
 También muestra un resumen común («Próximas actividades») con el próximo sábado,
 la próxima acampada (con cuánto falta), el próximo evento que no es ni sábado ni
 acampada y los cumpleaños de educandos de la semana, contada de domingo a sábado.
-El tutor solo ve los cumpleaños de sus educandos.
+Los tutores no ven los cumpleaños.
+
+Para el tutor hay además dos bloques (2026-11-17):
+
+- «Pendientes de este mes»: una ficha por educando y evento de este mes que aún no ha
+  terminado y convoca a la sección de ese educando, si falta confirmar la asistencia
+  (con el aviso «Necesita circular» si el evento la lleva) o si va y falta entregar la
+  circular («Falta documentación»). La ficha tiene el color de la sección del educando.
+- «Calendario»: próximos eventos de las secciones de sus educandos.
 En tutores, el próximo evento y el mini calendario solo incluyen actividades
 compatibles con las secciones de sus educandos. Los monitores disponen de un
 desglose por sección de las respuestas del próximo sábado. Los tutores ven
@@ -767,6 +775,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (pendientes del tutor)
+
+- Tutor: sin cumpleaños; «Pendientes de este mes» (fichas con el color de la sección,
+  confirmar asistencia o falta documentación) y «Calendario» en bloques separados.
 
 ### 2026-11-17 (anillo doble del sábado)
 

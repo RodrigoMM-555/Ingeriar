@@ -310,16 +310,13 @@ switch ($ruta) {
             $fecha = $domingo->modify("+{$dia} days");
             $diasSemana[$fecha->format('m-d')] = $fecha;
         }
-        // El tutor solo ve los cumpleaños de sus educandos.
-        $cumpleanosSql = 'SELECT nombre, apellidos, naz FROM educandos
-                          WHERE naz IS NOT NULL AND fecha_baja IS NULL';
-        $cumpleanosParametros = [];
-        if ($soloPropios) {
-            $cumpleanosSql .= ' AND id IN (SELECT id_educando FROM usuarios_educandos WHERE id_usuario = ?)';
-            $cumpleanosParametros[] = $usuario['id'];
-        }
+        // Los cumpleaños no se muestran a los tutores (decisión del usuario, 2026-11-17):
+        // para ellos se envía null y la tarjeta no aparece.
+        $educandosCumple = $soloPropios ? [] : $consultarTodos(
+            'SELECT nombre, apellidos, naz FROM educandos WHERE naz IS NOT NULL AND fecha_baja IS NULL'
+        );
         $cumples = [];
-        foreach ($consultarTodos($cumpleanosSql, $cumpleanosParametros) as $educando) {
+        foreach ($educandosCumple as $educando) {
             $nacimiento = new DateTimeImmutable($educando['naz']);
             $dia = $diasSemana[$nacimiento->format('m-d')] ?? null;
             if ($dia) {
@@ -331,6 +328,9 @@ switch ($ruta) {
             }
         }
         usort($cumples, fn($a, $b) => strcmp($a['fecha'], $b['fecha']));
+        if ($soloPropios) {
+            $cumples = null;
+        }
         $datos['resumen'] = [
             'proximo_sabado' => $sabadosProximos[0] ?? null,
             'proxima_acampada' => $acampadas[0] ?? null,
@@ -396,46 +396,59 @@ switch ($ruta) {
         }
 
         if (tienePermiso('asistencia.responder_propios')) {
-            $asistencias = $consultar(
-                "SELECT
-                    SUM(ea.estado = 'si') AS confirmadas,
-                    SUM(ea.estado = 'no') AS ausencias,
-                    SUM(ea.estado = 'pendiente' OR ea.estado IS NULL) AS pendientes
-                 FROM usuarios_educandos ue
-                 JOIN educandos educ ON educ.id = ue.id_educando
-                 CROSS JOIN eventos e
-                 LEFT JOIN educandos_asistencias ea
-                    ON ea.id_educando = ue.id_educando AND ea.id_evento = e.id
-                 WHERE ue.id_usuario = ? AND e.fecha_fin >= NOW()
-                   AND educ.fecha_baja IS NULL",
-                [$usuario['id']]
+            // Pendientes del tutor (2026-11-17): eventos de este mes que aún no han terminado,
+            // de la sección de cada uno de sus educandos, en los que falta confirmar la
+            // asistencia o, si va y el evento lleva circular, falta entregarla.
+            $inicioMes = (new DateTimeImmutable('first day of this month'))->format('Y-m-d');
+            $finMes = (new DateTimeImmutable('first day of next month'))->format('Y-m-d');
+            $eventosMes = $consultarTodos(
+                'SELECT id, nombre, fecha_inicio, tipo, circular FROM eventos
+                 WHERE fecha_inicio >= ? AND fecha_inicio < ? AND fecha_fin >= NOW()
+                 ORDER BY fecha_inicio',
+                [$inicioMes, $finMes]
             );
-            $eventosVisiblesIds = array_map(
-                'intval',
-                array_column($eventosVisibles, 'id')
-            );
-            $pendientesCirculares = $consultarTodos(
-                "SELECT e.id AS evento_id
-                 FROM usuarios_educandos ue
-                 JOIN educandos educ ON educ.id = ue.id_educando
-                 JOIN eventos e ON e.fecha_fin >= NOW() AND e.circular = 1
-                 LEFT JOIN educandos_asistencias ea
-                   ON ea.id_evento = e.id AND ea.id_educando = ue.id_educando
-                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL
-                   AND (ea.estado IS NULL OR ea.estado <> 'si')",
-                [$usuario['id']]
-            );
-            $datos['tutor'] = [
-                'circulares_pendientes' => count(array_filter(
-                    $pendientesCirculares,
-                    fn($fila): bool => in_array(
-                        (int) $fila['evento_id'],
-                        $eventosVisiblesIds,
-                        true
-                    )
-                )),
-                'asistencias_pendientes' => (int) ($asistencias['pendientes'] ?? 0),
-            ];
+            $pendientes = [];
+            foreach (Educando::deTutor($db, $usuario['id']) as $educando) {
+                $seccion = seccionEducando($db, $educando->nacimiento);
+                if (!$seccion) {
+                    continue;
+                }
+                $respuestas = [];
+                foreach ($consultarTodos(
+                    'SELECT id_evento, estado, archivo_entrega FROM educandos_asistencias WHERE id_educando = ?',
+                    [$educando->id]
+                ) as $respuesta) {
+                    $respuestas[(int) $respuesta['id_evento']] = $respuesta;
+                }
+                foreach ($eventosMes as $evento) {
+                    // Solo los eventos que convocan a la sección de este educando.
+                    if (!Evento::convocaA($convocatoriasDashboard[(int) $evento['id']] ?? [], [$seccion])) {
+                        continue;
+                    }
+                    $respuesta = $respuestas[(int) $evento['id']] ?? null;
+                    $estado = $respuesta['estado'] ?? 'pendiente';
+                    $circular = (bool) $evento['circular'];
+                    $motivo = match (true) {
+                        $estado === 'pendiente' => 'confirmar',
+                        $estado === 'si' && $circular && !$respuesta['archivo_entrega'] => 'documentacion',
+                        default => null,
+                    };
+                    if ($motivo === null) {
+                        continue;
+                    }
+                    $pendientes[] = [
+                        'motivo' => $motivo,
+                        'circular' => $circular,
+                        'educando' => trim($educando->nombre . ' ' . $educando->apellidos),
+                        'seccion' => $seccion,
+                        'evento_id' => (int) $evento['id'],
+                        'evento' => $evento['nombre'],
+                        'fecha' => $evento['fecha_inicio'],
+                    ];
+                }
+            }
+            usort($pendientes, fn($a, $b) => [$a['fecha'], $a['educando']] <=> [$b['fecha'], $b['educando']]);
+            $datos['tutor'] = ['pendientes' => $pendientes];
         }
 
         responder($datos);

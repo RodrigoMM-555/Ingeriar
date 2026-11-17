@@ -36,11 +36,10 @@ class IngeriarDashboard {
                     this.renderAsistenciasSabado(datos.asistencias_sabado)
                 );
             }
+            // Tutor: pendientes y calendario en dos bloques separados.
             if (datos.tutor) {
-                this.contenedor.appendChild(this.renderPanelTutor(
-                    datos.tutor,
-                    datos.mini_calendario
-                ));
+                this.contenedor.appendChild(this.renderPendientesTutor(datos.tutor.pendientes || []));
+                this.contenedor.appendChild(this.renderCalendarioTutor(datos.mini_calendario || []));
             }
         } catch (error) {
             this.contenedor.innerHTML = "";
@@ -118,7 +117,8 @@ class IngeriarDashboard {
             ["Próxima acampada", ...evento(resumen.proxima_acampada, "No hay acampadas",
                 (dato) => this.tiempoHasta(dato.fecha_inicio))],
             ["Próximo evento", ...evento(resumen.proximo_otro, "No hay otros eventos", fecha)],
-            [
+            // Los tutores no reciben cumpleaños (null): su tarjeta no aparece.
+            resumen.cumpleanos === null ? null : [
                 "Cumpleaños (" + this.formatearDiaMes(resumen.semana_desde) + " – " +
                     this.formatearDiaMes(resumen.semana_hasta) + ")",
                 cumpleanos.length,
@@ -127,7 +127,7 @@ class IngeriarDashboard {
                 ).join(" · ") || "Ninguno esta semana"
             ]
         ];
-        tarjetas.forEach(([nombre, valor, detalle]) => {
+        tarjetas.filter(Boolean).forEach(([nombre, valor, detalle]) => {
             const tarjeta = document.createElement("article");
             tarjeta.className = "dashboard-info-tarjeta";
             tarjeta.innerHTML = `<strong></strong><b></b><span></span>`;
@@ -227,32 +227,68 @@ class IngeriarDashboard {
             .toString(16).padStart(2, "0")).join("");
     }
 
-    renderPanelTutor(datos = {}, eventos = []) {
+    // Pendientes del tutor (2026-11-17): eventos de este mes de la sección de cada
+    // educando en los que falta confirmar la asistencia o entregar la circular. Cada
+    // ficha lleva el color de la sección del educando.
+    renderPendientesTutor(pendientes) {
         const zona = document.createElement("section");
         zona.className = "dashboard-bloque dashboard-tutor";
         const titulo = document.createElement("h3");
-        titulo.textContent = "Pendientes y calendario";
+        titulo.textContent = "Pendientes de este mes";
         zona.appendChild(titulo);
-        const pendientes = document.createElement("div");
-        pendientes.className = "dashboard-pendientes";
-        [
-            ["Circulares sin rellenar", datos.circulares_pendientes || 0],
-            ["Asistencias sin confirmar", datos.asistencias_pendientes || 0]
-        ].forEach(([nombre, valor]) => {
-            const elemento = document.createElement("article");
-            elemento.innerHTML = "<strong></strong><b></b>";
-            elemento.querySelector("strong").textContent = nombre;
-            elemento.querySelector("b").textContent = valor;
-            pendientes.appendChild(elemento);
+        if (!pendientes.length) {
+            const vacio = document.createElement("p");
+            vacio.className = "sin-datos";
+            vacio.textContent = "No tienes nada pendiente este mes.";
+            zona.appendChild(vacio);
+            return zona;
+        }
+        const lista = document.createElement("div");
+        lista.className = "lista-pendientes-tutor";
+        pendientes.forEach((pendiente) => {
+            const ficha = document.createElement("article");
+            // Mismo color de fondo que las filas de la sección en la tabla de educandos.
+            ficha.className = "pendiente-tutor fila-seccion-" + pendiente.seccion;
+            const educando = document.createElement("strong");
+            educando.textContent = pendiente.educando;
+            const evento = document.createElement("span");
+            evento.textContent = pendiente.evento + " · " + this.formatearFecha(pendiente.fecha);
+            const etiquetas = document.createElement("div");
+            etiquetas.className = "etiquetas-pendiente";
+            const etiqueta = (texto, clase) => {
+                const elemento = document.createElement("span");
+                elemento.className = "etiqueta-pendiente " + clase;
+                elemento.textContent = texto;
+                etiquetas.appendChild(elemento);
+            };
+            if (pendiente.motivo === "confirmar") {
+                etiqueta("Confirmar asistencia", "etiqueta-confirmar");
+                if (pendiente.circular) {
+                    etiqueta("Necesita circular", "etiqueta-circular");
+                }
+            } else {
+                etiqueta("Falta documentación (circular)", "etiqueta-falta-documentacion");
+            }
+            ficha.append(educando, evento, etiquetas);
+            lista.appendChild(ficha);
         });
-        zona.appendChild(pendientes);
+        zona.appendChild(lista);
+        return zona;
+    }
+
+    // Calendario del tutor: próximos eventos de las secciones de sus educandos.
+    renderCalendarioTutor(eventos) {
+        const zona = document.createElement("section");
+        zona.className = "dashboard-bloque dashboard-tutor";
+        const titulo = document.createElement("h3");
+        titulo.textContent = "Calendario";
+        zona.appendChild(titulo);
         const calendario = document.createElement("div");
         calendario.className = "mini-calendario";
         eventos.forEach((evento) => {
             const dia = document.createElement("div");
             dia.innerHTML = "<b></b><span></span>";
-            dia.querySelector("b").textContent =
-                this.formatearFecha(evento.fecha);
+            dia.querySelector("b").textContent = this.formatearFecha(evento.fecha);
             dia.querySelector("span").textContent = evento.nombre;
             calendario.appendChild(dia);
         });

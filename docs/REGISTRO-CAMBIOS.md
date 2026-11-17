@@ -15,6 +15,27 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard del tutor: pendientes del mes y calendario
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, para los tutores:
+  - Se quita la tarjeta de cumpleaños (el servidor ya no se los envía).
+  - «Pendientes y calendario» se separa en dos bloques. «Pendientes de este mes»: una ficha por educando y evento del
+    mes actual (que no haya terminado) en el que falta confirmar la asistencia (con «Necesita circular» si la lleva) o
+    en el que va pero falta entregar la circular («Falta documentación»). Cada ficha muestra educando, evento y fecha y
+    tiene el color de fondo de la sección del educando. «Calendario»: próximos eventos de sus secciones.
+  - Solo aparecen eventos que convocan a la sección de cada educando (antes se contaban todos los eventos futuros).
+- Archivos creados o modificados: `server/api/superapi.php` (`tutor.pendientes`, sin cumpleaños para el tutor; fuera los
+  contadores anteriores), `public/nucleo/dashboard.js` (`renderPendientesTutor`, `renderCalendarioTutor`; fuera
+  `renderPanelTutor`), `public/estilo.css` (fichas de pendientes; «Próximas actividades» reparte el ancho entre tres o
+  cuatro tarjetas; fuera `.dashboard-pendientes`), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: las fichas reutilizan las clases `.fila-seccion-<código>` (los mismos colores que la
+  tabla de educandos). Comprobado con capturas de Firefox sin ventana y con los datos del usuario a través de Apache.
+- Requisitos que cubre (RF/RNF): RF-03, RF-07, RNF-03, RNF-06.
+- Cómo probarlo (pasos): entrar como tutor con algún evento este mes con circular: aparecen sus fichas; responder la
+  asistencia o subir la circular hace que desaparezcan.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard del tutor).
+- Pendiente o problemas: una sección nueva del catálogo no tiene color de fondo en el CSS (su ficha sale sin color).
+
 ## 2026-11-17 · Dashboard: asistencias del sábado en un único anillo doble
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario (con cinco gráficas no se veía bien), las asistencias del sábado se muestran en un
