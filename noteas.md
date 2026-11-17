@@ -534,8 +534,10 @@ El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
 y datos ya agrupados para las gráficas. Esto evita cargar todas las tablas cuando
 solo se necesitan resúmenes.
 
-También muestra un resumen común con el próximo evento, los sábados del mes,
-la próxima acampada y los cumpleaños de educandos de los próximos siete días.
+También muestra un resumen común («Próximas actividades») con el próximo sábado,
+la próxima acampada (con cuánto falta), el próximo evento que no es ni sábado ni
+acampada y los cumpleaños de educandos de la semana, contada de domingo a sábado.
+El tutor solo ve los cumpleaños de sus educandos.
 En tutores, el próximo evento y el mini calendario solo incluyen actividades
 compatibles con las secciones de sus educandos. Los monitores disponen de un
 desglose por sección de las respuestas del próximo sábado. Los tutores ven
@@ -756,6 +758,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (resumen del dashboard)
+
+- «Próximas actividades»: próximo sábado, próxima acampada, próximo evento de otro
+  tipo y cumpleaños de domingo a sábado (el tutor, solo los de sus educandos).
 
 ### 2026-11-17 (indicadores)
 

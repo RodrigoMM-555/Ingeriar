@@ -15,6 +15,21 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: bloque «Próximas actividades»
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, el bloque `dashboard-resumen` muestra el próximo sábado, la próxima acampada
+  (con cuánto falta), el próximo evento que no es sábado ni acampada y los cumpleaños de la semana contada de domingo a
+  sábado (nombre, edad que cumple y día). Antes: próximo evento, número de sábados del mes, próxima acampada y cumpleaños
+  de los próximos siete días.
+- Archivos creados o modificados: `server/api/superapi.php` (datos del resumen), `public/nucleo/dashboard.js`
+  (`renderResumen`, `formatearDiaMes`), versión de los scripts en las páginas, `noteas.md`.
+- Decisiones técnicas y motivo: el tutor solo ve los cumpleaños de sus educandos (antes veía los de todo el grupo);
+  coherente con la indicación del usuario de que al tutor solo le aparezca lo de sus educandos.
+- Requisitos que cubre (RF/RNF): RF-07, RNF-03.
+- Cómo probarlo (pasos): entrar como monitor y como tutor y comparar los cumpleaños y los próximos eventos.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (contenido del dashboard).
+- Pendiente o problemas: los cumpleaños son solo de educandos (los usuarios no tienen fecha de nacimiento).
+
 ## 2026-11-17 · Dashboard sin indicadores
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, se quita la fila de indicadores del dashboard (`article.indicador`: usuarios,

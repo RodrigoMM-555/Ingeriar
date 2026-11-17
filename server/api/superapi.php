@@ -287,53 +287,58 @@ switch ($ruta) {
             $eventosDashboard,
             $eventoConvoca
         ));
-        $proximoEvento = $eventosVisibles[0] ?? null;
-        $inicioMes = new DateTimeImmutable('first day of this month 00:00:00');
-        $finMes = $inicioMes->modify('last day of this month 23:59:59');
-        $sabadosMes = array_values(array_filter(
-            $eventosVisibles,
-            fn($evento): bool => $evento['tipo'] === 'sabado'
-                && new DateTimeImmutable($evento['fecha_inicio']) >= $inicioMes
-                && new DateTimeImmutable($evento['fecha_inicio']) <= $finMes
-        ));
+        // Resumen (2026-11-17): próximo sábado, próxima acampada, próximo evento de otro
+        // tipo y cumpleaños de la semana (de domingo a sábado).
         $sabadosProximos = array_values(array_filter(
             $eventosVisibles,
             fn($evento): bool => $evento['tipo'] === 'sabado'
         ));
-        $acampadas = array_values(array_filter(
+        $esAcampada = fn(array $evento): bool => in_array(
+            strtolower($evento['tipo']),
+            ['campamento', 'acampada'],
+            true
+        );
+        $acampadas = array_values(array_filter($eventosVisibles, $esAcampada));
+        $otros = array_values(array_filter(
             $eventosVisibles,
-            fn($evento): bool => in_array(
-                strtolower($evento['tipo']),
-                ['campamento', 'acampada'],
-                true
-            )
+            fn($evento): bool => $evento['tipo'] !== 'sabado' && !$esAcampada($evento)
         ));
+
+        // Semana de domingo a sábado: date('w') es 0 el domingo.
+        $domingo = (new DateTimeImmutable('today'))->modify('-' . date('w') . ' days');
+        $diasSemana = [];
+        for ($dia = 0; $dia < 7; $dia++) {
+            $fecha = $domingo->modify("+{$dia} days");
+            $diasSemana[$fecha->format('m-d')] = $fecha;
+        }
+        // El tutor solo ve los cumpleaños de sus educandos.
+        $cumpleanosSql = 'SELECT nombre, apellidos, naz FROM educandos
+                          WHERE naz IS NOT NULL AND fecha_baja IS NULL';
+        $cumpleanosParametros = [];
+        if ($soloPropios) {
+            $cumpleanosSql .= ' AND id IN (SELECT id_educando FROM usuarios_educandos WHERE id_usuario = ?)';
+            $cumpleanosParametros[] = $usuario['id'];
+        }
         $cumples = [];
-        $hoy = new DateTimeImmutable('today');
-        $finSemana = $hoy->modify('+7 days');
-        foreach ($consultarTodos(
-            'SELECT nombre, apellidos, naz FROM educandos
-             WHERE naz IS NOT NULL AND fecha_baja IS NULL'
-        ) as $educando) {
+        foreach ($consultarTodos($cumpleanosSql, $cumpleanosParametros) as $educando) {
             $nacimiento = new DateTimeImmutable($educando['naz']);
-            $cumple = new DateTimeImmutable(
-                $hoy->format('Y') . '-' . $nacimiento->format('m-d')
-            );
-            if ($cumple < $hoy) {
-                $cumple = $cumple->modify('+1 year');
-            }
-            if ($cumple <= $finSemana) {
+            $dia = $diasSemana[$nacimiento->format('m-d')] ?? null;
+            if ($dia) {
                 $cumples[] = [
                     'nombre' => $educando['nombre'] . ' ' . $educando['apellidos'],
-                    'fecha' => $cumple->format('Y-m-d'),
+                    'fecha' => $dia->format('Y-m-d'),
+                    'edad' => (int) $dia->format('Y') - (int) $nacimiento->format('Y'),
                 ];
             }
         }
+        usort($cumples, fn($a, $b) => strcmp($a['fecha'], $b['fecha']));
         $datos['resumen'] = [
-            'proximo_evento' => $proximoEvento,
-            'sabados_mes' => $sabadosMes,
+            'proximo_sabado' => $sabadosProximos[0] ?? null,
             'proxima_acampada' => $acampadas[0] ?? null,
+            'proximo_otro' => $otros[0] ?? null,
             'cumpleanos' => $cumples,
+            'semana_desde' => $domingo->format('Y-m-d'),
+            'semana_hasta' => $domingo->modify('+6 days')->format('Y-m-d'),
         ];
         $datos['mini_calendario'] = array_map(
             fn($evento): array => [

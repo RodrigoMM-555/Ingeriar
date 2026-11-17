@@ -135,34 +135,25 @@ class IngeriarDashboard {
         const titulo = document.createElement("h3");
         titulo.textContent = "Próximas actividades";
         zona.appendChild(titulo);
+        // Próximo sábado, próxima acampada (con cuánto falta), próximo evento de otro
+        // tipo y cumpleaños de la semana, de domingo a sábado.
+        const evento = (dato, vacio, detalle) => dato
+            ? [dato.nombre, detalle(dato)]
+            : [vacio, ""];
+        const fecha = (dato) => this.formatearFecha(dato.fecha_inicio);
+        const cumpleanos = resumen.cumpleanos || [];
         const tarjetas = [
+            ["Próximo sábado", ...evento(resumen.proximo_sabado, "No hay sábados", fecha)],
+            ["Próxima acampada", ...evento(resumen.proxima_acampada, "No hay acampadas",
+                (dato) => this.tiempoHasta(dato.fecha_inicio))],
+            ["Próximo evento", ...evento(resumen.proximo_otro, "No hay otros eventos", fecha)],
             [
-                "Próximo evento",
-                resumen.proximo_evento
-                    ? resumen.proximo_evento.nombre
-                    : "No hay eventos",
-                resumen.proximo_evento
-                    ? this.formatearFecha(resumen.proximo_evento.fecha_inicio)
-                    : ""
-            ],
-            [
-                "Sábados este mes",
-                resumen.sabados_mes?.length || 0,
-                "Actividades tipo sábado"
-            ],
-            [
-                "Próxima acampada",
-                resumen.proxima_acampada?.nombre || "No hay acampadas",
-                resumen.proxima_acampada
-                    ? this.formatearFecha(resumen.proxima_acampada.fecha_inicio)
-                    : ""
-            ],
-            [
-                "Cumpleaños esta semana",
-                resumen.cumpleanos?.length || 0,
-                resumen.cumpleanos?.map((cumple) =>
-                    `${cumple.nombre} (${this.formatearFecha(cumple.fecha)})`
-                ).join(", ") || "Ninguno"
+                "Cumpleaños (" + this.formatearDiaMes(resumen.semana_desde) + " – " +
+                    this.formatearDiaMes(resumen.semana_hasta) + ")",
+                cumpleanos.length,
+                cumpleanos.map((cumple) =>
+                    `${cumple.nombre}, ${cumple.edad} (${this.formatearDiaMes(cumple.fecha)})`
+                ).join(" · ") || "Ninguno esta semana"
             ]
         ];
         tarjetas.forEach(([nombre, valor, detalle]) => {
@@ -174,13 +165,6 @@ class IngeriarDashboard {
             tarjeta.querySelector("span").textContent = detalle;
             zona.appendChild(tarjeta);
         });
-        if (resumen.proxima_acampada) {
-            const acampada = zona.querySelectorAll(
-                ".dashboard-info-tarjeta"
-            )[2];
-            acampada.querySelector("span").textContent =
-                this.tiempoHasta(resumen.proxima_acampada.fecha_inicio);
-        }
         return zona;
     }
 
@@ -260,6 +244,15 @@ class IngeriarDashboard {
                 month: "2-digit",
                 year: "numeric"
             });
+    }
+
+    // «dom 15/11»
+    formatearDiaMes(valor) {
+        if (!valor) {
+            return "";
+        }
+        return new Date(String(valor).substring(0, 10) + "T00:00:00")
+            .toLocaleDateString("es-ES", {weekday: "short", day: "2-digit", month: "2-digit"});
     }
 
     tiempoHasta(valor) {
