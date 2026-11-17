@@ -149,7 +149,30 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | INV-09 | Una lista se guarda como plantilla y de la plantilla sale una lista nueva | RF-06 | Superada | 2026-11-17 |
 | INV-10 | Diez escrituras simultáneas no pierden ningún dato (bloqueo de fichero) | RF-06, RNF-03 | Superada | 2026-11-17 |
 
-Resultado: 107 de 107 superadas el 2026-11-17 (servidor de PHP con 4 procesos para que las escrituras sean simultáneas).
+| COP-01 | Un monitor no ve las copias de seguridad → 403 | RNF-03, RNF-04 | Superada | 2026-11-17 |
+| COP-02 | El administrador ve la lista de copias | RNF-04 | Superada | 2026-11-17 |
+| COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
+| COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
+
+Resultado: 111 de 111 superadas el 2026-11-17.
+
+### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
+
+| ID | Prueba | Requisito | Resultado | Fecha |
+|---|---|---|---|---|
+| CPS-01 | La copia genera un zip con la base de datos y storage/, con permisos 0600 | RNF-04 | Superada | 2026-11-17 |
+| CPS-02 | La retención conserva solo las N copias más recientes | RNF-04 | Superada | 2026-11-17 |
+| CPS-03 | No se ejecutan dos copias a la vez (bloqueo) | RNF-04 | Superada | 2026-11-17 |
+| CPS-04 | Con clave, la copia se cifra con AES-256 y no se puede abrir sin ella | RNF-03, RNF-04 | Superada | 2026-11-17 |
+| CPS-05 | El registro anota cada ejecución y avisa de las copias sin cifrar | RNF-04 | Superada | 2026-11-17 |
+| CPS-06 | Con una clave incorrecta no se restaura nada | RNF-03 | Superada | 2026-11-17 |
+| CPS-07 | Restaurar la copia cifrada en una base vacía reproduce datos y archivos | RNF-04 | Superada | 2026-11-17 |
+| CPS-08 | No se restaura sobre una base con datos sin --sobrescribir | RNF-04 | Superada | 2026-11-17 |
+
+Resultado: 8 de 8 superadas el 2026-11-17 (CPS-07 compara el número de filas de todas las tablas y el contenido
+de cada archivo de storage/ entre el origen y la restauración).
+
+Resultado anterior: 107 de 107 superadas el 2026-11-17 (servidor de PHP con 4 procesos para que las escrituras sean simultáneas).
 El script copia los JSON del inventario al empezar y los restaura al terminar.
 
 Resultado anterior: 97 de 97 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos tras la refactorización de E-02

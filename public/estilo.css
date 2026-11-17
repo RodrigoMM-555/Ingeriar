@@ -1770,6 +1770,41 @@ span{
 }
 
 
+/* Copias de seguridad (E-12) */
+.aviso-copias{
+    margin:0 0 8px;
+    padding:8px 12px;
+    border-left:4px solid #d97706;
+    border-radius:4px;
+    background:var(--color_fondo);
+}
+
+.lista-copias{
+    display:grid;
+    gap:6px;
+    margin:0 0 8px;
+    padding:0;
+    list-style:none;
+}
+
+.lista-copias li{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+}
+
+.registro-copias{
+    max-height:220px;
+    overflow:auto;
+    padding:10px;
+    border-radius:6px;
+    background:var(--color_fondo);
+    font-size:12px;
+    white-space:pre-wrap;
+}
+
 /* Documentación de inscripción (E-14) */
 .bloque-inscripcion{
     margin:12px 0 24px;

@@ -232,6 +232,7 @@ class IngeriarConfiguracion {
                 new IngeriarDocumentos({utilidades: this.utilidades}).crearBloquePlantillas()
             );
             if (this.utilidades.tienePermiso("copia.descargar")) {
+                seccion.appendChild(this.crearBloqueCopiasSeguridad());
                 seccion.appendChild(this.crearBloqueCopia());
             }
             if (this.utilidades.tienePermiso("conservacion.gestionar")) {
@@ -501,16 +502,85 @@ class IngeriarConfiguracion {
         bloque.className = "caja-configuracion vista-superficie";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
-        titulo.textContent = "Copia de seguridad";
+        titulo.textContent = "Exportación de datos en JSON";
         const ayuda = document.createElement("p");
         ayuda.textContent =
-            "Descarga todas las tablas en un archivo JSON (sin contraseñas). " +
-            "Contiene datos personales: guárdalo en un lugar seguro.";
+            "Descarga todas las tablas en un archivo JSON (sin contraseñas ni archivos). " +
+            "No sustituye a las copias de seguridad. Contiene datos personales.";
         const enlace = document.createElement("a");
         enlace.href = "servicios/salida.php";
         enlace.className = "boton boton-descargar";
-        enlace.textContent = "Descargar copia (JSON)";
+        enlace.textContent = "Descargar JSON";
         bloque.append(titulo, ayuda, enlace);
+        return bloque;
+    }
+
+    // Copias de seguridad completas (E-12): las genera server/copias/copia.php con cron.
+    crearBloqueCopiasSeguridad() {
+        const bloque = document.createElement("div");
+        bloque.className = "caja-configuracion vista-superficie";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = "Copias de seguridad";
+        const ayuda = document.createElement("p");
+        ayuda.textContent = "Base de datos y archivos (documentos, facturas, galería, " +
+            "inventario) en un único archivo. Se generan automáticamente en el servidor; " +
+            "aquí se descargan. Cada descarga queda registrada.";
+        const contenido = document.createElement("div");
+        contenido.textContent = "Cargando…";
+        bloque.append(titulo, ayuda, contenido);
+
+        this.utilidades.obtenerJson("api/copias.php?accion=listar").then((datos) => {
+            contenido.replaceChildren();
+            const aviso = (texto) => {
+                const parrafo = document.createElement("p");
+                parrafo.className = "aviso-copias";
+                parrafo.textContent = texto;
+                contenido.appendChild(parrafo);
+            };
+            if (!datos.carpeta_legible) {
+                aviso("El servidor web no puede leer la carpeta de copias. Programa la copia con el mismo usuario que Apache.");
+            }
+            const ultima = datos.copias[0];
+            if (!ultima) {
+                aviso("Todavía no hay ninguna copia. Programa server/copias/copia.php con cron (ver noteas.md).");
+            } else {
+                const dias = (Date.now() - new Date(ultima.fecha.replace(" ", "T"))) / 86400000;
+                if (dias > 7) {
+                    aviso("La última copia tiene más de una semana: revisa que la tarea programada funcione.");
+                }
+                if (!ultima.cifrada) {
+                    aviso("La última copia no está cifrada y contiene datos de menores. Define INGERIAR_COPIAS_CLAVE en el servidor.");
+                }
+            }
+            const lista = document.createElement("ul");
+            lista.className = "lista-copias";
+            datos.copias.forEach((copia, indice) => {
+                const elemento = document.createElement("li");
+                const texto = document.createElement("span");
+                texto.textContent = copia.fecha + " · " + (copia.tamano / 1048576).toFixed(1) + " MB · " +
+                    (copia.cifrada ? "cifrada" : "sin cifrar");
+                const enlace = document.createElement("a");
+                enlace.className = "boton " + (indice === 0 ? "boton-descargar" : "boton-cancelar");
+                enlace.href = "api/copias.php?accion=descargar&nombre=" + encodeURIComponent(copia.nombre);
+                enlace.textContent = indice === 0 ? "Descargar la última" : "Descargar";
+                elemento.append(texto, enlace);
+                lista.appendChild(elemento);
+            });
+            contenido.appendChild(lista);
+            if (datos.registro.length > 0) {
+                const detalles = document.createElement("details");
+                const resumen = document.createElement("summary");
+                resumen.textContent = "Registro de las últimas ejecuciones";
+                const registro = document.createElement("pre");
+                registro.className = "registro-copias";
+                registro.textContent = datos.registro.join("\n");
+                detalles.append(resumen, registro);
+                contenido.appendChild(detalles);
+            }
+        }).catch((error) => {
+            contenido.textContent = error.message;
+        });
         return bloque;
     }
 

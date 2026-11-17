@@ -66,6 +66,8 @@ ingeriar v3/
 │   │   └── secciones.php            Cálculo de secciones por edad
 │   ├── pruebas/pruebas.php         Pruebas automáticas por HTTP (solo terminal)
 │   ├── pruebas/fotos-ejemplo.php   Fotos de ejemplo para la galería y las facturas
+│   ├── pruebas/pruebas-copias.php  Pruebas de copia, cifrado y restauración (E-12)
+│   ├── copias/                     copia.php (cron) y restaurar.php (E-12)
 │   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
 ├── storage/
 │   ├── documentos/                  Circulares y entregas
@@ -636,6 +638,48 @@ INGERIAR_DB_PASSWORD=... php server/pruebas/pruebas.php http://localhost:8000 --
 
 Solo contra una base de datos de pruebas: el script crea y borra sus propios datos.
 
+### Copias de seguridad (E-12)
+
+`server/copias/copia.php` genera un único `ingeriar-copia-AAAA-MM-DD-HHMMSS.zip` con
+el volcado de la base de datos (`mysqldump`) y toda la carpeta `storage/`
+(documentos, facturas, galería, configuración e inventario).
+
+- La contraseña de MySQL va en un fichero de opciones temporal (0600), nunca en la
+  orden, donde la vería cualquiera con `ps`.
+- Destino: `INGERIAR_COPIAS_DESTINO` (por defecto `copias/` en la raíz del proyecto,
+  fuera de `public/`, con `Require all denied` y fuera del repositorio). Permisos 0600.
+- Cifrado: si existe `INGERIAR_COPIAS_CLAVE`, el zip se cifra con AES-256 (CBC por
+  bloques de 1 MB + HMAC-SHA256, claves con PBKDF2) y queda como `.zip.cifrado`. Sin
+  clave, el registro avisa de que la copia contiene datos de menores sin cifrar.
+- Retención: `INGERIAR_COPIAS_RETENER` (por defecto 10 copias). Bloqueo para que no se
+  ejecuten dos a la vez. Cada ejecución queda en `registro-copias.log`.
+- Configuración → «Copias de seguridad» (`copia.descargar`) lista las copias y las
+  descarga; cada descarga queda en `registro_accesos`. `servicios/salida.php` sigue
+  siendo una exportación en JSON, no una copia de seguridad.
+
+Programarla con cron **con el mismo usuario que Apache** (para que la web pueda leer
+las copias), por ejemplo cada noche a las 3:00:
+
+```bash
+sudo crontab -u www-data -e
+0 3 * * * INGERIAR_DB_PASSWORD=... INGERIAR_COPIAS_CLAVE=... php /var/www/ingeriar/server/copias/copia.php
+```
+
+Restaurar en una base vacía (crear antes la base y dar permisos al usuario de la aplicación):
+
+```bash
+INGERIAR_DB_PASSWORD=... INGERIAR_COPIAS_CLAVE=... \
+  php server/copias/restaurar.php copias/ingeriar-copia-....zip.cifrado --base=ingeriar --confirmar
+```
+
+El script se niega a restaurar sobre una base con tablas o sobre un `storage/` con
+archivos, salvo con `--sobrescribir`. `--storage=<carpeta>` restaura los archivos en
+otra carpeta. Se comprobó una restauración completa con `server/pruebas/pruebas-copias.php`.
+
+Copia externa (paso manual): la carpeta de copias debe copiarse fuera del servidor
+(por ejemplo, a la unidad de Google Drive del grupo) con la periodicidad que decida el
+grupo. Subir solo copias cifradas y guardar la clave en un lugar distinto de las copias.
+
 ## 14. Migraciones para bases antiguas
 
 Añadir las columnas que no existan:
@@ -676,6 +720,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-12)
+
+- E-12: copia de seguridad completa (base de datos y storage) en zip con cifrado
+  AES-256 opcional, retención, bloqueo y registro; restauración probada en una base
+  vacía; descarga desde Configuración. 111 + 8 pruebas superadas.
 
 ### 2026-11-17 (E-04)
 

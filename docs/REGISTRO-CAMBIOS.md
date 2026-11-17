@@ -15,6 +15,43 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-12 · Copia de seguridad de la base de datos y de storage
+- Rama / commit: `feat/E-12-copias` (sale de `feat/E-04-inventario`)
+- Qué se ha hecho: `server/copias/copia.php` (para cron) genera un zip con el volcado de MySQL y toda la carpeta `storage/`,
+  con cifrado AES-256 opcional, permisos 0600, retención de las últimas N copias, bloqueo y registro de cada ejecución.
+  `server/copias/restaurar.php` restaura una copia en una base vacía. En Configuración, «Copias de seguridad» lista y
+  descarga las copias (con registro de accesos); la exportación JSON de `salida.php` se mantiene aparte.
+- Archivos creados o modificados:
+  - Nuevos: `server/copias/comun-copias.php`, `copia.php`, `restaurar.php`; `server/api/copias.php`, `public/api/copias.php`;
+    `server/pruebas/pruebas-copias.php`; `copias/.htaccess`.
+  - `public/nucleo/configuracion.js` y `public/estilo.css` (bloque de copias), `.gitignore` (`copias/*`),
+    `server/pruebas/pruebas.php` (4 pruebas de la API), `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - **Diferencia con el encargo (aviso)**: el encargo pide cifrar el zip con AES. El cifrado AES nativo del formato zip
+    requiere la extensión `php-zip` (ZipArchive), que no está instalada en el equipo del usuario. Se hace así: el zip se crea
+    con `PharData` (incluido en PHP; se abre con cualquier programa) y, si hay clave, el zip completo se cifra con
+    **AES-256-CBC por bloques de 1 MB + HMAC-SHA256** (cifrar y después autenticar) con claves derivadas por PBKDF2
+    (200 000 vueltas). Resultado: `.zip.cifrado`, que se abre con `restaurar.php`. Si se instala `php-zip`, se podría
+    cambiar a zip con AES nativo.
+  - `mysqldump` y `mysql` se lanzan con `proc_open` sin pasar por la shell, y la contraseña va en un fichero de opciones
+    temporal con permisos 0600 (no en la línea de órdenes).
+  - Destino por defecto `copias/` en la raíz (fuera de `public/`, con `Require all denied` y en `.gitignore`), configurable con
+    `INGERIAR_COPIAS_DESTINO`. Cron con el mismo usuario que Apache para que la web pueda leer copias con permisos 0600.
+  - `restaurar.php` no restaura sobre una base con tablas ni sobre un `storage/` con archivos salvo `--sobrescribir`;
+    con una clave incorrecta no toca nada (el HMAC se comprueba antes de descifrar).
+  - La copia externa (Google Drive) queda como paso manual documentado en `noteas.md`.
+- Requisitos que cubre (RF/RNF): RNF-04, RNF-03.
+- Cómo probarlo (pasos):
+  1. `php server/copias/copia.php` → aparece la copia en `copias/` y una línea en `copias/registro-copias.log`.
+  2. Con `INGERIAR_COPIAS_CLAVE=...` → `.zip.cifrado`.
+  3. Crear una base vacía y `php server/copias/restaurar.php <copia> --base=<base> --storage=/tmp/prueba --confirmar`.
+  4. Configuración → «Copias de seguridad»: lista y descarga.
+  5. `php server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar` → 8 de 8; `pruebas.php` → 111 de 111.
+- Impacto en la memoria (apartados que habría que revisar): 2.6 (RNF-04), 3.5, 3.6, 4.4, 4.5 (indicados en el encargo);
+  explicar el cifrado elegido y por qué no es el AES nativo del zip.
+- Pendiente o problemas: programar la tarea con cron en el servidor del grupo y decidir la copia externa. En la instalación
+  local del usuario el cron no está configurado (lo tiene que hacer con sudo).
+
 ## 2026-11-17 · E-04 · Inventario en JSON y listas de material
 - Rama / commit: `feat/E-04-inventario` (sale de `feat/E-02-clases-dominio`)
 - Qué se ha hecho: nueva vista «Inventario» (administrador y monitores) con dos pestañas. «Material y ubicaciones»: árbol

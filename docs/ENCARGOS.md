@@ -167,7 +167,9 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - `servicios/salida.php` se mantiene como exportación en JSON; la copia de seguridad real es la nueva.
 - Aceptación: el script genera el zip con base de datos y archivos; restaurarlo en una base vacía reproduce los datos y los
   archivos; la retención elimina las copias antiguas; el botón solo funciona con permiso; el zip no queda accesible desde la web.
-- Estado: pendiente
+- Nota de implementación: el cifrado AES del propio zip necesita la extensión `php-zip`, que no está instalada; se cifra
+  el zip completo con AES-256 (openssl) y HMAC. Ver el registro de cambios.
+- Estado: hecho (rama `feat/E-12-copias`, pendiente de fusionar)
 
 ## E-13 · Roles y permisos (RBAC)
 - Requisitos: RF-01, RNF-03, RNF-05. Apartados de la memoria afectados: 2.5, 2.6 (RF-01), 3.1, 3.4, 3.9.

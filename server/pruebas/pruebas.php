@@ -968,6 +968,29 @@ try {
         $creadas = count(array_filter($nombres, fn($nombre) => str_starts_with($nombre, 'Prueba paralela ')));
         return $creadas === 10 && array_unique($codigos) === [200] ?: "creadas {$creadas} de 10, códigos " . implode(',', $codigos);
     });
+
+    echo "\nCopias de seguridad desde la web (E-12)\n";
+    require_once __DIR__ . '/../copias/comun-copias.php';
+    $copiaFalsa = carpetaCopias() . '/ingeriar-copia-1999-01-01-000000.zip';
+    file_put_contents($copiaFalsa, 'copia de prueba');
+    try {
+        prueba('COP-01', 'Un monitor no ve las copias de seguridad → 403', fn() => esperar($scouter->get('/api/copias.php?accion=listar'), 403));
+        prueba('COP-02', 'El administrador ve la lista de copias', function () use ($admin) {
+            $respuesta = $admin->get('/api/copias.php?accion=listar');
+            return esperar($respuesta, 200) === true && in_array('ingeriar-copia-1999-01-01-000000.zip',
+                array_column($respuesta['json']['copias'] ?? [], 'nombre'), true) ?: $respuesta['texto'];
+        });
+        prueba('COP-03', 'Un nombre que no es de copia (../) se rechaza → 400', fn() => esperar(
+            $admin->get('/api/copias.php?accion=descargar&nombre=' . urlencode('../server/data/config.php')), 400));
+        prueba('COP-04', 'Descargar una copia queda en el registro de accesos', function () use ($admin, $registros) {
+            $antes = $registros('copia_seguridad', 'admin');
+            $respuesta = $admin->get('/api/copias.php?accion=descargar&nombre=ingeriar-copia-1999-01-01-000000.zip');
+            return esperar($respuesta, 200) === true && $respuesta['texto'] === 'copia de prueba'
+                && $registros('copia_seguridad', 'admin') === $antes + 1 ?: 'sin registro';
+        });
+    } finally {
+        unlink($copiaFalsa);
+    }
 } finally {
     // Inventario: se dejan los ficheros como estaban antes de las pruebas.
     foreach ($copiaInventario as $ruta => $contenido) {
