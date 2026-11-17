@@ -506,10 +506,10 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
 aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
 
-`INGERIAR_DB_PASSWORD` es obligatoria: el código no tiene contraseña por
-defecto para que ninguna credencial quede en el repositorio. Si falta, la
-aplicación muestra un error de configuración. Una contraseña que haya estado
-alguna vez en el repositorio debe considerarse pública y cambiarse.
+Provisionalmente, si Apache no define `INGERIAR_DB_PASSWORD`, `database.php`
+usa la contraseña de desarrollo escrita en el código (decisión del 2026-11-17;
+E-10 queda pendiente). En un servidor real hay que definir la variable y usar
+otra contraseña: la del código es pública.
 
 No se debe usar `root` desde PHP. En Ubuntu puede fallar por autenticación
 `unix_socket`. Si aparece `using password: NO`, Apache no está transmitiendo
@@ -567,6 +567,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-10 revertido)
+
+- Se restauró la contraseña de desarrollo por defecto en `database.php` para seguir
+  accediendo a la instalación local sin configurar Apache. E-10 vuelve a pendiente.
 
 ### 2026-11-17 (E-06)
 

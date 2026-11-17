@@ -15,6 +15,21 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-10 · Reversión: contraseña de desarrollo en el código
+- Rama / commit: `feat/E-06-conservacion` (commit propio después del de E-06)
+- Qué se ha hecho: `database.php` vuelve a usar la contraseña de desarrollo escrita en el código cuando Apache no define
+  `INGERIAR_DB_PASSWORD`. Si la variable existe, tiene prioridad.
+- Archivos creados o modificados: `server/data/database.php`, `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo: decisión del usuario para seguir entrando en su instalación local sin configurar
+  Apache por ahora. Contradice la regla de `CLAUDE.md` de no subir credenciales; se avisó antes de hacerlo. La contraseña
+  ya estaba en el historial público, así que no se expone nada nuevo.
+- Requisitos que cubre (RF/RNF): ninguno; deja RNF-03 como estaba antes de E-10.
+- Cómo probarlo (pasos): sin `SetEnv INGERIAR_DB_PASSWORD`, el login vuelve a funcionar.
+- Impacto en la memoria (apartados que habría que revisar): si la memoria ya describía E-10, indicar que está pendiente.
+- Pendiente o problemas: retomar E-10 (variable de entorno y contraseña nueva). Además, en la instalación local Apache
+  sirve todo `/var/www/html` con `AllowOverride None`, así que `server/` y `storage/` de la copia son accesibles desde
+  el navegador (comprobado). Hay que publicar solo `public/` antes de usar datos reales.
+
 ## 2026-11-17 · E-06 · Bajas, conservación y registro de accesos
 - Rama / commit: `feat/E-06-conservacion` (sale de `feat/E-07-pruebas`)
 - Qué se ha hecho: los educandos tienen `fecha_baja`; al darlos de baja salen de las vistas activas pero se conservan.

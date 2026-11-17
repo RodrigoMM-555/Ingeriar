@@ -39,7 +39,8 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   - **Listas de material** (por ejemplo «Acampada de verano»): a la izquierda lo que hay y dónde; a la derecha lo que se lleva.
     Se pasa la cantidad deseada arrastrando o con un botón. La lista **no descuenta del inventario**: sirve para generar un documento.
   - **Reparto y compras**: si se piden 60 bolígrafos y hay 40 (20 en un almacén y 20 en otro), el documento indica de qué
-    ubicación coger cada cantidad y que hay que comprar 20. También se pueden apuntar a mano cosas que no están en el inventario.
+    ubicación coger cada cantidad y que hay que comprar 20. Decisión del usuario: el monitor elige a mano de qué
+    ubicación coge cada cantidad (no hay reparto automático). También se pueden apuntar a mano cosas que no están en el inventario.
   - **Documento** para imprimir o guardar en PDF y enviarlo al resto de monitores.
   - **Plantillas**: cualquier lista se guarda como plantilla; de una plantilla se crea una lista nueva, se modifica y se
     puede guardar como otra plantilla (versiones).
@@ -94,4 +95,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   Documentar en `noteas.md` que la contraseña de cualquier servidor que la haya usado debe cambiarse (sigue en el historial de git).
 - Revisar el resto del repositorio en busca de claves o datos reales.
 - Aceptación: ninguna credencial en el código; sin la variable de entorno, la aplicación muestra el mensaje de configuración.
-- Estado: hecho (rama `feat/E-10-credenciales`, pendiente de fusionar)
+- Revertido (2026-11-17, decisión del usuario): se vuelve a usar la contraseña de desarrollo escrita en `database.php`
+  cuando Apache no define `INGERIAR_DB_PASSWORD`, para seguir accediendo a la instalación local. Se retomará más adelante.
+  Contradice la regla de `CLAUDE.md` de no subir credenciales; la contraseña ya estaba en el historial público.
+- Estado: pendiente (revertido)
