@@ -9,7 +9,8 @@ class DarkorangeGraficas {
         "#f87917"
     ];
 
-    static crear(contenedor, tipo, etiquetas, valores, titulo = "") {
+    // colores (opcional): paleta propia, por ejemplo los tonos de una sección.
+    static crear(contenedor, tipo, etiquetas, valores, titulo = "", colores = null) {
         const elemento = typeof contenedor === "string"
             ? document.querySelector(contenedor)
             : contenedor;
@@ -48,10 +49,11 @@ class DarkorangeGraficas {
 
         elemento.appendChild(svg);
 
+        const paleta = colores?.length ? colores : this.colores;
         if (tipo === "anillo" || tipo === "tarta") {
-            this.crearGraficaCircular(svg, datos, total, tipo, tooltip);
+            this.crearGraficaCircular(svg, datos, total, tipo, tooltip, paleta);
         } else {
-            this.crearGraficaBarras(svg, datos, total, tooltip);
+            this.crearGraficaBarras(svg, datos, total, tooltip, paleta);
         }
     }
 
@@ -117,7 +119,7 @@ class DarkorangeGraficas {
         });
     }
 
-    static crearGraficaCircular(svg, datos, total, tipo, tooltip) {
+    static crearGraficaCircular(svg, datos, total, tipo, tooltip, paleta = this.colores) {
         let angulo = -Math.PI / 2;
         const centroX = 145;
         const centroY = 128;
@@ -149,7 +151,7 @@ class DarkorangeGraficas {
 
             const figura = this.crearNodo("path", {
                 d: ruta,
-                fill: this.colores[indice % this.colores.length],
+                fill: paleta[indice % paleta.length],
                 stroke: "#fff",
                 "stroke-width": 2,
                 "fill-rule": "evenodd"
@@ -178,7 +180,7 @@ class DarkorangeGraficas {
 
         datos.slice(0, 7).forEach((dato, indice) => {
             const y = 38 + indice * 29;
-            const color = this.colores[indice % this.colores.length];
+            const color = paleta[indice % paleta.length];
             const indicador = this.crearNodo("rect", {
                 x: 275,
                 y: y - 11,
@@ -253,7 +255,7 @@ class DarkorangeGraficas {
         );
     }
 
-    static crearGraficaBarras(svg, datos, total, tooltip) {
+    static crearGraficaBarras(svg, datos, total, tooltip, paleta = this.colores) {
         const maximo = Math.max(...datos.map((dato) => dato.valor), 1);
         const cantidad = Math.min(datos.length, 12);
         const separacion = 9;
@@ -269,7 +271,7 @@ class DarkorangeGraficas {
                 width: ancho,
                 height: alto,
                 rx: 4,
-                fill: this.colores[indice % this.colores.length]
+                fill: paleta[indice % paleta.length]
             });
 
             const etiqueta = this.crearNodo("text", {

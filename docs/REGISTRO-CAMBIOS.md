@@ -15,6 +15,24 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: asistencias del sábado en gráficas por sección
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, la tabla de asistencias del próximo sábado se sustituye por una gráfica de anillo
+  por sección. Cada gráfica usa los tonos del color de su sección, de claro a oscuro: asiste y ha entregado la circular,
+  asiste sin entregarla, no ha respondido y no asiste. Solo para el próximo evento de tipo sábado.
+- Archivos creados o modificados: `server/api/superapi.php` (cuatro grupos por sección y si el sábado lleva circular),
+  `public/nucleo/graficas.js` (parámetro opcional `colores`), `public/nucleo/dashboard.js` (`renderAsistenciasSabado`,
+  `tonosSeccion`, `mezclarColor`, `ordenarSecciones`), `public/estilo.css`, versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo:
+  - Los colores de sección en el CSS son pastel (fondos de tabla); para las gráficas se usa el mismo matiz más intenso y
+    se sacan cuatro tonos mezclando con blanco y negro. Una sección nueva del catálogo usa el color del grupo.
+  - Sin circular, «asiste y entregó» y «asiste sin circular» se juntan en «Asiste» (tres tramos).
+  - Se comprobó el aspecto con una página de prueba y una captura de Firefox sin ventana.
+- Requisitos que cubre (RF/RNF): RF-03, RF-07.
+- Cómo probarlo (pasos): entrar como monitor o administrador: aparecen las gráficas de las secciones convocadas al próximo sábado.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard), gráficas SVG con paleta por sección.
+- Pendiente o problemas: los colores base de las secciones están en `dashboard.js`; si se cambian en el CSS hay que cambiarlos también aquí.
+
 ## 2026-11-17 · Dashboard: bloque «Próximas actividades»
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, el bloque `dashboard-resumen` muestra el próximo sábado, la próxima acampada

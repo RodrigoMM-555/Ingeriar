@@ -256,7 +256,7 @@ switch ($ruta) {
             'graficas' => [],
         ];
         $eventosDashboard = $consultarTodos(
-            "SELECT id, nombre, fecha_inicio, fecha_fin, tipo, lugar
+            "SELECT id, nombre, fecha_inicio, fecha_fin, tipo, lugar, circular
              FROM eventos
              WHERE fecha_fin >= NOW()
              ORDER BY fecha_inicio"
@@ -394,21 +394,36 @@ switch ($ruta) {
                      FROM educandos e WHERE e.fecha_baja IS NULL
                      ORDER BY e.apellidos, e.nombre'
                 );
-                $estados = $consultarTodos(
-                    'SELECT id_educando, estado FROM educandos_asistencias
+                $respuestas = [];
+                foreach ($consultarTodos(
+                    'SELECT id_educando, estado, archivo_entrega FROM educandos_asistencias
                      WHERE id_evento = ?',
                     [$sabado['id']]
-                );
-                $estadosPorEducando = array_column($estados, 'estado', 'id_educando');
+                ) as $respuesta) {
+                    $respuestas[(int) $respuesta['id_educando']] = $respuesta;
+                }
+                $sabado['circular'] = (bool) $sabado['circular'];
+                // Por sección (2026-11-17): asiste y ha entregado la circular, asiste sin
+                // entregarla, no ha respondido y no asiste. Sin circular, todos los que
+                // asisten cuentan como «asiste_entregada».
                 foreach ($educandos as $educando) {
-                    $seccion = seccionEducando($db, $educando['naz'] ?? null);
+                    $seccion = seccionEducando($db, $educando['naz'] ?? null) ?: 'sin_seccion';
                     $convocatorias = $convocatoriasDashboard[$sabado['id']] ?? [];
                     if ($convocatorias && !in_array($seccion, $convocatorias, true)) {
                         continue;
                     }
-                    $estado = $estadosPorEducando[$educando['id'] ?? 0] ?? 'pendiente';
-                    $asistenciaSabado[$seccion ?: 'sin_seccion'][$estado] =
-                        ($asistenciaSabado[$seccion ?: 'sin_seccion'][$estado] ?? 0) + 1;
+                    $respuesta = $respuestas[(int) $educando['id']] ?? null;
+                    $estado = $respuesta['estado'] ?? 'pendiente';
+                    $grupo = match (true) {
+                        $estado === 'no' => 'no',
+                        $estado === 'si' && $sabado['circular'] && !$respuesta['archivo_entrega'] => 'asiste_sin_circular',
+                        $estado === 'si' => 'asiste_entregada',
+                        default => 'pendiente',
+                    };
+                    $asistenciaSabado[$seccion] ??= [
+                        'asiste_entregada' => 0, 'asiste_sin_circular' => 0, 'pendiente' => 0, 'no' => 0,
+                    ];
+                    $asistenciaSabado[$seccion][$grupo]++;
                 }
             }
             $datos['asistencias_sabado'] = [

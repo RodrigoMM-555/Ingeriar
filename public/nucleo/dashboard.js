@@ -168,37 +168,96 @@ class IngeriarDashboard {
         return zona;
     }
 
+    // Asistencias del próximo sábado (2026-11-17): una gráfica de anillo por sección con
+    // los tonos de su color, de claro a oscuro: asiste y ha entregado la circular, asiste
+    // sin entregarla, no ha respondido y no asiste.
     renderAsistenciasSabado(datos = {}) {
         const zona = document.createElement("section");
-        zona.className = "dashboard-bloque";
+        zona.className = "dashboard-bloque dashboard-asistencias";
         const titulo = document.createElement("h3");
         titulo.textContent = datos.evento
-            ? `Asistencias: ${datos.evento.nombre}`
+            ? `Asistencias del sábado: ${datos.evento.nombre} (${this.formatearFecha(datos.evento.fecha_inicio)})`
             : "Asistencias del próximo sábado";
         zona.appendChild(titulo);
         if (!datos.evento) {
             const mensaje = document.createElement("p");
-            mensaje.textContent = "No hay un sábado próximo configurado.";
+            mensaje.textContent = "No hay un sábado próximo en el calendario.";
             zona.appendChild(mensaje);
             return zona;
         }
-        const tabla = document.createElement("table");
-        tabla.className = "tabla-dashboard";
-        tabla.innerHTML = "<thead><tr><th>Sección</th><th>Sí</th>" +
-            "<th>No</th><th>Pendientes</th></tr></thead>";
-        const cuerpo = document.createElement("tbody");
-        Object.entries(datos.secciones || {}).forEach(([seccion, estados]) => {
-            const fila = document.createElement("tr");
-            fila.innerHTML = "<td></td><td></td><td></td><td></td>";
-            fila.children[0].textContent = this.nombreSeccion(seccion);
-            fila.children[1].textContent = estados.si || 0;
-            fila.children[2].textContent = estados.no || 0;
-            fila.children[3].textContent = estados.pendiente || 0;
-            cuerpo.appendChild(fila);
+        const conCircular = Boolean(datos.evento.circular);
+        const etiquetas = conCircular
+            ? ["Asiste y entregó", "Asiste, sin circ.", "Sin responder", "No asiste"]
+            : ["Asiste", "Sin responder", "No asiste"];
+        const rejilla = document.createElement("div");
+        rejilla.className = "graficas-secciones";
+        this.ordenarSecciones(Object.keys(datos.secciones || {})).forEach((seccion) => {
+            const grupos = datos.secciones[seccion];
+            const valores = conCircular
+                ? [grupos.asiste_entregada, grupos.asiste_sin_circular, grupos.pendiente, grupos.no]
+                : [grupos.asiste_entregada, grupos.pendiente, grupos.no];
+            const tonos = this.tonosSeccion(seccion);
+            const tarjeta = document.createElement("article");
+            tarjeta.className = "grafica-card vista-superficie";
+            rejilla.appendChild(tarjeta);
+            this.graficas.crear(
+                tarjeta,
+                "anillo",
+                etiquetas,
+                valores,
+                this.nombreSeccion(seccion),
+                conCircular ? tonos : [tonos[0], tonos[2], tonos[3]]
+            );
         });
-        tabla.appendChild(cuerpo);
-        zona.appendChild(tabla);
+        zona.appendChild(rejilla);
         return zona;
+    }
+
+    // Secciones en el orden del catálogo.
+    ordenarSecciones(codigos) {
+        let orden = [];
+        try {
+            orden = JSON.parse(document.documentElement.dataset.secciones || "[]")
+                .map((seccion) => seccion.codigo);
+        } catch (error) {
+            orden = [];
+        }
+        const posicion = (codigo) => orden.includes(codigo) ? orden.indexOf(codigo) : orden.length;
+        return codigos.sort((a, b) => posicion(a) - posicion(b));
+    }
+
+    // Color de cada sección: el mismo matiz que su fondo en las tablas (estilo.css),
+    // más intenso para que se distingan los tonos. Las secciones nuevas usan el del grupo.
+    tonosSeccion(seccion) {
+        const base = {
+            colonia: "#ef6c00",
+            manada: "#f2b705",
+            tropa: "#1e63c6",
+            posta: "#d32f2f",
+            rutas: "#2e7d32"
+        }[seccion] || getComputedStyle(document.documentElement)
+            .getPropertyValue("--color_corporativo").trim() || "#8b0000";
+        // De claro a oscuro: mezcla con blanco y después con negro.
+        return [
+            this.mezclarColor(base, "#ffffff", 0.6),
+            this.mezclarColor(base, "#ffffff", 0.25),
+            base,
+            this.mezclarColor(base, "#000000", 0.45)
+        ];
+    }
+
+    mezclarColor(color, otro, proporcion) {
+        const rgb = (hex) => {
+            const valor = hex.replace("#", "");
+            const completo = valor.length === 3 ? valor.split("").map((c) => c + c).join("") : valor;
+            return [0, 2, 4].map((posicion) => parseInt(completo.substring(posicion, posicion + 2), 16));
+        };
+        const [a, b] = [rgb(color), rgb(otro)];
+        if (a.some(Number.isNaN)) {
+            return color;
+        }
+        return "#" + a.map((componente, indice) => Math.round(componente + (b[indice] - componente) * proporcion)
+            .toString(16).padStart(2, "0")).join("");
     }
 
     renderPanelTutor(datos = {}, eventos = []) {
