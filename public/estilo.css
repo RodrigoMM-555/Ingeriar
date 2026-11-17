@@ -2310,6 +2310,246 @@ tr.fila-baja td{
 }
 
 
+/* ==================== INVENTARIO ==================== */
+
+.pestanas-inventario{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.rejilla-inventario{
+    display:grid;
+    grid-template-columns:minmax(220px,1fr) minmax(0,2fr);
+    gap:16px;
+    align-items:start;
+}
+
+.rejilla-listas,
+.rejilla-editor{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.panel-inventario{
+    display:grid;
+    gap:10px;
+    padding:16px;
+    align-content:start;
+}
+
+.panel-inventario h3{
+    margin:6px 0 0;
+}
+
+.panel-inventario > .boton{
+    justify-self:start;
+}
+
+.ayuda-inventario,
+.nota-material{
+    margin:0;
+    color:var(--color_secundario);
+    font-size:13px;
+}
+
+.arbol-ubicaciones{
+    margin:0;
+    padding-left:16px;
+    list-style:none;
+}
+
+.panel-inventario > .arbol-ubicaciones{
+    padding-left:0;
+}
+
+.nodo-ubicacion{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+    padding:2px 6px;
+    border-radius:6px;
+}
+
+.nodo-ubicacion.activo{
+    background:var(--color_fondo);
+    outline:2px solid var(--color_corporativo);
+}
+
+.nombre-ubicacion{
+    padding:6px 4px;
+    border:0;
+    color:var(--color_texto);
+    background:none;
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.acciones-ubicacion{
+    display:flex;
+    gap:4px;
+}
+
+.boton-mini{
+    min-width:28px;
+    padding:4px 8px;
+    color:var(--color_texto);
+    background:var(--color_fondo);
+    border:1px solid var(--color_borde);
+}
+
+.boton-mini-borrar{
+    color:var(--color_peligro);
+}
+
+.tabla-inventario{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.tabla-inventario th,
+.tabla-inventario td{
+    padding:8px;
+    border-bottom:1px solid var(--color_borde);
+    text-align:left;
+    vertical-align:top;
+}
+
+.lista-existencias{
+    margin:0;
+    padding-left:16px;
+}
+
+.filas-existencias{
+    display:grid;
+    gap:6px;
+    margin-bottom:8px;
+}
+
+.fila-existencia,
+.fila-compra,
+.fila-toma,
+.fila-disponible{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+}
+
+.fila-existencia select{
+    flex:1;
+    min-width:160px;
+}
+
+.campo-cantidad,
+.fila-existencia input[type="number"]{
+    width:80px;
+}
+
+.tarjeta-lista{
+    display:grid;
+    gap:4px;
+    padding:12px;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+}
+
+.tarjeta-lista small{
+    color:var(--color_secundario);
+}
+
+.acciones-lista{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:4px;
+}
+
+.barra-lista{
+    margin-bottom:16px;
+}
+
+.nombre-lista{
+    flex:1;
+    min-width:200px;
+    padding:8px 10px;
+    border:0;
+    border-radius:6px;
+    font:inherit;
+    font-weight:600;
+}
+
+.etiqueta-plantilla{
+    margin:0;
+    padding:4px 10px;
+    border-radius:999px;
+    color:var(--color_corporativo);
+    background:#fff;
+    font-size:13px;
+    font-weight:700;
+}
+
+.bloque-disponible{
+    display:grid;
+    gap:4px;
+    padding:8px 0;
+    border-bottom:1px solid var(--color_borde);
+}
+
+.fila-disponible{
+    justify-content:space-between;
+    padding:4px 8px;
+    border-radius:6px;
+    background:var(--color_fondo);
+    cursor:grab;
+}
+
+.zona-llevamos{
+    min-height:300px;
+}
+
+.linea-lista{
+    display:grid;
+    gap:6px;
+    padding:10px;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+}
+
+.cabecera-linea{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+}
+
+.etiqueta-necesarios{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.resumen-linea{
+    margin:0;
+    color:var(--color_secundario);
+    font-size:13px;
+}
+
+.aviso-stock{
+    color:var(--color_peligro);
+}
+
+@media (max-width:900px){
+    .rejilla-inventario,
+    .rejilla-listas,
+    .rejilla-editor{
+        grid-template-columns:1fr;
+    }
+}
+
+
 /* ==================== RESPONSIVE ==================== */
 
 @media(max-width:900px){

@@ -55,7 +55,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Permisos (decisión del usuario): administrador y scouter gestionan el inventario y las listas; el tutor no tiene acceso.
 - Aceptación: alta, edición y borrado de ubicaciones y material; una lista calcula de dónde coger cada cosa y qué comprar;
   las plantillas se guardan y se reutilizan; el JSON no queda accesible desde la web.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-04-inventario`, pendiente de fusionar)
 
 ## E-05 · Facturas en tablero (sustituye al E-05 anterior, 2026-11-17)
 - Requisitos: RF-05, RF-01, RNF-06. Depende de E-13. Apartados afectados: 2.5, 2.6 (RF-05), 3.1, 3.4, 3.9.

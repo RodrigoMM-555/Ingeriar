@@ -138,7 +138,21 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | MOD-03 | Educando: sección según la edad en la fecha y activo según la baja | RF-02 | Superada | 2026-11-17 |
 | MOD-04 | Evento: un evento sin secciones convoca a todas | RF-03 | Superada | 2026-11-17 |
 
-Resultado: 97 de 97 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos tras la refactorización de E-02
+| INV-01 | Un tutor no accede al inventario → 403 | RF-06, RNF-03 | Superada | 2026-11-17 |
+| INV-02 | Se crea un árbol de ubicaciones | RF-06 | Superada | 2026-11-17 |
+| INV-03 | Un material puede estar en varias ubicaciones | RF-06 | Superada | 2026-11-17 |
+| INV-04 | No se borra una ubicación con otras dentro ni con material (409) | RF-06 | Superada | 2026-11-17 |
+| INV-05 | Una ubicación no se puede mover dentro de sí misma → 400 | RF-06 | Superada | 2026-11-17 |
+| INV-06 | Cantidad negativa → 400 | RF-06 | Superada | 2026-11-17 |
+| INV-07 | Una lista guarda de dónde se coge cada cantidad y no descuenta del inventario | RF-06 | Superada | 2026-11-17 |
+| INV-08 | No se puede coger de un sitio más de lo que hay → 400 | RF-06 | Superada | 2026-11-17 |
+| INV-09 | Una lista se guarda como plantilla y de la plantilla sale una lista nueva | RF-06 | Superada | 2026-11-17 |
+| INV-10 | Diez escrituras simultáneas no pierden ningún dato (bloqueo de fichero) | RF-06, RNF-03 | Superada | 2026-11-17 |
+
+Resultado: 107 de 107 superadas el 2026-11-17 (servidor de PHP con 4 procesos para que las escrituras sean simultáneas).
+El script copia los JSON del inventario al empezar y los restaura al terminar.
+
+Resultado anterior: 97 de 97 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos tras la refactorización de E-02
 (las 93 anteriores sirven para comprobar que el comportamiento no ha cambiado).
 
 Resultado anterior: 93 de 93 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
@@ -193,3 +207,7 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-33 | Administrador | Configuración → «Documentos base y plantillas»: subir la ficha sanitaria | Aparece «Plantilla actual» | RF-04, RF-07 | Pendiente | |
 | MAN-34 | Tutor | Educandos → «Ver documentación»: descargar y subir la ficha sanitaria | Queda «pendiente de revisión»; el dashboard baja el contador | RF-04 | Pendiente | |
 | MAN-35 | Monitor | Revisar ese documento y pedir una corrección | El tutor ve «A corregir» con la observación | RF-04 | Pendiente | |
+| MAN-36 | Monitor | Inventario: crear Trastero › Zona A y Local, y material en ambos | Árbol y tabla con «Dónde está» | RF-06 | Pendiente | |
+| MAN-37 | Monitor | Listas: arrastrar material a la derecha y usar «→» con el teclado | Pide la cantidad; calcula lo que hay que comprar | RF-06, RNF-06 | Pendiente | |
+| MAN-38 | Monitor | «Documento para imprimir» | Material agrupado por ubicación y lista de compras | RF-06 | Pendiente | |
+| MAN-39 | Monitor | Guardar como plantilla y «Usar para una salida» | Se crea la lista con el contenido de la plantilla | RF-06 | Pendiente | |

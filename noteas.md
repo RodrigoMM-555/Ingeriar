@@ -37,6 +37,7 @@ ingeriar v3/
 │   │   ├── galeria.js              Galería de fotos por ronda y tipo de evento
 │   │   ├── facturas.js             Facturas en tablero (pendientes, revisadas, pagadas)
 │   │   ├── documentos.js           Documentación de inscripción y plantillas
+│   │   ├── inventario.js           Inventario y listas de material
 │   │   ├── dashboard.js            Indicadores y gráficas por rol
 │   │   ├── graficas.js             Gráficas SVG sin librerías externas
 │   │   ├── exportacion.js          Exportación de tablas y dashboard
@@ -44,6 +45,7 @@ ingeriar v3/
 │   └── servicios/salida.php        Entrada pública de la copia de seguridad
 ├── server/
 │   ├── dominio/                    Clases Modelo, Educando, Evento, Factura, Usuario (E-02)
+│   │                               y AlmacenJson (inventario en JSON, E-04)
 │   ├── api/
 │   │   ├── login.php               Inicio de sesión
 │   │   ├── logout.php              Cierre de sesión
@@ -52,6 +54,7 @@ ingeriar v3/
 │   │   ├── galeria.php             Fotos de la galería (listar, ver, subir, borrar)
 │   │   ├── facturas.php            Facturas: listar, imagen, crear, editar, borrar, estado
 │   │   ├── documentos.php          Documentación de inscripción y plantillas
+│   │   ├── inventario.php          Inventario y listas de material (JSON)
 │   │   └── instalar.php            Creación de la base de datos
 │   ├── auth/sesion.php              Sesión y autenticación
 │   ├── data/
@@ -495,6 +498,30 @@ junto con la circular de participación que se adjunta a los eventos.
 - Dashboard: «Documentos pendientes» (tutor) y «Documentos por revisar» (monitor).
 - Bases existentes: `2026-11-documentacion.sql`.
 
+## 10 quinquies. Inventario y listas de material (E-04)
+
+El inventario usa una base documental en ficheros JSON (no MySQL), según `CLAUDE.md`:
+
+```text
+storage/inventario/inventario.json   ubicaciones (árbol con «padre») y materiales con existencias
+storage/inventario/listas.json       listas y plantillas: líneas {material, necesarios, tomas} y compras
+```
+
+- `server/dominio/AlmacenJson.php` lee con bloqueo compartido y modifica con bloqueo
+  exclusivo (`flock` sobre `.bloqueo`). La escritura es atómica (temporal + `rename`).
+  La validación se hace dentro del bloqueo. Una prueba lanza diez escrituras simultáneas
+  y comprueba que no se pierde ninguna.
+- Ubicaciones en árbol libre (Trastero › Zona A › Estantería 1). No se puede borrar una
+  ubicación con otras dentro o con material, ni mover una dentro de sí misma.
+- Listas: a la izquierda lo que hay y dónde, a la derecha lo que se lleva. Se pasa
+  material arrastrando o con «→»; el monitor elige de qué ubicación coge cada cantidad.
+  A comprar = necesarios − lo que se coge, más las compras de cosas que no hay. La lista
+  no descuenta del inventario. El documento para imprimir agrupa por ubicación.
+- Plantillas: una lista se guarda como plantilla; de una plantilla sale una lista nueva o
+  una versión nueva (se guarda de cuál viene).
+- Permiso `inventario.gestionar` (administrador y monitor). Bases existentes:
+  `2026-11-inventario.sql`. Los JSON se incluyen en la copia de seguridad de `storage/`.
+
 ## 11. Dashboard, gráficas y exportación
 
 El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
@@ -580,7 +607,8 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 9. En bases ya creadas, ejecutar en este orden `server/data/migraciones/2026-11-galeria.sql`,
    `2026-11-bajas-accesos.sql`, `2026-11-roles.sql`, `2026-11-facturas-tablero.sql` y
    `2026-11-claves-foraneas.sql` (crea las claves foráneas que faltan en bases hechas
-   con el instalador antiguo) y `2026-11-documentacion.sql`. Cuando las pruebas pasen,
+   con el instalador antiguo), `2026-11-documentacion.sql` y `2026-11-inventario.sql`.
+   Cuando las pruebas pasen,
    `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
    código funciona antes y después de este último paso.
 
@@ -648,6 +676,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-04)
+
+- E-04: inventario en JSON con árbol de ubicaciones, listas de material (qué coger,
+  de dónde y qué comprar), plantillas con versiones y documento para imprimir.
+  Bloqueo de fichero probado con escrituras simultáneas. 107 pruebas superadas.
 
 ### 2026-11-17 (E-02)
 

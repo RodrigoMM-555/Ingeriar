@@ -43,6 +43,10 @@ const facturas = new IngeriarFacturas({
     utilidades,
     contenedor: "main > section"
 });
+const inventario = new IngeriarInventario({
+    utilidades,
+    contenedor: "main > section"
+});
 
 window.addEventListener("configuracion-actualizada", () => {
     if (vistaActual === "tabla" && tablaActual) {
@@ -124,6 +128,25 @@ function crearEnlaceFacturas() {
     document.querySelector("#entidades").prepend(enlace);
 }
 
+// Inventario y listas de material (E-04), para administradores y monitores.
+function crearEnlaceInventario() {
+    if (!utilidades.tienePermiso("inventario.gestionar")) {
+        return;
+    }
+    let enlace = document.createElement("a");
+    enlace.href = "#";
+    enlace.textContent = "Inventario";
+    enlace.onclick = function (evento) {
+        evento.preventDefault();
+        marcarEnlaceActivo(enlace);
+        vistaActual = "inventario";
+        inventario.cargar().catch((error) => {
+            document.querySelector("main > section").textContent = error.message;
+        });
+    };
+    document.querySelector("#entidades").prepend(enlace);
+}
+
 function cargarModulos() {
     utilidades.obtenerJson("api/superapi.php?ruta=modulos")
         .then(function (datos) {
@@ -183,6 +206,7 @@ function cargarEntidades() {
             });
 
             if (datos.length > 0) {
+                crearEnlaceInventario();
                 crearEnlaceFacturas();
                 crearEnlaceGaleria();
                 crearEnlaceCalendario();

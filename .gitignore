@@ -6,6 +6,8 @@ storage/facturas/*
 !storage/facturas/.gitkeep
 storage/configuracion/*
 !storage/configuracion/.gitkeep
+storage/inventario/*
+!storage/inventario/.gitkeep
 storage/documentos/*
 !storage/documentos/.gitkeep
 !storage/documentos/biblioteca/

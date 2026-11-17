@@ -15,6 +15,40 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-04 · Inventario en JSON y listas de material
+- Rama / commit: `feat/E-04-inventario` (sale de `feat/E-02-clases-dominio`)
+- Qué se ha hecho: nueva vista «Inventario» (administrador y monitores) con dos pestañas. «Material y ubicaciones»: árbol
+  libre de ubicaciones y materiales con su cantidad en cada una, buscador y filtro por ubicación. «Listas de material»: a la
+  izquierda lo que hay y dónde, a la derecha lo que se lleva; se arrastra o se usa «→»; el monitor elige de qué ubicación coge
+  cada cantidad; se calcula lo que hay que comprar; documento para imprimir; plantillas reutilizables con versiones.
+- Archivos creados o modificados:
+  - Nuevos: `server/dominio/AlmacenJson.php`, `server/api/inventario.php`, `public/api/inventario.php`, `public/nucleo/inventario.js`,
+    `server/data/migraciones/2026-11-inventario.sql`, `storage/inventario/.gitkeep`.
+  - `codigo.js`, `index.html`, `estilo.css` (sección «INVENTARIO»), `schema.sql` y `semillas/roles-permisos.sql`
+    (permiso `inventario.gestionar`), `.gitignore`, `server/pruebas/pruebas.php` (10 pruebas), `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Base documental en JSON, como fija `CLAUDE.md` para el inventario (RA1 y RA5 de Acceso a datos): un documento para el
+    inventario y otro para las listas. Las ubicaciones se guardan como lista plana con «padre» (árbol) para poder moverlas
+    sin reescribir subárboles.
+  - Concurrencia: `flock` compartido para leer y exclusivo para modificar, con la validación dentro del bloqueo; escritura
+    atómica con fichero temporal y `rename`. Comprobado con diez escrituras simultáneas (INV-10).
+  - Decisiones del usuario: la lista no descuenta del inventario; el monitor elige de dónde coge cada cantidad; lo que falta
+    se apunta como compra; acceso para administradores y monitores (no tutores).
+  - Cada línea guarda también el nombre del material para que una lista antigua se lea aunque el material se borre.
+  - El documento se genera en una ventana aparte con su propio estilo de impresión (se puede guardar como PDF).
+- Requisitos que cubre (RF/RNF): RF-06, RNF-03, RNF-06.
+- Cómo probarlo (pasos):
+  1. Ejecutar `2026-11-inventario.sql` (añade el permiso).
+  2. Inventario → crear ubicaciones y material. Listas → nueva lista, pasar material, ajustar necesarios, añadir compras,
+     «Documento para imprimir», «Guardar como plantilla» y «Usar para una salida».
+  3. `php server/pruebas/pruebas.php <url> --confirmar` → 107 de 107.
+- Impacto en la memoria (apartados que habría que revisar): RF-06, modelo de datos (documentos JSON), acceso a datos
+  (base documental y bloqueo de ficheros), plan de pruebas.
+- Pendiente o problemas:
+  - La interfaz no se ha visto en un navegador desde aquí (MAN-36 a MAN-39).
+  - En la instalación local del usuario `storage/` es accesible desde la web porque Apache sirve toda la carpeta del
+    proyecto con `AllowOverride None` (anotado en E-10): habrá que corregirlo antes de usar datos reales.
+
 ## 2026-11-17 · E-02 · Capa de clases de dominio (mapeo objeto-relacional)
 - Rama / commit: `feat/E-02-clases-dominio` (sale de `feat/E-14-documentacion`)
 - Qué se ha hecho: nuevas clases en `server/dominio/`. `Modelo` es una clase abstracta que mapea filas de la base de datos

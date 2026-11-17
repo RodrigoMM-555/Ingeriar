@@ -71,6 +71,39 @@ class ClienteHttp
         return $this->peticion($ruta, json_encode($datos), ['Content-Type: application/json']);
     }
 
+    // Envía varias peticiones POST con JSON a la vez (para probar escrituras simultáneas).
+    public function jsonEnParalelo(string $ruta, array $cuerpos): array
+    {
+        $multi = curl_multi_init();
+        $manejadores = [];
+        foreach ($cuerpos as $cuerpo) {
+            $curl = curl_init($this->base . $ruta);
+            curl_setopt_array($curl, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_COOKIEFILE => $this->cookies,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($cuerpo),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_TIMEOUT => 20,
+            ]);
+            curl_multi_add_handle($multi, $curl);
+            $manejadores[] = $curl;
+        }
+        do {
+            $estado = curl_multi_exec($multi, $activas);
+            if ($activas) {
+                curl_multi_select($multi);
+            }
+        } while ($activas && $estado === CURLM_OK);
+        $codigos = [];
+        foreach ($manejadores as $curl) {
+            $codigos[] = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+            curl_multi_remove_handle($multi, $curl);
+        }
+        curl_multi_close($multi);
+        return $codigos;
+    }
+
     public function iniciarSesion(string $email): int
     {
         return $this->json('/api/login.php', [
@@ -310,6 +343,13 @@ function crearEvento(PDO $db, string $nombre, ?string $seccion, string $fecha = 
 }
 
 limpiarDatosPrueba($db);
+// El inventario (E-04) está en ficheros JSON: se copian para restaurarlos al terminar.
+$carpetaInventario = __DIR__ . '/../../storage/inventario';
+$copiaInventario = [];
+foreach (['inventario', 'listas'] as $documentoJson) {
+    $ruta = "{$carpetaInventario}/{$documentoJson}.json";
+    $copiaInventario[$ruta] = is_file($ruta) ? file_get_contents($ruta) : null;
+}
 $imagen = tempnam(sys_get_temp_dir(), 'ingeriar-png-');
 $falsa = tempnam(sys_get_temp_dir(), 'ingeriar-falsa-');
 crearPng($imagen);
@@ -845,7 +885,100 @@ try {
     });
     prueba('MOD-04', 'Evento: un evento sin secciones convoca a todas', fn() => Evento::convocaA([], ['tropa'])
         && Evento::convocaA(['tropa', 'posta'], ['tropa']) && !Evento::convocaA(['colonia'], ['tropa']) ?: 'regla incorrecta');
+
+    echo "\nInventario y listas de material (E-04)\n";
+    $inventarioApi = fn(ClienteHttp $cliente, string $accion, array $datos = []) =>
+        $cliente->json('/api/inventario.php?accion=' . $accion, $datos);
+    $datosInventario = fn() => $admin->get('/api/inventario.php?accion=datos')['json'] ?? [];
+    $idUbicacion = function (string $nombre) use ($datosInventario): ?string {
+        foreach ($datosInventario()['inventario']['ubicaciones'] ?? [] as $ubicacion) {
+            if ($ubicacion['nombre'] === $nombre) {
+                return $ubicacion['id'];
+            }
+        }
+        return null;
+    };
+    prueba('INV-01', 'Un tutor no accede al inventario → 403', fn() => esperar($tutor->get('/api/inventario.php?accion=datos'), 403));
+    prueba('INV-02', 'Se crea un árbol de ubicaciones (Trastero › Zona A, Local)', function () use ($inventarioApi, $scouter, $idUbicacion) {
+        $inventarioApi($scouter, 'guardar_ubicacion', ['nombre' => 'Prueba Trastero']);
+        $inventarioApi($scouter, 'guardar_ubicacion', ['nombre' => 'Prueba Zona A', 'padre' => $idUbicacion('Prueba Trastero')]);
+        $inventarioApi($scouter, 'guardar_ubicacion', ['nombre' => 'Prueba Local']);
+        return $idUbicacion('Prueba Zona A') && $idUbicacion('Prueba Local') ?: 'faltan ubicaciones';
+    });
+    prueba('INV-03', 'Un material puede estar en varias ubicaciones', function () use ($inventarioApi, $scouter, $idUbicacion, $datosInventario) {
+        $respuesta = $inventarioApi($scouter, 'guardar_material', ['nombre' => 'Prueba bolígrafos', 'unidad' => 'uds', 'existencias' => [
+            ['ubicacion' => $idUbicacion('Prueba Zona A'), 'cantidad' => 20],
+            ['ubicacion' => $idUbicacion('Prueba Local'), 'cantidad' => 20],
+        ]]);
+        $material = array_values(array_filter($datosInventario()['inventario']['materiales'] ?? [], fn($m) => $m['nombre'] === 'Prueba bolígrafos'))[0] ?? null;
+        return esperar($respuesta, 200) === true && $material && array_sum(array_column($material['existencias'], 'cantidad')) === 40
+            ?: json_encode($material ?: $respuesta['texto']);
+    });
+    prueba('INV-04', 'No se borra una ubicación con otras dentro ni con material (409)', function () use ($inventarioApi, $scouter, $idUbicacion) {
+        $conHijas = $inventarioApi($scouter, 'borrar_ubicacion', ['id' => $idUbicacion('Prueba Trastero')])['codigo'];
+        $conMaterial = $inventarioApi($scouter, 'borrar_ubicacion', ['id' => $idUbicacion('Prueba Local')])['codigo'];
+        return $conHijas === 409 && $conMaterial === 409 ?: "con hijas {$conHijas}, con material {$conMaterial}";
+    });
+    prueba('INV-05', 'Una ubicación no se puede mover dentro de sí misma → 400', fn() => esperar($inventarioApi($scouter, 'guardar_ubicacion', [
+        'id' => $idUbicacion('Prueba Trastero'), 'nombre' => 'Prueba Trastero', 'padre' => $idUbicacion('Prueba Zona A'),
+    ]), 400));
+    prueba('INV-06', 'Cantidad negativa → 400', fn() => esperar($inventarioApi($scouter, 'guardar_material', [
+        'nombre' => 'Prueba negativa', 'existencias' => [['ubicacion' => $idUbicacion('Prueba Local'), 'cantidad' => -3]],
+    ]), 400));
+    $idMaterial = function () use ($datosInventario): ?string {
+        foreach ($datosInventario()['inventario']['materiales'] ?? [] as $material) {
+            if ($material['nombre'] === 'Prueba bolígrafos') {
+                return $material['id'];
+            }
+        }
+        return null;
+    };
+    prueba('INV-07', 'Una lista guarda de dónde se coge cada cantidad y no descuenta del inventario', function () use ($inventarioApi, $scouter, $idUbicacion, $idMaterial, $datosInventario) {
+        $respuesta = $inventarioApi($scouter, 'guardar_lista', ['nombre' => 'Prueba acampada', 'lineas' => [[
+            'material' => $idMaterial(), 'necesarios' => 60, 'tomas' => [
+                ['ubicacion' => $idUbicacion('Prueba Zona A'), 'cantidad' => 20],
+                ['ubicacion' => $idUbicacion('Prueba Local'), 'cantidad' => 20],
+            ],
+        ]], 'compras' => [['nombre' => 'Prueba pilas', 'cantidad' => 8]]]);
+        $lista = array_values(array_filter($datosInventario()['listas'] ?? [], fn($l) => $l['nombre'] === 'Prueba acampada'))[0] ?? null;
+        $material = array_values(array_filter($datosInventario()['inventario']['materiales'], fn($m) => $m['nombre'] === 'Prueba bolígrafos'))[0];
+        return esperar($respuesta, 200) === true && $lista && $lista['lineas'][0]['necesarios'] === 60
+            && count($lista['lineas'][0]['tomas']) === 2 && array_sum(array_column($material['existencias'], 'cantidad')) === 40
+            ?: json_encode($lista ?: $respuesta['texto']);
+    });
+    prueba('INV-08', 'No se puede coger de un sitio más de lo que hay → 400', fn() => esperar($inventarioApi($scouter, 'guardar_lista', [
+        'nombre' => 'Prueba excesiva', 'lineas' => [[
+            'material' => $idMaterial(), 'necesarios' => 30, 'tomas' => [['ubicacion' => $idUbicacion('Prueba Local'), 'cantidad' => 30]],
+        ]],
+    ]), 400));
+    prueba('INV-09', 'Una lista se guarda como plantilla y de la plantilla sale una lista nueva', function () use ($inventarioApi, $scouter, $datosInventario) {
+        $origen = array_values(array_filter($datosInventario()['listas'], fn($l) => $l['nombre'] === 'Prueba acampada'))[0];
+        $plantilla = $inventarioApi($scouter, 'copiar_lista', ['id' => $origen['id'], 'nombre' => 'Prueba plantilla', 'es_plantilla' => true]);
+        $nueva = $inventarioApi($scouter, 'copiar_lista', ['id' => $plantilla['json']['id'] ?? '', 'nombre' => 'Prueba acampada 2027', 'es_plantilla' => false]);
+        $listas = array_column($datosInventario()['listas'], null, 'id');
+        $creada = $listas[$nueva['json']['id'] ?? ''] ?? null;
+        return $creada && !$creada['es_plantilla'] && $creada['origen'] === ($plantilla['json']['id'] ?? null)
+            && ($listas[$plantilla['json']['id']]['es_plantilla'] ?? false) && count($creada['lineas']) === 1
+            ?: json_encode($creada);
+    });
+    prueba('INV-10', 'Diez escrituras simultáneas no pierden ningún dato (bloqueo de fichero)', function () use ($scouter, $datosInventario) {
+        $cuerpos = array_map(fn($i) => ['nombre' => 'Prueba paralela ' . $i], range(1, 10));
+        $codigos = $scouter->jsonEnParalelo('/api/inventario.php?accion=guardar_ubicacion', $cuerpos);
+        $nombres = array_column($datosInventario()['inventario']['ubicaciones'], 'nombre');
+        $creadas = count(array_filter($nombres, fn($nombre) => str_starts_with($nombre, 'Prueba paralela ')));
+        return $creadas === 10 && array_unique($codigos) === [200] ?: "creadas {$creadas} de 10, códigos " . implode(',', $codigos);
+    });
 } finally {
+    // Inventario: se dejan los ficheros como estaban antes de las pruebas.
+    foreach ($copiaInventario as $ruta => $contenido) {
+        if ($contenido === null) {
+            if (is_file($ruta)) {
+                unlink($ruta);
+            }
+        } else {
+            file_put_contents($ruta, $contenido);
+        }
+    }
     limpiarDatosPrueba($db);
     unlink($imagen);
     unlink($falsa);
