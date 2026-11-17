@@ -2585,6 +2585,115 @@ tr.fila-baja td{
 }
 
 
+/* ==================== INSTALADOR ==================== */
+
+.pagina-instalador{
+    background:var(--color_fondo);
+}
+
+.instalador{
+    display:block;
+    max-width:1100px;
+    margin:0 auto;
+    padding:24px 16px 48px;
+}
+
+.pasos-instalador{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:0 0 16px;
+    padding:0;
+    list-style:none;
+    counter-reset:paso;
+}
+
+.pasos-instalador li{
+    padding:6px 12px;
+    border-radius:999px;
+    color:var(--color_secundario);
+    background:var(--color_superficie);
+    border:1px solid var(--color_borde);
+    counter-increment:paso;
+}
+
+.pasos-instalador li::before{
+    content:counter(paso) ". ";
+}
+
+.pasos-instalador li.activo{
+    color:#fff;
+    background:var(--color_corporativo);
+}
+
+.pasos-instalador li.hecho{
+    color:var(--color_texto);
+}
+
+.paso-instalador{
+    padding:24px;
+}
+
+.paso-instalador fieldset{
+    margin:12px 0;
+    padding:12px 16px;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+}
+
+.opcion-instalador{
+    display:block;
+    margin:6px 0;
+}
+
+.herramientas-instalador,
+.navegacion-instalador,
+.fila-instalador{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+    margin:12px 0;
+}
+
+.navegacion-instalador{
+    justify-content:space-between;
+    margin-top:24px;
+}
+
+.tabla-instalador{
+    margin:8px 0;
+    padding:8px 12px;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+    background:var(--color_superficie);
+}
+
+.tabla-instalador summary{
+    font-weight:600;
+    cursor:pointer;
+}
+
+.tabla-columnas input[type="text"],
+.tabla-columnas input:not([type]){
+    width:110px;
+}
+
+.sql-instalador{
+    max-height:420px;
+    overflow:auto;
+    padding:12px;
+    border-radius:8px;
+    background:var(--color_fondo);
+    font-size:12px;
+    white-space:pre-wrap;
+}
+
+.resultado-instalador{
+    margin-top:16px;
+}
+
+
 /* ==================== RESPONSIVE ==================== */
 
 @media(max-width:900px){

@@ -1,53 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Instalador de Ingeriar</title>
+    <link rel="stylesheet" href="estilo.css">
 </head>
-<body>
-    <h1>Instalador</h1>
-    <p>
-        Solo funciona en una instalación nueva (sin usuarios). Si la aplicación ya
-        está en uso, hay que haber iniciado sesión como administrador.
-    </p>
-    <p>
-        Escribe una tabla sin guion y sus campos con el formato
-        <code>- nombre TIPO RESTRICCIONES</code>.
-    </p>
-    <p>
-        Ejemplo: <code>- email TEXT NOT NULL UNIQUE</code>.
-        Si no indicas tipo, se utilizará <code>TEXT</code>.
-    </p>
-    <form action="api/instalar.php" method="POST">
-        <label for="modelo">Modelo de datos</label>
-        <br>
-        <textarea name="modelo" id="modelo" rows="20" cols="80" required></textarea>
-        <br>
-        <fieldset>
-            <legend>Primer administrador (opcional)</legend>
-            <p>
-                Solo se crea si la tabla <code>usuarios</code> está vacía.
-                Déjalo en blanco para crear únicamente las tablas.
-            </p>
-            <label for="admin_nombre">Nombre</label>
-            <input type="text" name="admin_nombre" id="admin_nombre" maxlength="100">
-            <br>
-            <label for="admin_apellidos">Apellidos</label>
-            <input type="text" name="admin_apellidos" id="admin_apellidos" maxlength="150">
-            <br>
-            <label for="admin_email">Email</label>
-            <input type="email" name="admin_email" id="admin_email" maxlength="254">
-            <br>
-            <label for="admin_telefono">Teléfono</label>
-            <input type="tel" name="admin_telefono" id="admin_telefono" maxlength="20">
-            <br>
-            <label for="admin_contrasena">Contraseña</label>
-            <input type="password" name="admin_contrasena" id="admin_contrasena"
-                minlength="8" autocomplete="new-password">
-            <small>Mínimo 8 caracteres, con al menos un número o un carácter especial.</small>
-        </fieldset>
-        <br>
-        <button type="submit">Crear base de datos</button>
-    </form>
+<body class="pagina-instalador">
+    <main class="instalador">
+        <h1>Instalador de Ingeriar</h1>
+        <p id="estado-instalador">Comprobando el estado de la instalación…</p>
+        <ol class="pasos-instalador" id="pasos-instalador" aria-label="Pasos de la instalación"></ol>
+        <section id="paso-instalador" class="vista-superficie paso-instalador" aria-live="polite"></section>
+    </main>
+    <script src="instalador.js"></script>
 </body>
 </html>

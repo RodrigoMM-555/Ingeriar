@@ -1,0 +1,1293 @@
+{
+    "tablas": [
+        {
+            "nombre": "categorias_factura",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "activo",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "orden",
+                    "tipo": "SMALLINT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": "0"
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "documentos_base",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 150
+                },
+                {
+                    "nombre": "tipo",
+                    "tipo": "ENUM",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "inscripcion",
+                    "valores": [
+                        "participacion",
+                        "inscripcion"
+                    ]
+                },
+                {
+                    "nombre": "archivo_plantilla",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "obligatorio",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "activo",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "orden",
+                    "tipo": "SMALLINT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": "0"
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "documentos_educando",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_educando",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "codigo_documento",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "archivo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "subido_por",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha_subida",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "CURRENT_TIMESTAMP"
+                },
+                {
+                    "nombre": "estado",
+                    "tipo": "ENUM",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "pendiente",
+                    "valores": [
+                        "pendiente",
+                        "revisado",
+                        "corregir"
+                    ]
+                },
+                {
+                    "nombre": "observaciones",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "revisado_por",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "revisado_en",
+                    "tipo": "DATETIME",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "id_educando",
+                    "codigo_documento"
+                ]
+            ],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_educando",
+                    "tabla": "educandos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "codigo_documento",
+                    "tabla": "documentos_base",
+                    "referencia": "codigo",
+                    "al_borrar": "RESTRICT",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "subido_por",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "revisado_por",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "educandos",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "apellidos",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 150
+                },
+                {
+                    "nombre": "DNI",
+                    "tipo": "CHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 9
+                },
+                {
+                    "nombre": "naz",
+                    "tipo": "DATE",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha_baja",
+                    "tipo": "DATE",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "DNI"
+                ]
+            ],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "educandos_asistencias",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_educando",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_evento",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "estado",
+                    "tipo": "ENUM",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "pendiente",
+                    "valores": [
+                        "pendiente",
+                        "si",
+                        "no"
+                    ]
+                },
+                {
+                    "nombre": "archivo_entrega",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "id_educando",
+                    "id_evento"
+                ]
+            ],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_educando",
+                    "tabla": "educandos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "id_evento",
+                    "tabla": "eventos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "eventos",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 150
+                },
+                {
+                    "nombre": "fecha_inicio",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha_fin",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_responsable",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "lugar",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 150
+                },
+                {
+                    "nombre": "municipio",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "comunidad",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "tipo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "circular",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": false
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_responsable",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "eventos_secciones",
+            "columnas": [
+                {
+                    "nombre": "id_evento",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "seccion",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                }
+            ],
+            "clave_primaria": [
+                "id_evento",
+                "seccion"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_evento",
+                    "tabla": "eventos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "facturas",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "responsable_id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "numero_fact",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "CIF_prov",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 20
+                },
+                {
+                    "nombre": "fecha_emision",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha_compra",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "concepto",
+                    "tipo": "TEXT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "precio",
+                    "tipo": "DECIMAL",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "precision": 10,
+                    "escala": 2
+                },
+                {
+                    "nombre": "categoria",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "estado",
+                    "tipo": "ENUM",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "pendiente",
+                    "valores": [
+                        "pendiente",
+                        "revisada",
+                        "pagada"
+                    ]
+                },
+                {
+                    "nombre": "imagen_factura",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "estado_cambiado_por",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "estado_cambiado_en",
+                    "tipo": "DATETIME",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "estado_cambiado_por",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": "fk_facturas_estado_cambiado_por"
+                },
+                {
+                    "columna": "responsable_id",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "RESTRICT",
+                    "al_actualizar": "CASCADE",
+                    "nombre": "fk_facturas_responsable"
+                }
+            ]
+        },
+        {
+            "nombre": "galeria_fotos",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_evento",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "archivo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "nombre_original",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "id_usuario",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha_subida",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "CURRENT_TIMESTAMP"
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "archivo"
+                ]
+            ],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_evento",
+                    "tabla": "eventos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "id_usuario",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "permisos",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 60
+                },
+                {
+                    "nombre": "descripcion",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "registro_accesos",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "fecha",
+                    "tipo": "DATETIME",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": "CURRENT_TIMESTAMP"
+                },
+                {
+                    "nombre": "id_usuario",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "usuario_email",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 254
+                },
+                {
+                    "nombre": "accion",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 30
+                },
+                {
+                    "nombre": "recurso",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 30
+                },
+                {
+                    "nombre": "id_educando",
+                    "tipo": "INT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "detalle",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                },
+                {
+                    "nombre": "ip",
+                    "tipo": "VARCHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 45
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [],
+            "indices": [
+                {
+                    "nombre": "indice_registro_fecha",
+                    "columnas": [
+                        "fecha"
+                    ]
+                }
+            ],
+            "foraneas": [
+                {
+                    "columna": "id_usuario",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "id_educando",
+                    "tabla": "educandos",
+                    "referencia": "id",
+                    "al_borrar": "SET NULL",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "roles",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "basico",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": false
+                },
+                {
+                    "nombre": "activo",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "orden",
+                    "tipo": "SMALLINT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": "0"
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "roles_permisos",
+            "columnas": [
+                {
+                    "nombre": "codigo_rol",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "codigo_permiso",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 60
+                }
+            ],
+            "clave_primaria": [
+                "codigo_rol",
+                "codigo_permiso"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "codigo_rol",
+                    "tabla": "roles",
+                    "referencia": "codigo",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "codigo_permiso",
+                    "tabla": "permisos",
+                    "referencia": "codigo",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "secciones",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "edad_minima",
+                    "tipo": "TINYINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "edad_maxima",
+                    "tipo": "TINYINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "activo",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "orden",
+                    "tipo": "SMALLINT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": "0"
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "tipos_evento",
+            "columnas": [
+                {
+                    "nombre": "codigo",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "activo",
+                    "tipo": "BOOLEAN",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": true
+                },
+                {
+                    "nombre": "orden",
+                    "tipo": "SMALLINT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": "0"
+                }
+            ],
+            "clave_primaria": [
+                "codigo"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "usuarios",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "nombre",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 100
+                },
+                {
+                    "nombre": "apellidos",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 150
+                },
+                {
+                    "nombre": "email",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 254
+                },
+                {
+                    "nombre": "telefono",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 20
+                },
+                {
+                    "nombre": "contraseña",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 255
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "email"
+                ],
+                [
+                    "telefono"
+                ]
+            ],
+            "indices": [],
+            "foraneas": []
+        },
+        {
+            "nombre": "usuarios_educandos",
+            "columnas": [
+                {
+                    "nombre": "id",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": true,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_usuario",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "id_educando",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                }
+            ],
+            "clave_primaria": [
+                "id"
+            ],
+            "unicos": [
+                [
+                    "id_usuario",
+                    "id_educando"
+                ]
+            ],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_usuario",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "id_educando",
+                    "tabla": "educandos",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        },
+        {
+            "nombre": "usuarios_roles",
+            "columnas": [
+                {
+                    "nombre": "id_usuario",
+                    "tipo": "INT",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "codigo_rol",
+                    "tipo": "VARCHAR",
+                    "nulo": false,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 50
+                }
+            ],
+            "clave_primaria": [
+                "id_usuario",
+                "codigo_rol"
+            ],
+            "unicos": [],
+            "indices": [],
+            "foraneas": [
+                {
+                    "columna": "id_usuario",
+                    "tabla": "usuarios",
+                    "referencia": "id",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                },
+                {
+                    "columna": "codigo_rol",
+                    "tabla": "roles",
+                    "referencia": "codigo",
+                    "al_borrar": "CASCADE",
+                    "al_actualizar": "CASCADE",
+                    "nombre": null
+                }
+            ]
+        }
+    ]
+}

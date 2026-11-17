@@ -148,7 +148,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   para que no baste con llegar a la URL en una instalación nueva.
 - Aceptación: instalar solo con el asistente deja un esquema equivalente a `schema.sql` (incluidas las claves foráneas y los
   roles); instalar subiendo `schema.sql` funciona; un archivo con DROP se rechaza; en una instalación en uso responde 403; pruebas nuevas.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-11-instalador`, pendiente de fusionar)
 
 ## E-12 · Copia de seguridad de la base de datos y de storage
 - Requisitos: RNF-04, RNF-03. Apartados afectados: 2.6 (RNF-04), 3.5, 3.6, 4.4, 4.5.

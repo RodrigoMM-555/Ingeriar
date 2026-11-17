@@ -15,6 +15,43 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-11 · Instalador interactivo
+- Rama / commit: `feat/E-11-instalador` (sale de `feat/E-12-copias`)
+- Qué se ha hecho: `instalador.html` pasa a ser un asistente en cuatro pasos (base de datos, tablas, datos iniciales y
+  administrador, revisión del SQL e instalación). Las tablas se editan sobre un modelo JSON (tipos, longitudes, ENUM, nulos,
+  valores por defecto, claves, AUTO_INCREMENT, únicos, índices y claves foráneas con ON DELETE / ON UPDATE), que se puede
+  descargar y volver a cargar, o se sube un `schema.sql` validado. Sustituye al formato de texto `modeloDeDatos.txt`.
+- Archivos creados o modificados:
+  - Nuevos: `server/instalacion/ModeloDatos.php`, `server/data/modelo.json`, `server/herramientas/generar-modelo.php`,
+    `server/data/semillas/catalogos.sql`, `public/instalador.js`, `server/pruebas/pruebas-instalador.php`.
+  - `server/api/instalar.php` (reescrito como API JSON), `public/instalador.html`, `public/estilo.css` (sección «INSTALADOR»),
+    `server/pruebas/pruebas.php` (INS-01 e INS-02 con la API nueva), `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+  - Eliminado: `server/data/modeloDeDatos.txt`.
+- Decisiones técnicas y motivo:
+  - El SQL lo genera el servidor a partir del modelo validado (nombres con comillas invertidas, valores con `PDO::quote`):
+    el cliente nunca envía SQL en el modo asistente. Las claves foráneas se crean al final con ALTER TABLE.
+  - `modelo.json` se genera automáticamente desde una base creada con `schema.sql` (`generar-modelo.php`), en lugar de
+    escribirlo a mano, para que el asistente y `schema.sql` no se desincronicen. La prueba INI-05 lo comprueba.
+  - Se corrige lo detectado en E-09: el instalador ya crea las claves foráneas reales, carga los catálogos iniciales y
+    `facturas.categoria` coincide con `schema.sql` (el modelo sale de él).
+  - Subida de `schema.sql`: máximo 1 MB, UTF-8; se divide respetando cadenas y comentarios y se valida entero antes de
+    ejecutar. Se admiten CREATE TABLE, INSERT (también INSERT … SELECT) y ALTER TABLE … ADD; se rechazan DROP, GRANT,
+    REVOKE, LOAD, INTO OUTFILE/DUMPFILE, DELETE, UPDATE, TRUNCATE, procedimientos, etc. CREATE DATABASE y USE se ignoran
+    para instalar siempre en la base configurada.
+  - Transacciones: MySQL confirma cada CREATE TABLE y ALTER TABLE al momento (no se pueden deshacer); por eso se valida todo
+    antes y, si una sentencia falla, se indica cuál. Los datos iniciales y el administrador sí van en una transacción.
+  - Se mantiene el bloqueo de E-09 y se añade el token opcional `INGERIAR_TOKEN_INSTALACION`.
+  - La contraseña de MySQL sigue viniendo de la configuración del servidor (E-10 sigue revertido provisionalmente).
+- Requisitos que cubre (RF/RNF): RNF-05, RNF-06, RNF-03.
+- Cómo probarlo (pasos):
+  1. Crear una base vacía, apuntar a ella con `INGERIAR_DB_NAME` y abrir `instalador.html`: recorrer los cuatro pasos.
+  2. Probar el modo «Subir schema.sql» con `server/data/schema.sql` y con un archivo que tenga `DROP TABLE` (se rechaza).
+  3. `INGERIAR_DB_NAME=<base vacía> php server/pruebas/pruebas-instalador.php <url> --confirmar` → 7 de 7.
+  Probado: 7 de 7 (incluida la equivalencia asistente = schema.sql) y 111 de 111 en la batería general.
+- Impacto en la memoria (apartados que habría que revisar): 3.1, 3.5, 4.4 (indicados en el encargo); instalación y despliegue.
+- Pendiente o problemas: la interfaz del asistente no se ha visto en un navegador desde aquí (MAN-40 y MAN-41). En la instalación
+  local del usuario la aplicación ya está en uso, así que el instalador solo funciona con la sesión de administrador.
+
 ## 2026-11-17 · E-12 · Copia de seguridad de la base de datos y de storage
 - Rama / commit: `feat/E-12-copias` (sale de `feat/E-04-inventario`)
 - Qué se ha hecho: `server/copias/copia.php` (para cron) genera un zip con el volcado de MySQL y toda la carpeta `storage/`,

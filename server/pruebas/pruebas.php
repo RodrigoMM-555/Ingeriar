@@ -486,8 +486,9 @@ try {
     });
 
     echo "\nInstalador\n";
-    prueba('INS-01', 'Instalación en uso, sin sesión → 403', fn() => esperar($anonimo->post('/api/instalar.php', ['modelo' => "x\n- a INT"]), 403));
-    prueba('INS-02', 'Instalación en uso, como tutor → 403', fn() => esperar($tutor->post('/api/instalar.php', ['modelo' => "x\n- a INT"]), 403));
+    $modeloMinimo = ['modelo' => ['tablas' => [['nombre' => 'x', 'clave_primaria' => ['a'], 'columnas' => [['nombre' => 'a', 'tipo' => 'INT']]]]]];
+    prueba('INS-01', 'Instalación en uso, sin sesión → 403', fn() => esperar($anonimo->json('/api/instalar.php?accion=instalar', $modeloMinimo), 403));
+    prueba('INS-02', 'Instalación en uso, como tutor → 403', fn() => esperar($tutor->json('/api/instalar.php?accion=instalar', $modeloMinimo), 403));
 
     echo "\nGalería\n";
     $subir = fn(ClienteHttp $cliente, int $evento, string $archivo, string $nombre) => $cliente->post(

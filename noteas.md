@@ -24,7 +24,7 @@ ingeriar v3/
 │   ├── index.html                  Aplicación principal
 │   ├── login.html                  Pantalla de acceso
 │   ├── login.js                    Envío del inicio de sesión
-│   ├── instalador.html             Formulario del instalador
+│   ├── instalador.html             Instalador interactivo (con instalador.js)
 │   ├── codigo.js                   Inicialización y navegación
 │   ├── estilo.css                  Estilos comunes de toda la aplicación
 │   ├── api/                        Entradas públicas que delegan en server/api
@@ -61,13 +61,17 @@ ingeriar v3/
 │   │   ├── database.php             Conexión PDO
 │   │   ├── schema.sql               Esquema MySQL completo
 │   │   ├── demo.sql                 Datos de prueba
-│   │   ├── modeloDeDatos.txt        Modelo usado por el instalador
+│   │   ├── modelo.json              Modelo del instalador (generado desde schema.sql)
+│   │   ├── semillas/                Datos iniciales: catálogos, cargos, documentos base
 │   │   ├── config.php               Configuración del grupo
 │   │   └── secciones.php            Cálculo de secciones por edad
 │   ├── pruebas/pruebas.php         Pruebas automáticas por HTTP (solo terminal)
 │   ├── pruebas/fotos-ejemplo.php   Fotos de ejemplo para la galería y las facturas
 │   ├── pruebas/pruebas-copias.php  Pruebas de copia, cifrado y restauración (E-12)
 │   ├── copias/                     copia.php (cron) y restaurar.php (E-12)
+│   ├── instalacion/ModeloDatos.php Modelo y generación de SQL del instalador (E-11)
+│   ├── herramientas/generar-modelo.php  Genera modelo.json desde una base
+│   ├── pruebas/pruebas-instalador.php   Pruebas del instalador (E-11)
 │   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
 ├── storage/
 │   ├── documentos/                  Circulares y entregas
@@ -592,16 +596,15 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 ```
 
 3. Configurar `public/` como `DocumentRoot`.
-4. Ejecutar el esquema o usar el instalador con `modeloDeDatos.txt`. El
-   instalador puede crear además el primer administrador; solo lo hace si la
-   tabla `usuarios` está vacía. Una vez que hay usuarios, el instalador
-   responde 403 salvo a un administrador con la sesión iniciada. El instalador
-   no carga los valores iniciales de los catálogos: para eso, usar `schema.sql`.
+4. Crear las tablas con el instalador (`instalador.html`, ver «Instalador» más
+   abajo) o ejecutando `schema.sql`. El instalador puede crear además el primer
+   administrador si la tabla `usuarios` está vacía. Una vez que hay usuarios
+   responde 403 salvo a un administrador con la sesión iniciada.
 5. Cargar `demo.sql` si se necesitan datos de prueba. La contraseña de cada
    usuario de prueba es `ingeriar-<numero>` (por ejemplo, `usuario1@ingeriar.test`
    / `ingeriar-1`).
-6. Comprobar que existe la carpeta `storage/documentos/biblioteca/` y la
-   circular fija.
+6. Subir las plantillas en blanco (Configuración → «Documentos base y
+   plantillas»), incluida la circular de participación de los eventos.
 7. Dar permisos de escritura al servidor web sobre `storage/documentos/`,
    `storage/facturas/`, `storage/galeria/` y `storage/configuracion/`.
 8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
@@ -637,6 +640,36 @@ INGERIAR_DB_PASSWORD=... php server/pruebas/pruebas.php http://localhost:8000 --
 ```
 
 Solo contra una base de datos de pruebas: el script crea y borra sus propios datos.
+
+### Instalador (E-11)
+
+`instalador.html` es un asistente en cuatro pasos:
+
+1. Base de datos: se instala en la base configurada en el servidor
+   (`INGERIAR_DB_NAME`); la contraseña de MySQL nunca se escribe en el formulario.
+   Si existe `INGERIAR_TOKEN_INSTALACION`, hay que escribir ese token.
+2. Tablas, de dos formas:
+   - Asistente: carga el modelo de Ingeriar (`server/data/modelo.json`) y permite
+     cambiar tablas y columnas (tipo, longitud, valores de ENUM, nulo, valor por
+     defecto, clave primaria, AUTO_INCREMENT, único, sin signo), índices únicos de
+     varias columnas y claves foráneas con ON DELETE / ON UPDATE. El modelo se puede
+     descargar y volver a cargar en JSON.
+   - Subir un `schema.sql`: solo se admiten CREATE TABLE, INSERT y ALTER TABLE … ADD
+     (se rechazan DROP, GRANT, LOAD, INTO OUTFILE…); CREATE DATABASE y USE se ignoran.
+3. Datos iniciales (catálogos, cargos y permisos, documentos base; archivos de
+   `server/data/semillas/`) y primer administrador.
+4. Vista previa del SQL (se puede descargar como `schema.sql`) e instalación.
+
+El SQL lo genera siempre el servidor (`server/instalacion/ModeloDatos.php`) a partir
+del modelo validado; los nombres van entre comillas invertidas y los valores
+escapados. Primero se crean las tablas y después las claves foráneas. MySQL confirma
+cada CREATE TABLE al momento, así que si una sentencia falla se indica cuál; los
+datos iniciales y el administrador sí van en una transacción.
+
+`modelo.json` se genera desde una base creada con `schema.sql`:
+`INGERIAR_DB_NAME=<base> php server/herramientas/generar-modelo.php`. Hay que
+regenerarlo cuando cambie `schema.sql`. La prueba INI-05 comprueba que instalar con el
+asistente deja exactamente el mismo esquema y datos iniciales que `schema.sql`.
 
 ### Copias de seguridad (E-12)
 
@@ -720,6 +753,13 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-11)
+
+- E-11: instalador interactivo en cuatro pasos con modelo JSON (sustituye a
+  `modeloDeDatos.txt`), claves foráneas reales, datos iniciales, vista previa del SQL,
+  subida validada de `schema.sql` y token de instalación opcional. Comprobado que el
+  asistente deja el mismo esquema que `schema.sql`.
 
 ### 2026-11-17 (E-12)
 

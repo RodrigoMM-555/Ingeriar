@@ -1,238 +1,280 @@
 <?php
 
+// Instalador interactivo (E-11). API JSON que usa public/instalador.js.
+// Rutas (?accion=):
+//   estado        GET   base configurada, si está en uso y si hace falta token
+//   modelo        GET   modelo de Ingeriar (server/data/modelo.json)
+//   vista_previa  POST  {modelo}                    SQL que se ejecutaría
+//   instalar      POST  {modelo, semillas, administrador, token}
+//   instalar_sql  POST  multipart: archivo schema.sql, semillas[], administrador[...], token
+//
+// Seguridad:
+//   - Instalación en uso (hay usuarios): solo con una sesión con configuracion.gestionar (E-09).
+//   - Si existe INGERIAR_TOKEN_INSTALACION, hay que escribirlo: no basta con llegar a la URL.
+//   - En el asistente el SQL lo genera el servidor a partir del modelo validado.
+//   - Un schema.sql subido solo puede tener CREATE TABLE, INSERT y ALTER TABLE … ADD.
+//   - La contraseña de MySQL sigue viniendo de la configuración del servidor.
+
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 require_once __DIR__ . '/../auth/permisos.php';
-header('Content-Type: text/html; charset=utf-8');
+require_once __DIR__ . '/../instalacion/ModeloDatos.php';
 
-// Indica si la aplicación ya está en uso: existe la base de datos y la tabla
-// usuarios tiene al menos una fila.
+const SEMILLAS = [
+    'catalogos' => ['archivo' => 'catalogos.sql', 'tabla' => 'categorias_factura',
+        'nombre' => 'Catálogos: tipos de evento, secciones y categorías de factura'],
+    'roles' => ['archivo' => 'roles-permisos.sql', 'tabla' => 'roles_permisos',
+        'nombre' => 'Cargos y permisos (administrador, monitor, tutor, tesorería)'],
+    'documentos' => ['archivo' => 'documentos-base.sql', 'tabla' => 'documentos_base',
+        'nombre' => 'Documentos base (fichas de inscripción y circular de participación)'],
+];
+const TAMANO_MAXIMO_SQL = 1048576;
+
+function nombreBase(): string
+{
+    $nombre = getenv('INGERIAR_DB_NAME') ?: ($_SERVER['INGERIAR_DB_NAME'] ?? 'ingeriar');
+    return preg_match('/^[A-Za-z0-9_]+$/', $nombre) ? $nombre : 'ingeriar';
+}
+
+// Aplicación en uso = existe la tabla usuarios y tiene filas.
 function instalacionEnUso(): bool
 {
     try {
         $db = obtenerConexion();
     } catch (PDOException $error) {
-        // 1049: la base de datos todavía no existe.
         if ((int) ($error->errorInfo[1] ?? 0) === 1049) {
             return false;
         }
         throw $error;
     }
-    $stmt = $db->prepare(
-        "SELECT 1 FROM information_schema.TABLES
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios'"
-    );
-    $stmt->execute();
-    if (!$stmt->fetchColumn()) {
+    if (!$db->query("SHOW TABLES LIKE 'usuarios'")->fetchColumn()) {
         return false;
     }
     return (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0;
 }
 
-// El instalador no pide sesión en una instalación nueva (todavía no hay usuarios),
-// pero una vez en uso solo un administrador puede volver a ejecutarlo.
-// La comprobación se hace en el servidor antes de leer el modelo.
-try {
-    $enUso = instalacionEnUso();
-} catch (Throwable $error) {
-    http_response_code(500);
-    exit('No se pudo comprobar el estado de la instalación. Revisa la configuración de MySQL.');
-}
-// Una vez en uso, hace falta una sesión con configuracion.gestionar (E-13).
-$puedeReinstalar = false;
-if ($enUso && usuarioActual() !== null) {
+function puedeReinstalar(): bool
+{
+    if (usuarioActual() === null) {
+        return false;
+    }
     try {
-        $permisosSesion = cargarPermisosUsuario(obtenerConexion(), (int) usuarioActual()['id']);
-        $puedeReinstalar = in_array('configuracion.gestionar', $permisosSesion['permisos'] ?? [], true);
+        $permisos = cargarPermisosUsuario(obtenerConexion(), (int) usuarioActual()['id']);
+        return in_array('configuracion.gestionar', $permisos['permisos'] ?? [], true);
     } catch (Throwable $error) {
-        $puedeReinstalar = false;
+        return false;
     }
 }
-if ($enUso && !$puedeReinstalar) {
-    http_response_code(403);
-    exit('La aplicación ya está instalada. Solo un administrador con la sesión iniciada puede volver a ejecutar el instalador.');
+
+function tokenRequerido(): string
+{
+    return (string) (getenv('INGERIAR_TOKEN_INSTALACION') ?: ($_SERVER['INGERIAR_TOKEN_INSTALACION'] ?? ''));
 }
 
-$modelo = trim($_POST['modelo'] ?? '');
-if ($modelo === '') {
-    http_response_code(400);
-    exit('No se ha recibido ningún modelo de datos.');
+// Corta con 403 si no se puede instalar ahora.
+function exigirAcceso(string $token): void
+{
+    if (instalacionEnUso() && !puedeReinstalar()) {
+        responder(['error' => 'La aplicación ya está instalada. Solo un administrador con la sesión iniciada '
+            . 'puede volver a ejecutar el instalador.'], 403);
+    }
+    $requerido = tokenRequerido();
+    if ($requerido !== '' && !hash_equals($requerido, $token)) {
+        responder(['error' => 'El token de instalación no es correcto'], 403);
+    }
 }
 
-// Datos opcionales del primer administrador. Si todos están vacíos, solo se crean las tablas.
-$administrador = [
-    'nombre' => trim($_POST['admin_nombre'] ?? ''),
-    'apellidos' => trim($_POST['admin_apellidos'] ?? ''),
-    'email' => trim($_POST['admin_email'] ?? ''),
-    'telefono' => trim($_POST['admin_telefono'] ?? ''),
-    'contrasena' => (string) ($_POST['admin_contrasena'] ?? ''),
-];
-$crearAdministrador = implode('', $administrador) !== '';
-if ($crearAdministrador) {
+// Conexión a la base configurada, creándola si no existe.
+function conexionInstalacion(): PDO
+{
+    $db = obtenerConexion(false);
+    $base = nombreBase();
+    $db->exec('CREATE DATABASE IF NOT EXISTS `' . $base . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    $db->exec('USE `' . $base . '`');
+    return $db;
+}
+
+function validarAdministrador(array $datos): ?array
+{
+    $administrador = [
+        'nombre' => trim((string) ($datos['nombre'] ?? '')),
+        'apellidos' => trim((string) ($datos['apellidos'] ?? '')),
+        'email' => trim((string) ($datos['email'] ?? '')),
+        'telefono' => trim((string) ($datos['telefono'] ?? '')),
+        'contrasena' => (string) ($datos['contrasena'] ?? ''),
+    ];
+    if (implode('', $administrador) === '') {
+        return null;
+    }
     if (in_array('', $administrador, true)) {
-        http_response_code(400);
-        exit('Para crear el administrador hay que rellenar todos sus campos.');
+        throw new InvalidArgumentException('Para crear el administrador hay que rellenar todos sus campos');
     }
     if (filter_var($administrador['email'], FILTER_VALIDATE_EMAIL) === false) {
-        http_response_code(400);
-        exit('El email del administrador no es válido.');
+        throw new InvalidArgumentException('El email del administrador no es válido');
     }
-    $errorContrasena = validarContrasena($administrador['contrasena']);
-    if ($errorContrasena !== null) {
-        http_response_code(400);
-        exit(htmlspecialchars($errorContrasena) . '.');
+    $error = validarContrasena($administrador['contrasena']);
+    if ($error !== null) {
+        throw new InvalidArgumentException($error);
     }
+    return $administrador;
 }
 
-function identificadorValido(string $valor): bool
+// Ejecuta las semillas elegidas y crea el administrador (si no hay usuarios).
+// Devuelve los mensajes para el resumen.
+function datosIniciales(PDO $db, array $semillas, ?array $administrador): array
 {
-    return preg_match('/^[\p{L}_][\p{L}\p{N}_]*$/u', $valor) === 1;
-}
-
-function crearSqlTabla(string $tabla, array $columnas): string
-{
-    if (!identificadorValido($tabla)) {
-        throw new RuntimeException("Nombre de tabla no válido: {$tabla}");
-    }
-
-    // Solo se añade la clave `id` automática si el modelo no declara otra clave
-    // primaria (los catálogos usan `codigo` y eventos_secciones una clave compuesta).
-    $tienePrimaria = false;
-    foreach ($columnas as $columna) {
-        if (preg_match('/\bPRIMARY\s+KEY\b/i', $columna)) {
-            $tienePrimaria = true;
-        }
-    }
-    $definiciones = $tienePrimaria ? [] : ['`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY'];
-    foreach ($columnas as $columna) {
-        if (preg_match('/^(PRIMARY KEY|UNIQUE(?: KEY)?|FOREIGN KEY|CHECK)\b/i', trim($columna))) {
-            $definiciones[] = trim($columna);
-            continue;
-        }
-        $partes = preg_split('/\s+/', trim($columna), 2);
-        $nombre = $partes[0];
-        if ($nombre === 'id') {
-            continue;
-        }
-        if (!identificadorValido($nombre)) {
-            throw new RuntimeException("Nombre de columna no válido: {$nombre}");
-        }
-        $definicion = trim($partes[1] ?? 'TEXT');
-        $definiciones[] = '`' . $nombre . '` ' . $definicion;
-    }
-
-    return 'CREATE TABLE IF NOT EXISTS `' . $tabla . '` ('
-        . implode(', ', $definiciones) . ') ENGINE=InnoDB';
-}
-
-try {
-    $lineas = preg_split('/\R/', $modelo);
-    $tablas = [];
-    $tablaActual = null;
-    $columnas = [];
-
-    foreach ($lineas as $linea) {
-        $linea = trim($linea);
-        if ($linea === '' || str_starts_with($linea, '#')) {
-            continue;
-        }
-        if (str_starts_with($linea, '-')) {
-            if ($tablaActual === null) {
-                throw new RuntimeException('Hay una columna antes de declarar una tabla.');
+    $mensajes = [];
+    $db->beginTransaction();
+    try {
+        foreach ($semillas as $codigo) {
+            if (!isset(SEMILLAS[$codigo])) {
+                continue;
             }
-            $columnas[] = trim(substr($linea, 1));
-            continue;
-        }
-        if ($tablaActual !== null) {
-            $tablas[] = crearSqlTabla($tablaActual, $columnas);
-        }
-        $tablaActual = $linea;
-        $columnas = [];
-    }
-    if ($tablaActual !== null) {
-        $tablas[] = crearSqlTabla($tablaActual, $columnas);
-    }
-    if (!$tablas) {
-        throw new RuntimeException('El modelo no contiene ninguna tabla.');
-    }
-
-    $db = obtenerConexion(false);
-    $nombre = getenv('INGERIAR_DB_NAME') ?: 'ingeriar';
-    $db->exec('CREATE DATABASE IF NOT EXISTS `' . str_replace('`', '``', $nombre)
-        . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    $db->exec('USE `' . str_replace('`', '``', $nombre) . '`');
-    foreach ($tablas as $sql) {
-        $db->exec($sql);
-    }
-
-    // Valores iniciales (server/data/semillas/) de las tablas que incluya el modelo:
-    // cargos y permisos (E-13) y documentos base (E-14).
-    $existeTablaRoles = $db->query("SHOW TABLES LIKE 'roles_permisos'")->fetchColumn();
-    $semillas = [
-        'roles-permisos.sql' => (bool) $existeTablaRoles,
-        'documentos-base.sql' => (bool) $db->query("SHOW TABLES LIKE 'documentos_base'")->fetchColumn(),
-    ];
-    foreach ($semillas as $archivoSemilla => $tablaExiste) {
-        if (!$tablaExiste) {
-            continue;
-        }
-        $semilla = (string) file_get_contents(__DIR__ . '/../data/semillas/' . $archivoSemilla);
-        $semilla = preg_replace('/^--.*$/m', '', $semilla);
-        foreach (preg_split('/;\s*(\R|$)/', $semilla) as $sentencia) {
-            if (trim($sentencia) !== '') {
+            $semilla = SEMILLAS[$codigo];
+            if (!$db->query("SHOW TABLES LIKE " . $db->quote($semilla['tabla']))->fetchColumn()) {
+                throw new InvalidArgumentException("No se pueden cargar «{$semilla['nombre']}»: falta la tabla {$semilla['tabla']}");
+            }
+            foreach (ModeloDatos::dividirSentencias(file_get_contents(__DIR__ . '/../data/semillas/' . $semilla['archivo'])) as $sentencia) {
                 $db->exec($sentencia);
             }
+            $mensajes[] = "Cargados: {$semilla['nombre']}.";
         }
-    }
-
-    // El administrador inicial solo se crea si todavía no hay ningún usuario.
-    // Así el instalador no sirve para darse de alta en una instalación ya en uso.
-    $mensajeAdministrador = '';
-    if ($crearAdministrador) {
-        $hayUsuarios = (int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0;
-        if ($hayUsuarios) {
-            $mensajeAdministrador = 'Ya existen usuarios: no se ha creado el administrador.';
-        } else {
-            if (!$existeTablaRoles) {
-                throw new RuntimeException('El modelo no incluye las tablas de roles: no se puede crear el administrador.');
+        if ($administrador !== null) {
+            if (!$db->query("SHOW TABLES LIKE 'usuarios_roles'")->fetchColumn()
+                || !$db->query("SELECT 1 FROM roles WHERE codigo = 'administrador'")->fetchColumn()) {
+                throw new InvalidArgumentException('Para crear el administrador hacen falta las tablas y los cargos (marca «Cargos y permisos»)');
             }
-            $columnaRol = $db->query("SHOW COLUMNS FROM usuarios LIKE 'rol'")->fetchColumn();
-            $db->prepare(
-                'INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`'
-                . ($columnaRol ? ', rol' : '') . ')
-                 VALUES (?, ?, ?, ?, ?' . ($columnaRol ? ", 'administrador'" : '') . ')'
-            )->execute([
-                $administrador['nombre'],
-                $administrador['apellidos'],
-                $administrador['email'],
-                $administrador['telefono'],
-                cifrarContrasena($administrador['contrasena']),
-            ]);
-            $db->prepare("INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, 'administrador')")
-                ->execute([(int) $db->lastInsertId()]);
-            $mensajeAdministrador = 'Se ha creado el administrador '
-                . $administrador['email'] . '.';
+            if ((int) $db->query('SELECT COUNT(*) FROM usuarios')->fetchColumn() > 0) {
+                $mensajes[] = 'Ya existen usuarios: no se ha creado el administrador.';
+            } else {
+                $db->prepare('INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`) VALUES (?, ?, ?, ?, ?)')
+                    ->execute([$administrador['nombre'], $administrador['apellidos'], $administrador['email'],
+                        $administrador['telefono'], cifrarContrasena($administrador['contrasena'])]);
+                $db->prepare("INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, 'administrador')")
+                    ->execute([(int) $db->lastInsertId()]);
+                $mensajes[] = "Se ha creado el administrador {$administrador['email']}.";
+            }
         }
-    }
-} catch (Throwable $error) {
-    if (isset($db) && $db->inTransaction()) {
+        $db->commit();
+    } catch (Throwable $error) {
         $db->rollBack();
+        throw $error;
     }
-    http_response_code(500);
-    if ($error instanceof PDOException && (int) $error->errorInfo[1] === 1698) {
-        exit(
-            'No se pudo autenticar MySQL. No uses root desde PHP; crea el usuario '
-            . 'ingeriar_app y configura INGERIAR_DB_USER e INGERIAR_DB_PASSWORD.'
-        );
-    }
-    exit('No se pudo instalar el modelo: ' . htmlspecialchars($error->getMessage()));
+    return $mensajes;
 }
 
-echo '<h1>Base de datos MySQL creada correctamente</h1>';
-echo '<p>Se han procesado ' . count($tablas) . ' tablas.</p>';
-if ($mensajeAdministrador !== '') {
-    echo '<p>' . htmlspecialchars($mensajeAdministrador) . '</p>';
+// Ejecuta las sentencias una a una. MySQL confirma cada CREATE/ALTER al momento (no se
+// pueden deshacer con una transacción), así que si una falla se informa de cuál.
+function ejecutarSentencias(PDO $db, array $sentencias): void
+{
+    foreach ($sentencias as $numero => $sentencia) {
+        try {
+            $db->exec($sentencia);
+        } catch (PDOException $error) {
+            throw new RuntimeException('Falló la sentencia ' . ($numero + 1) . ': ' . $error->getMessage());
+        }
+    }
 }
-foreach ($tablas as $sql) {
-    echo '<pre>' . htmlspecialchars($sql) . ';</pre>';
+
+$accion = $_GET['accion'] ?? '';
+$esJson = str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'application/json');
+$datos = $esJson ? (json_decode(file_get_contents('php://input'), true) ?? []) : $_POST;
+
+try {
+    switch ($accion) {
+        case 'estado':
+            $enUso = instalacionEnUso();
+            responder([
+                'base' => nombreBase(),
+                'en_uso' => $enUso,
+                'puede_instalar' => !$enUso || puedeReinstalar(),
+                'token_requerido' => tokenRequerido() !== '',
+                'semillas' => array_map(fn($codigo, $semilla) => ['codigo' => $codigo, 'nombre' => $semilla['nombre']],
+                    array_keys(SEMILLAS), SEMILLAS),
+            ]);
+
+        case 'modelo':
+            exigirAcceso((string) ($_GET['token'] ?? ''));
+            responder(json_decode(file_get_contents(__DIR__ . '/../data/modelo.json'), true));
+
+        case 'vista_previa':
+            exigirAcceso((string) ($datos['token'] ?? ''));
+            $modelo = ModeloDatos::validar((array) ($datos['modelo'] ?? []));
+            $sentencias = ModeloDatos::generarSql(obtenerConexion(false), $modelo);
+            responder(['sql' => implode(";\n\n", $sentencias) . ";\n", 'sentencias' => count($sentencias)]);
+
+        case 'instalar':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responder(['error' => 'Método no permitido'], 405);
+            }
+            exigirAcceso((string) ($datos['token'] ?? ''));
+            $modelo = ModeloDatos::validar((array) ($datos['modelo'] ?? []));
+            $administrador = validarAdministrador((array) ($datos['administrador'] ?? []));
+            $db = conexionInstalacion();
+            $sentencias = ModeloDatos::generarSql($db, $modelo);
+            ejecutarSentencias($db, $sentencias);
+            $mensajes = datosIniciales($db, (array) ($datos['semillas'] ?? []), $administrador);
+            responder(['ok' => true, 'mensajes' => [
+                'Base de datos «' . nombreBase() . '»: ' . count($modelo['tablas']) . ' tablas y '
+                    . (count($sentencias) - count($modelo['tablas'])) . ' claves foráneas.',
+                ...$mensajes,
+            ]]);
+
+        case 'instalar_sql':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                responder(['error' => 'Método no permitido'], 405);
+            }
+            exigirAcceso((string) ($datos['token'] ?? ''));
+            $archivo = $_FILES['archivo'] ?? null;
+            if (!$archivo || $archivo['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($archivo['tmp_name'])) {
+                responder(['error' => 'No se ha recibido el archivo schema.sql'], 400);
+            }
+            if ($archivo['size'] > TAMANO_MAXIMO_SQL) {
+                responder(['error' => 'El archivo supera el máximo de 1 MB'], 413);
+            }
+            $sql = (string) file_get_contents($archivo['tmp_name']);
+            if (!esUtf8Valido($sql)) {
+                responder(['error' => 'El archivo debe estar en UTF-8'], 400);
+            }
+            // Se valida el archivo entero antes de ejecutar nada.
+            $sentencias = [];
+            $omitidas = 0;
+            foreach (ModeloDatos::dividirSentencias($sql) as $sentencia) {
+                if (ModeloDatos::clasificarSentencia($sentencia) === 'ejecutar') {
+                    $sentencias[] = $sentencia;
+                } else {
+                    $omitidas++;
+                }
+            }
+            if (!$sentencias) {
+                responder(['error' => 'El archivo no contiene sentencias que ejecutar'], 400);
+            }
+            $administrador = validarAdministrador((array) ($datos['administrador'] ?? []));
+            $db = conexionInstalacion();
+            ejecutarSentencias($db, $sentencias);
+            $mensajes = datosIniciales($db, (array) ($datos['semillas'] ?? []), $administrador);
+            responder(['ok' => true, 'mensajes' => [
+                count($sentencias) . ' sentencias ejecutadas en «' . nombreBase() . '»'
+                    . ($omitidas ? " ({$omitidas} CREATE DATABASE / USE omitidas: se usa la base configurada)." : '.'),
+                ...$mensajes,
+            ]]);
+
+        default:
+            responder(['error' => 'Acción no válida'], 400);
+    }
+} catch (InvalidArgumentException $error) {
+    responder(['error' => $error->getMessage()], 400);
+} catch (Throwable $error) {
+    if ($error instanceof PDOException && (int) ($error->errorInfo[1] ?? 0) === 1698) {
+        responder(['error' => 'No se pudo autenticar MySQL. No uses root desde PHP; crea el usuario '
+            . 'ingeriar_app y configura INGERIAR_DB_USER e INGERIAR_DB_PASSWORD.'], 500);
+    }
+    responder(['error' => $error->getMessage()], 500);
+}
+
+// Comprueba UTF-8 sin depender de la extensión mbstring.
+function esUtf8Valido(string $texto): bool
+{
+    return preg_match('//u', $texto) === 1;
 }

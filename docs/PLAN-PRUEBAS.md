@@ -172,6 +172,21 @@ Resultado: 111 de 111 superadas el 2026-11-17.
 Resultado: 8 de 8 superadas el 2026-11-17 (CPS-07 compara el número de filas de todas las tablas y el contenido
 de cada archivo de storage/ entre el origen y la restauración).
 
+### Instalador (`INGERIAR_DB_NAME=<base vacía> server/pruebas/pruebas-instalador.php <url> --confirmar`)
+
+| ID | Prueba | Requisito | Resultado | Fecha |
+|---|---|---|---|---|
+| INI-01 | En una base vacía el instalador está disponible sin sesión | RNF-05 | Superada | 2026-11-17 |
+| INI-02 | Un schema.sql con DROP, GRANT o INTO OUTFILE se rechaza sin ejecutar nada | RNF-03 | Superada | 2026-11-17 |
+| INI-03 | Un modelo con errores se rechaza con un mensaje claro | RNF-06 | Superada | 2026-11-17 |
+| INI-04 | Instalar subiendo schema.sql crea el esquema completo | RNF-05 | Superada | 2026-11-17 |
+| INI-05 | Instalar con el asistente deja el mismo esquema y datos que schema.sql (aceptación) | RNF-05 | Superada | 2026-11-17 |
+| INI-06 | El primer administrador entra con su cargo y sus permisos | RF-01 | Superada | 2026-11-17 |
+| INI-07 | Con la aplicación en uso, el instalador responde 403 sin sesión | RNF-03 | Superada | 2026-11-17 |
+
+Resultado: 7 de 7 superadas el 2026-11-17. El token de instalación (`INGERIAR_TOKEN_INSTALACION`) se comprobó a mano:
+sin token o con uno incorrecto, 403; con el correcto, 200.
+
 Resultado anterior: 107 de 107 superadas el 2026-11-17 (servidor de PHP con 4 procesos para que las escrituras sean simultáneas).
 El script copia los JSON del inventario al empezar y los restaura al terminar.
 
@@ -234,3 +249,5 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-37 | Monitor | Listas: arrastrar material a la derecha y usar «→» con el teclado | Pide la cantidad; calcula lo que hay que comprar | RF-06, RNF-06 | Pendiente | |
 | MAN-38 | Monitor | «Documento para imprimir» | Material agrupado por ubicación y lista de compras | RF-06 | Pendiente | |
 | MAN-39 | Monitor | Guardar como plantilla y «Usar para una salida» | Se crea la lista con el contenido de la plantilla | RF-06 | Pendiente | |
+| MAN-40 | Sin sesión | Instalador en una base vacía: recorrer los 4 pasos con el modelo de Ingeriar | Se instala y se puede entrar con el administrador | RNF-05, RNF-06 | Pendiente | |
+| MAN-41 | Sin sesión | Instalador: añadir una tabla con una clave foránea, descargar y volver a cargar el modelo JSON | La vista previa muestra la tabla y la clave | RNF-05 | Pendiente | |
