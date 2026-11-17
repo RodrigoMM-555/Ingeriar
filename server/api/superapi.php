@@ -339,12 +339,20 @@ switch ($ruta) {
             'semana_desde' => $domingo->format('Y-m-d'),
             'semana_hasta' => $domingo->modify('+6 days')->format('Y-m-d'),
         ];
+        // Mini calendario: solo los eventos que empiezan antes de que acabe el trimestre
+        // natural en curso (enero-marzo, abril-junio, julio-septiembre, octubre-diciembre).
+        $mesFinTrimestre = (int) ceil((int) date('n') / 3) * 3;
+        $finTrimestre = (new DateTimeImmutable(date('Y') . '-' . $mesFinTrimestre . '-01'))
+            ->modify('first day of next month')->format('Y-m-d');
         $datos['mini_calendario'] = array_map(
             fn($evento): array => [
                 'fecha' => substr($evento['fecha_inicio'], 0, 10),
                 'nombre' => $evento['nombre'],
             ],
-            $eventosVisibles
+            array_values(array_filter(
+                $eventosVisibles,
+                fn($evento): bool => substr($evento['fecha_inicio'], 0, 10) < $finTrimestre
+            ))
         );
         // Bloques del dashboard según los permisos (E-13). Con varios cargos se suman los
         // bloques de cada uno.

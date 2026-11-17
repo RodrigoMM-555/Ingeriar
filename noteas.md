@@ -545,7 +545,9 @@ Para el tutor hay además dos bloques (2026-11-17):
   terminado y convoca a la sección de ese educando, si falta confirmar la asistencia
   (con el aviso «Necesita circular» si el evento la lleva) o si va y falta entregar la
   circular («Falta documentación»). La ficha tiene el color de la sección del educando.
-- «Calendario»: próximos eventos de las secciones de sus educandos.
+- «Calendario del trimestre»: próximos eventos de las secciones de sus educandos que
+  empiezan antes de que acabe el trimestre natural en curso (ene–mar, abr–jun, jul–sep,
+  oct–dic).
 En tutores, el próximo evento y el mini calendario solo incluyen actividades
 compatibles con las secciones de sus educandos. Los monitores disponen de un
 desglose por sección de las respuestas del próximo sábado. Los tutores ven
@@ -775,6 +777,10 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (calendario del trimestre)
+
+- El mini calendario del dashboard solo muestra los eventos del trimestre natural en curso.
 
 ### 2026-11-17 (pendientes del tutor)
 

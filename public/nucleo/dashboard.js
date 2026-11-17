@@ -276,12 +276,12 @@ class IngeriarDashboard {
         return zona;
     }
 
-    // Calendario del tutor: próximos eventos de las secciones de sus educandos.
+    // Calendario del tutor: próximos eventos del trimestre de las secciones de sus educandos.
     renderCalendarioTutor(eventos) {
         const zona = document.createElement("section");
         zona.className = "dashboard-bloque dashboard-tutor";
         const titulo = document.createElement("h3");
-        titulo.textContent = "Calendario";
+        titulo.textContent = "Calendario del trimestre";
         zona.appendChild(titulo);
         const calendario = document.createElement("div");
         calendario.className = "mini-calendario";
@@ -293,7 +293,7 @@ class IngeriarDashboard {
             calendario.appendChild(dia);
         });
         if (!eventos.length) {
-            calendario.textContent = "No hay eventos próximos.";
+            calendario.textContent = "No hay más eventos este trimestre.";
         }
         zona.appendChild(calendario);
         return zona;

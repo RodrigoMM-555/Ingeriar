@@ -15,6 +15,19 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard: mini calendario limitado al trimestre
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, el mini calendario del dashboard («Calendario del trimestre») solo incluye
+  los eventos no terminados que empiezan antes de que acabe el trimestre natural en curso.
+- Archivos creados o modificados: `server/api/superapi.php` (filtro de `mini_calendario`), `public/nucleo/dashboard.js`
+  (título y texto vacío), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: se toma el trimestre natural (enero-marzo, abril-junio, julio-septiembre,
+  octubre-diciembre); el filtro se hace en el servidor para no enviar eventos que no se muestran.
+- Requisitos que cubre (RF/RNF): RF-07.
+- Cómo probarlo (pasos): entrar como tutor: el calendario no muestra eventos posteriores al 31/12 (en noviembre).
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard del tutor).
+- Pendiente o problemas: si se prefiere el trimestre de la ronda scout (sep–dic, ene–mar, abr–jun) hay que cambiarlo.
+
 ## 2026-11-17 · Dashboard del tutor: pendientes del mes y calendario
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, para los tutores:
