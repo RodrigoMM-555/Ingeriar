@@ -154,13 +154,7 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-| DSH-01 | El tutor no ve cumpleaños, facturas ni el bloque del sábado | RF-07, RNF-03 | Superada | 2026-11-17 |
-| DSH-02 | El tutor solo ve los eventos de las secciones de sus educandos | RF-07, RNF-03 | Superada | 2026-11-17 |
-| DSH-03 | Al tutor le aparece la asistencia pendiente de su educando | RF-07 | Superada | 2026-11-17 |
-| DSH-04 | El monitor ve el sábado y los cumpleaños de la semana | RF-07 | Superada | 2026-11-17 |
-| DSH-05 | Tesorería ve las facturas pendientes de revisar y de pagar | RF-07 | Superada | 2026-11-17 |
-
-Resultado: 116 de 116 superadas el 2026-11-17 (tras la revisión del dashboard).
+Resultado: 111 de 111 superadas el 2026-11-17.
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 

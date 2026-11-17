@@ -15,45 +15,19 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
-## 2026-11-17 · Versión en los scripts y estilos (caché del navegador)
+## 2026-11-17 · Revisión del dashboard (deshecha) y versión en los scripts
 - Rama / commit: `feat/dashboard`
-- Qué se ha hecho: tras la revisión del dashboard, el navegador del usuario cargó el `codigo.js` nuevo con el
-  `dashboard.js` antiguo de su caché y el dashboard falló («this.exportacion is undefined»). Las páginas cargan ahora
-  los scripts y `estilo.css` con `?v=<versión>`, que hay que cambiar en cada modificación de JS o CSS.
-- Archivos creados o modificados: `public/index.html`, `public/login.html`, `public/instalador.html`, `noteas.md`.
-- Decisiones técnicas y motivo: un parámetro de versión en la URL es lo más simple y no depende de la configuración de
-  Apache (en la instalación local los `.htaccess` no se aplican).
+- Qué se ha hecho: se implementó una revisión del dashboard propuesta por el usuario (próximas actividades por categorías,
+  sábado por sección, cumpleaños, facturas para tesorería y bloque del tutor con calendario trimestral). Al verla, el
+  usuario pidió deshacerla para replantearla: se ha revertido con `git revert` y **el dashboard vuelve a ser el anterior**.
+  No hay que documentar esa revisión en la memoria.
+- Se mantiene: las páginas cargan los scripts y `estilo.css` con `?v=<versión>` (hay que cambiarla al modificar JS o CSS),
+  porque el navegador del usuario mezcló un `codigo.js` nuevo con un `dashboard.js` antiguo de la caché.
+- Archivos creados o modificados (netos): `public/index.html`, `public/login.html`, `public/instalador.html`, `noteas.md`.
+  En la base local del usuario se quitó la columna `usuarios.fecha_nacimiento` que había añadido la revisión.
 - Requisitos que cubre (RF/RNF): RNF-02, RNF-05.
-- Cómo probarlo (pasos): cambiar un JS, subir el número de versión y recargar sin forzar: se ve el cambio.
-- Impacto en la memoria (apartados que habría que revisar): despliegue y mantenimiento.
-- Pendiente o problemas: el número se cambia a mano.
-
-## 2026-11-17 · Revisión del dashboard
-- Rama / commit: `feat/dashboard` (sale de `feat/E-11-instalador`)
-- Qué se ha hecho: el usuario revisó qué muestra el dashboard. Nuevo contenido por permisos: próximas actividades en tres
-  categorías (sábados, acampadas con cuánto falta, otros eventos), el próximo sábado por sección con nombres y circular
-  (monitores), cumpleaños de educandos y monitores de la semana (monitores), facturas pendientes de revisar y de pagar
-  (tesorería) y, para tutores, asistencias por responder, circulares de actividades y fichas básicas por entregar y un
-  calendario por trimestres escolares. Se quitan los indicadores (`article.indicador`), «Documentos por revisar», todas
-  las gráficas anteriores y el botón Exportar del dashboard.
-- Archivos creados o modificados: nuevo `server/api/dashboard.php` (y `public/api/dashboard.php`); se quita el dashboard de
-  `superapi.php` (de 1415 a 1125 líneas); `public/nucleo/dashboard.js` reescrito; `public/codigo.js`; `public/estilo.css`
-  (fuera `.indicador`, `.dashboard-indicadores` y el minicalendario antiguo); `schema.sql`, `demo.sql`, `modelo.json`
-  y `migraciones/2026-11-cumpleanos-usuarios.sql` (`usuarios.fecha_nacimiento`); `server/pruebas/pruebas.php` (5 pruebas);
-  `noteas.md`, `docs/PLAN-PRUEBAS.md`.
-- Decisiones técnicas y motivo:
-  - Decisiones del usuario: lo que no pidió se quita; el tutor solo ve lo de sus educandos.
-  - Corregidos fallos del dashboard anterior: el tutor veía los cumpleaños de todos los educandos; los eventos próximos y la
-    gráfica por tipo no se filtraban para el tutor; sus asistencias pendientes contaban eventos que no convocan a sus secciones.
-  - Para los cumpleaños de los monitores hace falta su fecha de nacimiento: campo opcional `usuarios.fecha_nacimiento`.
-  - Circular del sábado: se indica entregada o falta solo para quien ha dicho que sí.
-  - El administrador ve los bloques de monitor y de tesorería porque tiene esos permisos.
-  - `demo.sql`: los eventos usan tipos del catálogo (antes «Campamento», «Taller»… no existían) para que haya sábados y acampadas.
-- Requisitos que cubre (RF/RNF): RF-07, RNF-03, RNF-06.
-- Cómo probarlo (pasos): ejecutar `2026-11-cumpleanos-usuarios.sql`; entrar como monitor, tesorero y tutor y comparar con la
-  tabla de `noteas.md` (apartado 11). `pruebas.php` → 116 de 116; instalador → 7 de 7 con `modelo.json` regenerado.
-- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard por cargo), modelo de datos (`fecha_nacimiento`).
-- Pendiente o problemas: revisión visual por el usuario; se pueden ajustar los bloques y el número de elementos mostrados.
+- Impacto en la memoria (apartados que habría que revisar): ninguno por el dashboard; despliegue (versión de los scripts).
+- Pendiente o problemas: replantear el dashboard con el usuario.
 
 ## 2026-11-17 · E-11 · Instalador interactivo
 - Rama / commit: `feat/E-11-instalador` (sale de `feat/E-12-copias`)

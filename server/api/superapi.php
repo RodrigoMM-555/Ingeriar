@@ -239,7 +239,297 @@ switch ($ruta) {
     case 'usuario_actual':
         responder(['usuario' => $usuario]);
 
-    // El dashboard está en api/dashboard.php (revisado con el usuario el 2026-11-17).
+    case 'dashboard':
+        $consultar = function (string $sql, array $parametros = []) use ($db): array {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($parametros);
+            return $stmt->fetch() ?: [];
+        };
+        $consultarTodos = function (string $sql, array $parametros = []) use ($db): array {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($parametros);
+            return $stmt->fetchAll();
+        };
+
+        $datos = [
+            'rol' => $usuario['rol_basico'],
+            'indicadores' => [],
+            'graficas' => [],
+        ];
+        $eventosDashboard = $consultarTodos(
+            "SELECT id, nombre, fecha_inicio, fecha_fin, tipo, lugar
+             FROM eventos
+             WHERE fecha_fin >= NOW()
+             ORDER BY fecha_inicio"
+        );
+        $convocatoriasDashboard = tablaExiste($db, 'eventos_secciones')
+            ? Evento::convocatoriasDeTodos($db)
+            : [];
+        // Quien no ve todos los educandos (el tutor) solo ve lo que afecta a los suyos.
+        $soloPropios = !tienePermiso('educandos.ver_todos');
+        $seccionesUsuario = [];
+        if ($soloPropios) {
+            foreach (Educando::deTutor($db, $usuario['id']) as $educando) {
+                $seccion = seccionEducando($db, $educando->nacimiento);
+                if ($seccion) {
+                    $seccionesUsuario[] = $seccion;
+                }
+            }
+        }
+        $eventoConvoca = function (array $evento) use (
+            $soloPropios, $seccionesUsuario, $convocatoriasDashboard
+        ): bool {
+            return !$soloPropios || Evento::convocaA(
+                $convocatoriasDashboard[(int) $evento['id']] ?? [],
+                $seccionesUsuario
+            );
+        };
+        $eventosVisibles = array_values(array_filter(
+            $eventosDashboard,
+            $eventoConvoca
+        ));
+        $proximoEvento = $eventosVisibles[0] ?? null;
+        $inicioMes = new DateTimeImmutable('first day of this month 00:00:00');
+        $finMes = $inicioMes->modify('last day of this month 23:59:59');
+        $sabadosMes = array_values(array_filter(
+            $eventosVisibles,
+            fn($evento): bool => $evento['tipo'] === 'sabado'
+                && new DateTimeImmutable($evento['fecha_inicio']) >= $inicioMes
+                && new DateTimeImmutable($evento['fecha_inicio']) <= $finMes
+        ));
+        $sabadosProximos = array_values(array_filter(
+            $eventosVisibles,
+            fn($evento): bool => $evento['tipo'] === 'sabado'
+        ));
+        $acampadas = array_values(array_filter(
+            $eventosVisibles,
+            fn($evento): bool => in_array(
+                strtolower($evento['tipo']),
+                ['campamento', 'acampada'],
+                true
+            )
+        ));
+        $cumples = [];
+        $hoy = new DateTimeImmutable('today');
+        $finSemana = $hoy->modify('+7 days');
+        foreach ($consultarTodos(
+            'SELECT nombre, apellidos, naz FROM educandos
+             WHERE naz IS NOT NULL AND fecha_baja IS NULL'
+        ) as $educando) {
+            $nacimiento = new DateTimeImmutable($educando['naz']);
+            $cumple = new DateTimeImmutable(
+                $hoy->format('Y') . '-' . $nacimiento->format('m-d')
+            );
+            if ($cumple < $hoy) {
+                $cumple = $cumple->modify('+1 year');
+            }
+            if ($cumple <= $finSemana) {
+                $cumples[] = [
+                    'nombre' => $educando['nombre'] . ' ' . $educando['apellidos'],
+                    'fecha' => $cumple->format('Y-m-d'),
+                ];
+            }
+        }
+        $datos['resumen'] = [
+            'proximo_evento' => $proximoEvento,
+            'sabados_mes' => $sabadosMes,
+            'proxima_acampada' => $acampadas[0] ?? null,
+            'cumpleanos' => $cumples,
+        ];
+        $datos['mini_calendario'] = array_map(
+            fn($evento): array => [
+                'fecha' => substr($evento['fecha_inicio'], 0, 10),
+                'nombre' => $evento['nombre'],
+            ],
+            $eventosVisibles
+        );
+        $eventosPendientes = (int) ($consultar(
+            'SELECT COUNT(*) AS cantidad FROM eventos WHERE fecha_fin >= NOW()'
+        )['cantidad'] ?? 0);
+        $eventosProximos = $consultarTodos(
+            "SELECT tipo, COUNT(*) AS cantidad
+             FROM eventos
+             WHERE fecha_fin >= NOW()
+             GROUP BY tipo
+             ORDER BY cantidad DESC, tipo"
+        );
+        $nombresTiposEvento = [];
+        if (tablaExiste($db, 'tipos_evento')) {
+            $nombresTiposEvento = $db->query(
+                'SELECT codigo, nombre FROM tipos_evento'
+            )->fetchAll(PDO::FETCH_KEY_PAIR);
+        }
+        $datos['graficas'][] = [
+            'tipo' => 'anillo',
+            'titulo' => 'Próximos eventos por tipo',
+            'etiquetas' => array_map(
+                fn($tipo): string => $nombresTiposEvento[$tipo] ?? $tipo,
+                array_column($eventosProximos, 'tipo')
+            ),
+            'valores' => array_map('intval', array_column($eventosProximos, 'cantidad')),
+        ];
+
+        // Bloques del dashboard según los permisos (E-13). Con varios cargos se suman los
+        // bloques de cada uno; los indicadores comunes aparecen una sola vez.
+        $indicadores = [];
+        if (tienePermiso('usuarios.gestionar')) {
+            $usuariosPorCargo = $consultarTodos(
+                'SELECT r.nombre AS cargo, COUNT(*) AS cantidad
+                 FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
+                 GROUP BY r.codigo, r.nombre, r.orden ORDER BY r.orden'
+            );
+            $indicadores[] = ['nombre' => 'Usuarios', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM usuarios')['cantidad'] ?? 0, 'detalle' => 'Cuentas registradas'];
+            $datos['graficas'][] = [
+                'tipo' => 'barras',
+                'titulo' => 'Usuarios por cargo',
+                'etiquetas' => array_column($usuariosPorCargo, 'cargo'),
+                'valores' => array_map('intval', array_column($usuariosPorCargo, 'cantidad')),
+            ];
+        }
+        if (tienePermiso('educandos.ver_todos')) {
+            $indicadores[] = ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'];
+        }
+        if (tienePermiso('asistencia.responder_propios')) {
+            $educandosPropios = $consultar(
+                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL',
+                [$usuario['id']]
+            );
+            $indicadores[] = ['nombre' => 'Mis educandos', 'valor' => $educandosPropios['cantidad'] ?? 0, 'detalle' => 'Personas vinculadas'];
+        }
+        $indicadores[] = ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'];
+
+        // Documentación de inscripción (E-14).
+        if (tablaExiste($db, 'documentos_educando')) {
+            if (tienePermiso('documentos.revisar')) {
+                $porRevisar = $consultar(
+                    "SELECT COUNT(*) AS cantidad FROM documentos_educando d
+                     JOIN educandos e ON e.id = d.id_educando
+                     WHERE d.estado = 'pendiente' AND e.fecha_baja IS NULL"
+                );
+                $indicadores[] = ['nombre' => 'Documentos por revisar', 'valor' => $porRevisar['cantidad'] ?? 0, 'detalle' => 'Documentación de inscripción'];
+            }
+            if (tienePermiso('documentos.subir_propios')) {
+                // Obligatorios que faltan o que hay que corregir, de sus educandos activos.
+                $pendientes = $consultar(
+                    "SELECT COUNT(*) AS cantidad
+                     FROM usuarios_educandos ue
+                     JOIN educandos e ON e.id = ue.id_educando AND e.fecha_baja IS NULL
+                     JOIN documentos_base b ON b.tipo = 'inscripcion' AND b.activo = 1 AND b.obligatorio = 1
+                     LEFT JOIN documentos_educando d
+                        ON d.id_educando = e.id AND d.codigo_documento = b.codigo
+                     WHERE ue.id_usuario = ? AND (d.id IS NULL OR d.estado = 'corregir')",
+                    [$usuario['id']]
+                );
+                $indicadores[] = ['nombre' => 'Documentos pendientes', 'valor' => $pendientes['cantidad'] ?? 0, 'detalle' => 'Fichas de inscripción por entregar'];
+            }
+        }
+
+        if (tienePermiso('facturas.ver_todas')) {
+            $facturas = $consultar(
+                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total FROM facturas'
+            );
+            $indicadores[] = ['nombre' => 'Gasto registrado', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => $facturas['cantidad'] . ' facturas'];
+        } elseif (tienePermiso('facturas.subir_propias')) {
+            $facturas = $consultar(
+                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total
+                 FROM facturas WHERE responsable_id = ?',
+                [$usuario['id']]
+            );
+            $indicadores[] = ['nombre' => 'Mis facturas', 'valor' => $facturas['cantidad'], 'detalle' => 'Facturas registradas'];
+            $indicadores[] = ['nombre' => 'Mi gasto', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => 'Total de mis facturas'];
+        }
+
+        if (tienePermiso('asistencia.ver_todas')) {
+            $sabado = $sabadosProximos[0] ?? null;
+            $asistenciaSabado = [];
+            if ($sabado) {
+                $educandos = $consultarTodos(
+                    'SELECT e.id, e.nombre, e.apellidos, e.naz
+                     FROM educandos e WHERE e.fecha_baja IS NULL
+                     ORDER BY e.apellidos, e.nombre'
+                );
+                $estados = $consultarTodos(
+                    'SELECT id_educando, estado FROM educandos_asistencias
+                     WHERE id_evento = ?',
+                    [$sabado['id']]
+                );
+                $estadosPorEducando = array_column($estados, 'estado', 'id_educando');
+                foreach ($educandos as $educando) {
+                    $seccion = seccionEducando($db, $educando['naz'] ?? null);
+                    $convocatorias = $convocatoriasDashboard[$sabado['id']] ?? [];
+                    if ($convocatorias && !in_array($seccion, $convocatorias, true)) {
+                        continue;
+                    }
+                    $estado = $estadosPorEducando[$educando['id'] ?? 0] ?? 'pendiente';
+                    $asistenciaSabado[$seccion ?: 'sin_seccion'][$estado] =
+                        ($asistenciaSabado[$seccion ?: 'sin_seccion'][$estado] ?? 0) + 1;
+                }
+            }
+            $datos['asistencias_sabado'] = [
+                'evento' => $sabado,
+                'secciones' => $asistenciaSabado,
+            ];
+        }
+
+        if (tienePermiso('asistencia.responder_propios')) {
+            $asistencias = $consultar(
+                "SELECT
+                    SUM(ea.estado = 'si') AS confirmadas,
+                    SUM(ea.estado = 'no') AS ausencias,
+                    SUM(ea.estado = 'pendiente' OR ea.estado IS NULL) AS pendientes
+                 FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
+                 CROSS JOIN eventos e
+                 LEFT JOIN educandos_asistencias ea
+                    ON ea.id_educando = ue.id_educando AND ea.id_evento = e.id
+                 WHERE ue.id_usuario = ? AND e.fecha_fin >= NOW()
+                   AND educ.fecha_baja IS NULL",
+                [$usuario['id']]
+            );
+            $indicadores[] = ['nombre' => 'Asistencias pendientes', 'valor' => $asistencias['pendientes'] ?? 0, 'detalle' => 'Requieren respuesta'];
+            $indicadores[] = ['nombre' => 'Confirmadas', 'valor' => $asistencias['confirmadas'] ?? 0, 'detalle' => 'Asistencias registradas'];
+            $datos['graficas'][] = [
+                'tipo' => 'tarta',
+                'titulo' => 'Estado de próximas asistencias',
+                'etiquetas' => ['Confirmadas', 'No asisten', 'Pendientes'],
+                'valores' => array_map('intval', [
+                    $asistencias['confirmadas'] ?? 0,
+                    $asistencias['ausencias'] ?? 0,
+                    $asistencias['pendientes'] ?? 0,
+                ]),
+            ];
+            $eventosVisiblesIds = array_map(
+                'intval',
+                array_column($eventosVisibles, 'id')
+            );
+            $pendientesCirculares = $consultarTodos(
+                "SELECT e.id AS evento_id
+                 FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
+                 JOIN eventos e ON e.fecha_fin >= NOW() AND e.circular = 1
+                 LEFT JOIN educandos_asistencias ea
+                   ON ea.id_evento = e.id AND ea.id_educando = ue.id_educando
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL
+                   AND (ea.estado IS NULL OR ea.estado <> 'si')",
+                [$usuario['id']]
+            );
+            $datos['tutor'] = [
+                'circulares_pendientes' => count(array_filter(
+                    $pendientesCirculares,
+                    fn($fila): bool => in_array(
+                        (int) $fila['evento_id'],
+                        $eventosVisiblesIds,
+                        true
+                    )
+                )),
+                'asistencias_pendientes' => (int) ($asistencias['pendientes'] ?? 0),
+            ];
+        }
+        $datos['indicadores'] = $indicadores;
+
+        responder($datos);
 
     case 'asistencia_tutor':
         if (!tienePermiso('asistencia.responder_propios')) {

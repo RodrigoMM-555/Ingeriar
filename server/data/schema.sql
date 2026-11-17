@@ -59,8 +59,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     apellidos VARCHAR(150) NOT NULL,
     email VARCHAR(254) NOT NULL UNIQUE,
     telefono VARCHAR(20) NOT NULL UNIQUE,
-    -- Opcional: para los cumpleaños de los monitores en el dashboard.
-    fecha_nacimiento DATE NULL,
     -- Hash de password_hash() (bcrypt, 60 caracteres). VARCHAR(255) deja margen
     -- para algoritmos futuros. Nunca se guarda la contraseña en claro.
     `contraseña` VARCHAR(255) NOT NULL

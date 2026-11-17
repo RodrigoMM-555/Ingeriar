@@ -27,7 +27,8 @@ const configuracion = new IngeriarConfiguracion({
 const graficas = DarkorangeGraficas;
 const dashboard = new IngeriarDashboard({
     utilidades,
-    graficas
+    graficas,
+    exportacion
 });
 const calendario = new IngeriarCalendario({
     utilidades,
