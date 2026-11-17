@@ -15,6 +15,34 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-02 · Capa de clases de dominio (mapeo objeto-relacional)
+- Rama / commit: `feat/E-02-clases-dominio` (sale de `feat/E-14-documentacion`)
+- Qué se ha hecho: nuevas clases en `server/dominio/`. `Modelo` es una clase abstracta que mapea filas de la base de datos
+  a objetos y al revés (buscar, cargar con condición, guardar con INSERT o UPDATE, borrar y JSON). `Educando`, `Evento`,
+  `Factura` y `Usuario` la heredan y reúnen las reglas que estaban repartidas por las API. Las API las usan y se eliminan
+  las funciones repetidas (cinco copias de `responder()`, tres de «¿es su tutor?», tres del tamaño máximo).
+- Archivos creados o modificados:
+  - Nuevos: `server/dominio/Modelo.php`, `Educando.php`, `Evento.php`, `Factura.php`, `Usuario.php`; `server/api/comun.php`.
+  - `server/api/superapi.php` (de 1512 a 1415 líneas), `facturas.php`, `archivo.php`, `documentos.php`, `galeria.php`,
+    `server/servicios/salida.php`; `server/pruebas/pruebas.php` (4 pruebas de las clases); `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - **Mapeo hecho a mano, sin ORM** (Doctrine o Hibernate): el proyecto no usa dependencias externas y así se ve cómo
+    funciona un ORM por dentro. Cada subclase declara su tabla y un mapa columna → propiedad (`COLUMNAS`); `Modelo` hace
+    el resto. Es el patrón *Active Record* (el objeto sabe guardarse y borrarse).
+  - Seguridad: consultas preparadas; los nombres de tabla y columna salen de constantes de la clase; `OCULTAS` impide
+    que la contraseña llegue al JSON.
+  - Las rutas genéricas de `superapi.php` (tablas y formularios automáticos) siguen trabajando con filas porque se adaptan
+    a cualquier tabla; las clases se usan para las reglas de estas cuatro entidades. `Factura::listadoPara` devuelve filas
+    porque incluye datos de otras tablas (nombres de usuarios).
+  - Sin cambios de comportamiento: las 93 pruebas anteriores siguen superadas.
+- Requisitos que cubre (RF/RNF): RF-02, RF-03, RF-05, RNF-05. Resultados de aprendizaje: Acceso a datos RA3 y RA6.
+- Cómo probarlo (pasos): usar la aplicación como siempre (no debe cambiar nada). `php server/pruebas/pruebas.php <url> --confirmar`
+  → 97 de 97.
+- Impacto en la memoria (apartados que habría que revisar): arquitectura del servidor (nueva capa de dominio), acceso a datos
+  (mapeo objeto-relacional y comparación con un ORM), mantenimiento (RNF-05).
+- Pendiente o problemas: con la copia de la base del usuario anterior a cargar las plantillas, DOC-01 y DOC-14 fallan porque
+  el catálogo apunta a `circular1.pdf`, que ya no está en el repositorio; no es un fallo del código (en su Apache funciona).
+
 ## 2026-11-17 · E-14 (cierre) · Fichas de la FEV y Configuración en cajas
 - Rama / commit: `feat/E-14-documentacion` (commit propio después del de E-14)
 - Qué se ha hecho:

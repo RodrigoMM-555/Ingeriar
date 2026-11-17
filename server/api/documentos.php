@@ -18,6 +18,8 @@ require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/registro.php';
+require_once __DIR__ . '/comun.php';
+require_once __DIR__ . '/../dominio/Educando.php';
 
 const FORMATOS_DOCUMENTO = [
     'application/pdf' => 'pdf',
@@ -26,43 +28,16 @@ const FORMATOS_DOCUMENTO = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
 ];
 
-function responder($datos, int $estado = 200): never
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 function baseDocumentos(): string
 {
     return realpath(__DIR__ . '/../../storage/documentos');
-}
-
-function tamanoMaximoDocumento(): int
-{
-    $ruta = __DIR__ . '/../data/config.php';
-    $configuracion = is_file($ruta) ? json_decode((string) file_get_contents($ruta), true) : null;
-    return max(1, (int) ($configuracion['tamano_maximo_archivos_mb'] ?? 10)) * 1024 * 1024;
-}
-
-// Educando activo a cargo del tutor.
-function esTutorDe(PDO $db, int $usuarioId, int $educandoId): bool
-{
-    $stmt = $db->prepare(
-        'SELECT 1 FROM usuarios_educandos ue
-         JOIN educandos e ON e.id = ue.id_educando
-         WHERE ue.id_usuario = ? AND ue.id_educando = ? AND e.fecha_baja IS NULL'
-    );
-    $stmt->execute([$usuarioId, $educandoId]);
-    return (bool) $stmt->fetchColumn();
 }
 
 // ¿Puede ver la documentación de este educando? Monitores y administración, o su tutor.
 function puedeVerEducando(PDO $db, array $usuario, int $educandoId): bool
 {
     return tieneAlgunPermiso(['documentos.ver_todos', 'documentos.revisar'])
-        || (tienePermiso('documentos.subir_propios') && esTutorDe($db, $usuario['id'], $educandoId));
+        || (tienePermiso('documentos.subir_propios') && Educando::esTutorDe($db, $usuario['id'], $educandoId));
 }
 
 // Comprueba el archivo subido (tipo real y tamaño) y devuelve su extensión.
@@ -72,7 +47,7 @@ function validarArchivo(string $campo, array $formatos): string
     if (!$archivo || $archivo['error'] === UPLOAD_ERR_NO_FILE) {
         responder(['error' => 'No se ha recibido ningún archivo'], 400);
     }
-    $maximo = tamanoMaximoDocumento();
+    $maximo = tamanoMaximoArchivos();
     if (in_array($archivo['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) || $archivo['size'] > $maximo) {
         responder(['error' => 'El archivo supera el tamaño máximo de ' . intdiv($maximo, 1024 * 1024) . ' MB'], 413);
     }
@@ -193,7 +168,7 @@ switch ($accion) {
         responder([
             'documentos' => $documentos,
             'puede_subir' => tienePermiso('documentos.revisar')
-                || (tienePermiso('documentos.subir_propios') && esTutorDe($db, $usuario['id'], $educandoId)),
+                || (tienePermiso('documentos.subir_propios') && Educando::esTutorDe($db, $usuario['id'], $educandoId)),
             'puede_revisar' => tienePermiso('documentos.revisar'),
         ]);
 
@@ -216,7 +191,7 @@ switch ($accion) {
         $educandoId = (int) ($_POST['id_educando'] ?? 0);
         $codigo = (string) ($_POST['codigo'] ?? '');
         $puede = tienePermiso('documentos.revisar')
-            || (tienePermiso('documentos.subir_propios') && esTutorDe($db, $usuario['id'], $educandoId));
+            || (tienePermiso('documentos.subir_propios') && Educando::esTutorDe($db, $usuario['id'], $educandoId));
         if (!$puede) {
             responder(['error' => 'Solo puedes entregar la documentación de tus educandos'], 403);
         }
@@ -224,10 +199,8 @@ switch ($accion) {
         if ($documento === null || $documento['tipo'] !== 'inscripcion' || !$documento['activo']) {
             responder(['error' => 'Documento no válido'], 400);
         }
-        $educandoStmt = $db->prepare('SELECT nombre, apellidos, naz FROM educandos WHERE id = ? AND fecha_baja IS NULL');
-        $educandoStmt->execute([$educandoId]);
-        $educando = $educandoStmt->fetch();
-        if (!$educando) {
+        $educando = Educando::buscar($db, $educandoId);
+        if ($educando === null || !$educando->estaActivo()) {
             responder(['error' => 'El educando no existe o está dado de baja'], 400);
         }
         $extension = validarArchivo('archivo', FORMATOS_DOCUMENTO);
@@ -236,11 +209,10 @@ switch ($accion) {
         $secciones = $db->query(
             'SELECT codigo, edad_minima, edad_maxima FROM secciones WHERE activo = 1 ORDER BY orden, nombre'
         )->fetchAll();
-        $seccion = seccionDeEducandoConCatalogo($educando['naz'], $secciones) ?? 'sin-seccion';
         $relativa = implode('/', [
             rondaActual(),
-            $seccion,
-            nombreCarpetaEducando($educandoId, $educando['nombre'], $educando['apellidos']),
+            $educando->seccion($secciones) ?? 'sin-seccion',
+            $educando->carpeta(),
             'inscripcion-' . $codigo . '-' . bin2hex(random_bytes(12)) . '.' . $extension,
         ]);
         $destino = baseDocumentos() . '/' . $relativa;

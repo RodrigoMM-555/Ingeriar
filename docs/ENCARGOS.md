@@ -24,7 +24,9 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Crear en `server/` clases PHP (`Educando`, `Evento`, `Factura`, `Usuario`) que mapeen filas de la base de datos a objetos y los serialicen a JSON.
 - Mover a esas clases las consultas hoy repartidas en `superapi.php` (sin cambiar el comportamiento visible).
 - Aceptación: las pantallas actuales funcionan igual; `superapi.php` reduce su tamaño; cada clase tiene métodos de carga, guardado y borrado.
-- Estado: pendiente
+- Decisión: mapeo hecho a mano, sin librerías ORM (el chat del documento no cambió el encargo). En la memoria se
+  compara con Doctrine e Hibernate.
+- Estado: hecho (rama `feat/E-02-clases-dominio`, pendiente de fusionar)
 
 ## E-03 · Galería de fotografías
 - Requisitos: RF-04, RNF-03. Apartados afectados: 3.1, 3.4.

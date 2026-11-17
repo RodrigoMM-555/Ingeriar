@@ -20,6 +20,9 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 require_once __DIR__ . '/../auth/permisos.php';
+require_once __DIR__ . '/../dominio/Educando.php';
+require_once __DIR__ . '/../dominio/Evento.php';
+require_once __DIR__ . '/../dominio/Usuario.php';
 
 $argumentos = array_slice($argv, 1);
 $base = rtrim((string) ($argumentos[0] ?? ''), '/');
@@ -816,6 +819,32 @@ try {
             ? (esperar($circular, 200) === true && $circular['texto'] === $plantilla['texto'] ?: 'no coincide con la plantilla')
             : esperar($circular, 404);
     });
+
+    echo "\nClases de dominio (E-02)\n";
+    prueba('MOD-01', 'Educando: guardar crea la fila, buscar la recupera y borrar la elimina', function () use ($db) {
+        $educando = (new Educando())->rellenar(['nombre' => 'Clase', 'apellidos' => 'Prueba', 'DNI' => '99999994Z', 'naz' => '2014-06-01']);
+        $educando->guardar($db);
+        $cargado = Educando::buscar($db, $educando->id);
+        $cargado->apellidos = 'Modificada';
+        $cargado->guardar($db);
+        $modificado = Educando::buscar($db, $educando->id)->apellidos;
+        $cargado->borrar($db);
+        return $cargado->dni === '99999994Z' && $modificado === 'Modificada' && Educando::buscar($db, $educando->id) === null
+            ?: 'apellidos tras guardar: ' . $modificado;
+    });
+    prueba('MOD-02', 'Usuario: el JSON no incluye la contraseña', function () use ($db, $tutorId) {
+        $json = json_encode(Usuario::buscar($db, $tutorId));
+        return !str_contains($json, 'contrase') && str_contains($json, 'tutor' . DOMINIO_PRUEBAS) ?: $json;
+    });
+    prueba('MOD-03', 'Educando: sección según la edad en la fecha y activo según la baja', function () use ($db, $educandoId) {
+        $educando = Educando::buscar($db, $educandoId);
+        $catalogo = $db->query('SELECT codigo, edad_minima, edad_maxima FROM secciones WHERE activo = 1')->fetchAll();
+        $seccion = $educando->seccion($catalogo, new DateTimeImmutable('2026-10-10'));
+        return $seccion === 'tropa' && $educando->estaActivo() && $educando->carpeta() === $educandoId . '-educando-prueba'
+            ?: "sección {$seccion}, carpeta " . $educando->carpeta();
+    });
+    prueba('MOD-04', 'Evento: un evento sin secciones convoca a todas', fn() => Evento::convocaA([], ['tropa'])
+        && Evento::convocaA(['tropa', 'posta'], ['tropa']) && !Evento::convocaA(['colonia'], ['tropa']) ?: 'regla incorrecta');
 } finally {
     limpiarDatosPrueba($db);
     unlink($imagen);

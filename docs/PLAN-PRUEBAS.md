@@ -133,7 +133,15 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | DOC-13 | Un monitor ve el documento y el acceso queda registrado | RNF-03 | Superada | 2026-11-17 |
 | DOC-14 | La circular de participación de los eventos sale del catálogo | RF-03, RF-04 | Superada | 2026-11-17 |
 
-Resultado: 93 de 93 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
+| MOD-01 | Educando: guardar crea la fila, buscar la recupera y borrar la elimina | RF-02, RNF-05 | Superada | 2026-11-17 |
+| MOD-02 | Usuario: el JSON no incluye la contraseña | RNF-03 | Superada | 2026-11-17 |
+| MOD-03 | Educando: sección según la edad en la fecha y activo según la baja | RF-02 | Superada | 2026-11-17 |
+| MOD-04 | Evento: un evento sin secciones convoca a todas | RF-03 | Superada | 2026-11-17 |
+
+Resultado: 97 de 97 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos tras la refactorización de E-02
+(las 93 anteriores sirven para comprobar que el comportamiento no ha cambiado).
+
+Resultado anterior: 93 de 93 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
 con todas las migraciones aplicadas.
 
 Resultado anterior: 79 de 79 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario

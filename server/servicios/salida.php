@@ -4,26 +4,13 @@
 // Solo para administradores: contiene datos personales de usuarios y educandos.
 
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/../api/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/registro.php';
 
-// permisos.php usa responder() para el 401 y el 403.
-function responder(array $datos, int $estado = 200): never
-{
-    responderSalida($datos, $estado);
-}
-
-function responderSalida(array $datos, int $estado): never
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 // La sesión se comprueba antes de abrir la base de datos; el permiso, al recargarlo.
 if (usuarioActual() === null) {
-    responderSalida(['error' => 'No autenticado'], 401);
+    responder(['error' => 'No autenticado'], 401);
 }
 $db = obtenerConexion();
 $usuario = exigirUsuario($db);

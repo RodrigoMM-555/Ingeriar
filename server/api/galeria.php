@@ -11,7 +11,10 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
+require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
+require_once __DIR__ . '/../dominio/Educando.php';
+require_once __DIR__ . '/../dominio/Evento.php';
 
 const FORMATOS_GALERIA = [
     'image/jpeg' => 'jpg',
@@ -20,15 +23,6 @@ const FORMATOS_GALERIA = [
 ];
 const MAXIMO_FOTOS_POR_SUBIDA = 20;
 
-// sesion.php y permisos.php usan responder() cuando falta la sesión o un permiso.
-function responder($datos, int $estado = 200): never
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 function directorioGaleria(): string
 {
     $directorio = __DIR__ . '/../../storage/galeria';
@@ -36,17 +30,6 @@ function directorioGaleria(): string
         responder(['error' => 'No se pudo preparar la carpeta de la galería'], 500);
     }
     return realpath($directorio);
-}
-
-// Tamaño máximo por foto, tomado de la configuración del grupo (MB).
-function tamanoMaximoGaleria(): int
-{
-    $ruta = __DIR__ . '/../data/config.php';
-    $configuracion = is_file($ruta)
-        ? json_decode((string) file_get_contents($ruta), true)
-        : null;
-    $megas = (int) ($configuracion['tamano_maximo_archivos_mb'] ?? 10);
-    return max(1, $megas) * 1024 * 1024;
 }
 
 // Devuelve una función que indica si el usuario puede ver las fotos de un evento.
@@ -61,43 +44,26 @@ function filtroVisibilidad(PDO $db, array $usuario): callable
         return static fn(array $evento): bool => true;
     }
 
-    $stmt = $db->prepare(
-        'SELECT e.naz, e.fecha_baja FROM educandos e
-         JOIN usuarios_educandos ue ON ue.id_educando = e.id
-         WHERE ue.id_usuario = ? AND e.naz IS NOT NULL'
-    );
-    $stmt->execute([$usuario['id']]);
-    $educandos = $stmt->fetchAll();
-
+    // Todos sus educandos, también los dados de baja: cuentan para los eventos
+    // anteriores a su baja.
+    $educandos = Educando::deTutor($db, $usuario['id'], false);
     $catalogo = $db->query(
         'SELECT codigo, edad_minima, edad_maxima FROM secciones
          WHERE activo = 1 ORDER BY orden, nombre'
     )->fetchAll();
-
-    $convocatorias = [];
-    foreach ($db->query('SELECT id_evento, seccion FROM eventos_secciones') as $fila) {
-        $convocatorias[(int) $fila['id_evento']][] = $fila['seccion'];
-    }
+    $convocatorias = Evento::convocatoriasDeTodos($db);
 
     return static function (array $evento) use ($educandos, $catalogo, $convocatorias): bool {
         $fecha = new DateTimeImmutable($evento['fecha_inicio']);
         $seccionesTutor = [];
         foreach ($educandos as $educando) {
-            // Un educando dado de baja solo cuenta para los eventos anteriores a su baja.
-            if ($educando['fecha_baja'] !== null
-                && $fecha->format('Y-m-d') > $educando['fecha_baja']) {
-                continue;
-            }
-            $seccion = seccionDeEducandoConCatalogo($educando['naz'], $catalogo, $fecha);
+            $seccion = $educando->estabaActivoEn($fecha) ? $educando->seccion($catalogo, $fecha) : null;
             if ($seccion !== null) {
                 $seccionesTutor[] = $seccion;
             }
         }
-        if (!$seccionesTutor) {
-            return false;
-        }
-        $convocadas = $convocatorias[(int) $evento['id']] ?? [];
-        return !$convocadas || (bool) array_intersect($convocadas, $seccionesTutor);
+        return $seccionesTutor
+            && Evento::convocaA($convocatorias[(int) $evento['id']] ?? [], $seccionesTutor);
     };
 }
 
@@ -300,7 +266,7 @@ switch ($accion) {
         }
 
         // Primero se validan todas; si una falla, no se guarda ninguna.
-        $maximo = tamanoMaximoGaleria();
+        $maximo = tamanoMaximoArchivos();
         $tipoReal = new finfo(FILEINFO_MIME_TYPE);
         foreach ($archivos as &$archivo) {
             $nombre = limpiarNombreOriginal($archivo['name']);

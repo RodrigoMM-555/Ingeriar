@@ -43,6 +43,7 @@ ingeriar v3/
 │   │   └── documento-preview-worker.js
 │   └── servicios/salida.php        Entrada pública de la copia de seguridad
 ├── server/
+│   ├── dominio/                    Clases Modelo, Educando, Evento, Factura, Usuario (E-02)
 │   ├── api/
 │   │   ├── login.php               Inicio de sesión
 │   │   ├── logout.php              Cierre de sesión
@@ -222,6 +223,33 @@ configuración, en el bloque «Copia de seguridad».
 Para archivos, `archivo.php` comprueba el usuario, el evento, el educando y la
 ruta física antes de devolver el archivo. Los archivos no se sirven directamente
 desde `storage`.
+
+## 5 bis. Capa de dominio: mapeo objeto-relacional (E-02)
+
+`server/dominio/` contiene clases PHP que representan las entidades principales y
+convierten filas de MySQL en objetos y objetos en filas:
+
+```text
+Modelo (abstracta)            tabla, columnas ↔ propiedades, ocultas
+├── Educando                  sección, activo, carpeta, tutor, vencidos, borrado completo
+├── Evento                    convocatorias por sección, terminado, fotos
+├── Factura                   quién la ve, quién la edita, cambio de estado
+└── Usuario                   cargos, educandos vinculados (sin contraseña en el JSON)
+```
+
+`Modelo` hace a mano lo que un ORM como Doctrine (PHP) o Hibernate (Java) hace con
+anotaciones: cada subclase declara su tabla y el mapa columna → propiedad, y con eso
+`desdeFila`, `buscar`, `donde`, `rellenar`, `guardar` (INSERT o UPDATE), `borrar` y
+`jsonSerialize` funcionan para todas. Las consultas son preparadas y los nombres de
+tabla y columna salen de constantes de la clase, nunca de datos del usuario.
+
+No se usa una librería ORM porque el proyecto no usa dependencias externas y así se
+ve el funcionamiento completo. Las rutas genéricas de `superapi.php` (tablas y
+formularios automáticos) siguen trabajando con filas, porque se adaptan a cualquier
+tabla; las reglas de negocio de estas cuatro entidades están en sus clases.
+
+`server/api/comun.php` reúne `responder()` y `tamanoMaximoArchivos()`, que antes
+estaban copiadas en cada API.
 
 ## 6. Roles y permisos
 
@@ -620,6 +648,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-02)
+
+- E-02: capa de dominio con mapeo objeto-relacional hecho a mano (`Modelo`,
+  `Educando`, `Evento`, `Factura`, `Usuario`); las API la usan y se eliminan las
+  funciones repetidas. 97 pruebas automáticas superadas.
 
 ### 2026-11-17 (E-14)
 

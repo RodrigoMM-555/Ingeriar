@@ -14,22 +14,14 @@
 // nadie cambia un estado sin facturas.cambiar_estado, ni siquiera en las suyas.
 
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
-
-const ESTADOS_FACTURA = ['pendiente', 'revisada', 'pagada'];
+require_once __DIR__ . '/../dominio/Factura.php';
 const FORMATOS_FACTURA = [
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
     'image/webp' => 'webp',
 ];
-
-function responder($datos, int $estado = 200): never
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 function directorioFacturas(): string
 {
@@ -38,48 +30,6 @@ function directorioFacturas(): string
         responder(['error' => 'No se pudo preparar la carpeta de facturas'], 500);
     }
     return realpath($directorio);
-}
-
-function tamanoMaximoFactura(): int
-{
-    $ruta = __DIR__ . '/../data/config.php';
-    $configuracion = is_file($ruta) ? json_decode((string) file_get_contents($ruta), true) : null;
-    return max(1, (int) ($configuracion['tamano_maximo_archivos_mb'] ?? 10)) * 1024 * 1024;
-}
-
-function buscarFactura(PDO $db, int $id): ?array
-{
-    $stmt = $db->prepare('SELECT * FROM facturas WHERE id = ?');
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
-}
-
-function esPropia(array $factura, array $usuario): bool
-{
-    return (int) $factura['responsable_id'] === (int) $usuario['id'];
-}
-
-function puedeVerFactura(array $factura, array $usuario): bool
-{
-    return tienePermiso('facturas.ver_todas') || esPropia($factura, $usuario);
-}
-
-// ¿Se pueden cambiar los datos o borrar la factura? Devuelve null si sí, o el motivo.
-function motivoNoEditable(array $factura, array $usuario): ?string
-{
-    if ($factura['estado'] === 'pagada') {
-        return 'Una factura pagada no se puede modificar';
-    }
-    if (tienePermiso('facturas.gestionar_todas')) {
-        return null;
-    }
-    if (!esPropia($factura, $usuario) || !tienePermiso('facturas.subir_propias')) {
-        return 'Solo puedes modificar tus propias facturas';
-    }
-    if ($factura['estado'] !== 'pendiente') {
-        return 'Solo se pueden modificar las facturas pendientes';
-    }
-    return null;
 }
 
 function rutaImagenFactura(?string $archivo): ?string
@@ -103,7 +53,7 @@ function validarImagenFactura(): ?string
     if (!$imagen || $imagen['error'] === UPLOAD_ERR_NO_FILE) {
         return null;
     }
-    $maximo = tamanoMaximoFactura();
+    $maximo = tamanoMaximoArchivos();
     if (in_array($imagen['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) || $imagen['size'] > $maximo) {
         responder(['error' => 'La imagen supera el tamaño máximo de ' . intdiv($maximo, 1024 * 1024) . ' MB'], 413);
     }
@@ -207,29 +157,7 @@ if (in_array($accion, ['crear', 'editar', 'borrar', 'estado'], true) && $_SERVER
 
 switch ($accion) {
     case 'listar':
-        $sql = "SELECT f.id, f.numero_fact, f.CIF_prov, f.fecha_emision, f.fecha_compra,
-                       f.concepto, f.precio, f.categoria, f.estado, f.responsable_id,
-                       f.imagen_factura IS NOT NULL AS tiene_imagen, f.estado_cambiado_en,
-                       CONCAT(u.nombre, ' ', u.apellidos) AS responsable_nombre,
-                       CONCAT(c.nombre, ' ', c.apellidos) AS estado_cambiado_por_nombre
-                FROM facturas f
-                JOIN usuarios u ON u.id = f.responsable_id
-                LEFT JOIN usuarios c ON c.id = f.estado_cambiado_por";
-        $parametros = [];
-        if (!tienePermiso('facturas.ver_todas')) {
-            $sql .= ' WHERE f.responsable_id = ?';
-            $parametros[] = $usuario['id'];
-        }
-        $sql .= ' ORDER BY f.fecha_compra DESC, f.id DESC';
-        $stmt = $db->prepare($sql);
-        $stmt->execute($parametros);
-        $facturas = $stmt->fetchAll();
-        foreach ($facturas as &$factura) {
-            $factura['tiene_imagen'] = (bool) $factura['tiene_imagen'];
-            $factura['propia'] = esPropia($factura, $usuario);
-            $factura['editable'] = motivoNoEditable($factura, $usuario) === null;
-        }
-        unset($factura);
+        $facturas = Factura::listadoPara($db, $usuario);
 
         $responsables = [];
         if (tienePermiso('facturas.gestionar_todas')) {
@@ -255,11 +183,11 @@ switch ($accion) {
         ]);
 
     case 'imagen':
-        $factura = buscarFactura($db, (int) ($_GET['id'] ?? 0));
-        if ($factura === null || !puedeVerFactura($factura, $usuario)) {
+        $factura = Factura::buscar($db, (int) ($_GET['id'] ?? 0));
+        if ($factura === null || !$factura->puedeVerla($usuario)) {
             responder(['error' => 'No tienes permisos para esta factura'], 403);
         }
-        $ruta = rutaImagenFactura($factura['imagen_factura']);
+        $ruta = rutaImagenFactura($factura->imagen);
         if ($ruta === null) {
             responder(['error' => 'Esta factura no tiene imagen'], 404);
         }
@@ -271,7 +199,7 @@ switch ($accion) {
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . filesize($ruta));
         header('Content-Disposition: ' . $disposicion . '; filename="factura-'
-            . (int) $factura['id'] . '.' . FORMATOS_FACTURA[$mime] . '"');
+            . $factura->id . '.' . FORMATOS_FACTURA[$mime] . '"');
         header('X-Content-Type-Options: nosniff');
         header('Cache-Control: private, max-age=3600');
         readfile($ruta);
@@ -285,42 +213,36 @@ switch ($accion) {
             responder(['error' => 'La imagen de la factura es obligatoria'], 400);
         }
         $datos['responsable_id'] ??= $usuario['id'];
-        $datos['estado'] = 'pendiente';
+        $factura = (new Factura())->rellenar($datos);
+        $factura->estado = 'pendiente';
 
+        // La fila se crea primero para que el nombre de la imagen lleve su id.
         $db->beginTransaction();
-        $columnas = array_keys($datos);
-        $db->prepare(
-            'INSERT INTO facturas (`' . implode('`, `', $columnas) . '`) VALUES ('
-            . implode(', ', array_fill(0, count($columnas), '?')) . ')'
-        )->execute(array_values($datos));
-        $id = (int) $db->lastInsertId();
-        $nombre = guardarImagenFactura($id, $extension);
-        $db->prepare('UPDATE facturas SET imagen_factura = ? WHERE id = ?')->execute([$nombre, $id]);
+        $factura->guardar($db);
+        $factura->imagen = guardarImagenFactura($factura->id, $extension);
+        $factura->guardar($db);
         $db->commit();
-        responder(['ok' => true, 'id' => $id]);
+        responder(['ok' => true, 'id' => $factura->id]);
 
     case 'editar':
-        $factura = buscarFactura($db, (int) ($_POST['id'] ?? 0));
-        if ($factura === null || !puedeVerFactura($factura, $usuario)) {
+        $factura = Factura::buscar($db, (int) ($_POST['id'] ?? 0));
+        if ($factura === null || !$factura->puedeVerla($usuario)) {
             responder(['error' => 'No tienes permisos para esta factura'], 403);
         }
-        $motivo = motivoNoEditable($factura, $usuario);
+        $motivo = $factura->motivoNoEditable($usuario);
         if ($motivo !== null) {
-            responder(['error' => $motivo], $factura['estado'] === 'pagada' ? 409 : 403);
+            responder(['error' => $motivo], $factura->estado === 'pagada' ? 409 : 403);
         }
-        $datos = leerDatosFactura($db, $usuario);
+        $factura->rellenar(leerDatosFactura($db, $usuario));
         $extension = validarImagenFactura();
 
         $db->beginTransaction();
-        $cambios = array_map(fn($columna) => "`{$columna}` = ?", array_keys($datos));
-        $db->prepare('UPDATE facturas SET ' . implode(', ', $cambios) . ' WHERE id = ?')
-            ->execute([...array_values($datos), $factura['id']]);
         $anterior = null;
         if ($extension !== null) {
-            $nombre = guardarImagenFactura((int) $factura['id'], $extension);
-            $db->prepare('UPDATE facturas SET imagen_factura = ? WHERE id = ?')->execute([$nombre, $factura['id']]);
-            $anterior = rutaImagenFactura($factura['imagen_factura']);
+            $anterior = rutaImagenFactura($factura->imagen);
+            $factura->imagen = guardarImagenFactura($factura->id, $extension);
         }
+        $factura->guardar($db);
         $db->commit();
         if ($anterior !== null) {
             unlink($anterior);
@@ -328,16 +250,16 @@ switch ($accion) {
         responder(['ok' => true]);
 
     case 'borrar':
-        $factura = buscarFactura($db, (int) ($_POST['id'] ?? 0));
-        if ($factura === null || !puedeVerFactura($factura, $usuario)) {
+        $factura = Factura::buscar($db, (int) ($_POST['id'] ?? 0));
+        if ($factura === null || !$factura->puedeVerla($usuario)) {
             responder(['error' => 'No tienes permisos para esta factura'], 403);
         }
-        $motivo = motivoNoEditable($factura, $usuario);
+        $motivo = $factura->motivoNoEditable($usuario);
         if ($motivo !== null) {
-            responder(['error' => $motivo], $factura['estado'] === 'pagada' ? 409 : 403);
+            responder(['error' => $motivo], $factura->estado === 'pagada' ? 409 : 403);
         }
-        $db->prepare('DELETE FROM facturas WHERE id = ?')->execute([$factura['id']]);
-        $imagen = rutaImagenFactura($factura['imagen_factura']);
+        $imagen = rutaImagenFactura($factura->imagen);
+        $factura->borrar($db);
         if ($imagen !== null) {
             unlink($imagen);
         }
@@ -346,18 +268,15 @@ switch ($accion) {
     case 'estado':
         // Solo facturas.cambiar_estado, también sobre las propias.
         exigirPermiso('facturas.cambiar_estado');
-        $factura = buscarFactura($db, (int) ($_POST['id'] ?? 0));
+        $factura = Factura::buscar($db, (int) ($_POST['id'] ?? 0));
         $estado = (string) ($_POST['estado'] ?? '');
         if ($factura === null) {
             responder(['error' => 'No existe la factura'], 404);
         }
-        if (!in_array($estado, ESTADOS_FACTURA, true)) {
+        if (!in_array($estado, Factura::ESTADOS, true)) {
             responder(['error' => 'Estado no válido'], 400);
         }
-        $db->prepare(
-            'UPDATE facturas SET estado = ?, estado_cambiado_por = ?, estado_cambiado_en = NOW()
-             WHERE id = ?'
-        )->execute([$estado, $usuario['id'], $factura['id']]);
+        $factura->cambiarEstado($db, $estado, $usuario['id']);
         responder(['ok' => true]);
 
     default:

@@ -2,7 +2,11 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
+require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
+require_once __DIR__ . '/../dominio/Educando.php';
+require_once __DIR__ . '/../dominio/Evento.php';
+require_once __DIR__ . '/../dominio/Usuario.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 require_once __DIR__ . '/../auth/registro.php';
 
@@ -21,14 +25,6 @@ function tablaExiste(PDO $db, string $tabla): bool
 // Usuario con sus cargos y permisos recargados de la base de datos (E-13).
 $usuario = exigirUsuario($db);
 
-
-function responder($datos, int $estado = 200): void
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 function identificadorValido(string $identificador): bool
 {
@@ -179,18 +175,6 @@ function obtenerColumnas(PDO $db, string $tabla): array
     return $columnas;
 }
 
-function tutorTieneEducando(PDO $db, int $usuarioId, int $educandoId): bool
-{
-    // Un educando dado de baja deja de estar a cargo del tutor en la aplicación.
-    $stmt = $db->prepare(
-        'SELECT 1 FROM usuarios_educandos ue
-         JOIN educandos e ON e.id = ue.id_educando
-         WHERE ue.id_usuario = ? AND ue.id_educando = ? AND e.fecha_baja IS NULL'
-    );
-    $stmt->execute([$usuarioId, $educandoId]);
-    return (bool) $stmt->fetchColumn();
-}
-
 // Permisos necesarios para cada tabla de la API genérica (E-13). Basta con uno de la lista.
 // «menu»: permisos para que la tabla aparezca en el menú (si no se indica, los de lectura).
 // «borrado»: permisos para borrar (si no se indica, los de escritura).
@@ -251,25 +235,6 @@ function exigirPermisoTabla(array $usuario, string $tabla, string $operacion): v
     }
 }
 
-// Cargos de los usuarios indicados: [id => ['codigos' => [...], 'nombres' => '...']].
-function rolesDeUsuarios(PDO $db): array
-{
-    $roles = [];
-    foreach ($db->query(
-        'SELECT ur.id_usuario, r.codigo, r.nombre, r.basico
-         FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
-         ORDER BY r.basico DESC, r.orden'
-    ) as $fila) {
-        $id = (int) $fila['id_usuario'];
-        $roles[$id]['codigos'][] = $fila['codigo'];
-        $roles[$id]['nombres'][] = $fila['nombre'];
-        if ($fila['basico']) {
-            $roles[$id]['basico'] = $fila['codigo'];
-        }
-    }
-    return $roles;
-}
-
 switch ($ruta) {
     case 'usuario_actual':
         responder(['usuario' => $usuario]);
@@ -297,27 +262,15 @@ switch ($ruta) {
              WHERE fecha_fin >= NOW()
              ORDER BY fecha_inicio"
         );
-        $convocatoriasDashboard = [];
-        if (tablaExiste($db, 'eventos_secciones')) {
-            foreach ($consultarTodos(
-                'SELECT id_evento, seccion FROM eventos_secciones'
-            ) as $convocatoria) {
-                $convocatoriasDashboard[$convocatoria['id_evento']][] =
-                    $convocatoria['seccion'];
-            }
-        }
+        $convocatoriasDashboard = tablaExiste($db, 'eventos_secciones')
+            ? Evento::convocatoriasDeTodos($db)
+            : [];
         // Quien no ve todos los educandos (el tutor) solo ve lo que afecta a los suyos.
         $soloPropios = !tienePermiso('educandos.ver_todos');
         $seccionesUsuario = [];
         if ($soloPropios) {
-            $educandosUsuario = $consultarTodos(
-                'SELECT naz FROM educandos e
-                 JOIN usuarios_educandos ue ON ue.id_educando = e.id
-                 WHERE ue.id_usuario = ? AND e.fecha_baja IS NULL',
-                [$usuario['id']]
-            );
-            foreach ($educandosUsuario as $educando) {
-                $seccion = seccionEducando($db, $educando['naz'] ?? null);
+            foreach (Educando::deTutor($db, $usuario['id']) as $educando) {
+                $seccion = seccionEducando($db, $educando->nacimiento);
                 if ($seccion) {
                     $seccionesUsuario[] = $seccion;
                 }
@@ -326,12 +279,10 @@ switch ($ruta) {
         $eventoConvoca = function (array $evento) use (
             $soloPropios, $seccionesUsuario, $convocatoriasDashboard
         ): bool {
-            if (!$soloPropios) {
-                return true;
-            }
-            $convocatorias = $convocatoriasDashboard[$evento['id']] ?? [];
-            return !$convocatorias
-                || array_intersect($convocatorias, $seccionesUsuario);
+            return !$soloPropios || Evento::convocaA(
+                $convocatoriasDashboard[(int) $evento['id']] ?? [],
+                $seccionesUsuario
+            );
         };
         $eventosVisibles = array_values(array_filter(
             $eventosDashboard,
@@ -636,7 +587,7 @@ switch ($ruta) {
             if (
                 $eventoId < 1 || $educandoId < 1
                 || !in_array($estado, ['pendiente', 'si', 'no'], true)
-                || !tutorTieneEducando($db, $usuario['id'], $educandoId)
+                || !Educando::esTutorDe($db, $usuario['id'], $educandoId)
             ) {
                 responder(['error' => 'Datos de asistencia no válidos'], 400);
             }
@@ -673,7 +624,7 @@ switch ($ruta) {
         $educandoId = (int) ($_GET['educando'] ?? 0);
         $puedeConsultar = tienePermiso('documentos.ver_todos')
             || (tienePermiso('asistencia.responder_propios')
-                && tutorTieneEducando($db, $usuario['id'], $educandoId));
+                && Educando::esTutorDe($db, $usuario['id'], $educandoId));
         if ($educandoId < 1 || !$puedeConsultar) {
             responder(['error' => 'Educando no válido'], 403);
         }
@@ -928,30 +879,12 @@ switch ($ruta) {
         );
         $plazo = max(1, (int) ($configuracion['plazo_conservacion_anos'] ?? 5));
         $limite = (new DateTimeImmutable('today'))->modify("-{$plazo} years")->format('Y-m-d');
-        $vencidosStmt = $db->prepare(
-            'SELECT id, nombre, apellidos, fecha_baja FROM educandos
-             WHERE fecha_baja IS NOT NULL AND fecha_baja <= ?
-             ORDER BY fecha_baja, apellidos, nombre'
-        );
-        $vencidosStmt->execute([$limite]);
-        $vencidos = $vencidosStmt->fetchAll();
-        $idsVencidos = array_map('intval', array_column($vencidos, 'id'));
+        $vencidos = [];
+        foreach (Educando::vencidos($db, $limite) as $educando) {
+            $vencidos[$educando->id] = $educando;
+        }
+        $idsVencidos = array_keys($vencidos);
 
-        // Archivos del educando: entregas de circulares y documentación de inscripción (E-14).
-        $archivosDe = function (int $educandoId) use ($db): array {
-            $stmt = $db->prepare(
-                'SELECT archivo_entrega FROM educandos_asistencias
-                 WHERE id_educando = ? AND archivo_entrega IS NOT NULL'
-            );
-            $stmt->execute([$educandoId]);
-            $archivos = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            if (tablaExiste($db, 'documentos_educando')) {
-                $stmt = $db->prepare('SELECT archivo FROM documentos_educando WHERE id_educando = ?');
-                $stmt->execute([$educandoId]);
-                $archivos = [...$archivos, ...$stmt->fetchAll(PDO::FETCH_COLUMN)];
-            }
-            return $archivos;
-        };
         // Tutores cuyos educandos están todos vencidos: se quedarían sin ninguno.
         // Solo se ofrecen los que no tienen ningún otro cargo (un tutor que además
         // lleva un cargo del comité sigue haciendo falta).
@@ -976,14 +909,16 @@ switch ($ruta) {
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            foreach ($vencidos as &$vencido) {
-                $vencido['archivos'] = count($archivosDe((int) $vencido['id']));
-            }
-            unset($vencido);
             responder([
                 'plazo_anos' => $plazo,
                 'fecha_limite' => $limite,
-                'educandos' => $vencidos,
+                'educandos' => array_values(array_map(fn(Educando $educando) => [
+                    'id' => $educando->id,
+                    'nombre' => $educando->nombre,
+                    'apellidos' => $educando->apellidos,
+                    'fecha_baja' => $educando->fechaBaja,
+                    'archivos' => count($educando->archivos($db)),
+                ], $vencidos)),
                 'tutores_sin_educandos' => $tutoresSinEducandos,
             ]);
         }
@@ -1007,23 +942,12 @@ switch ($ruta) {
 
         $archivos = [];
         foreach ($borrarEducandos as $educandoId) {
-            $archivos = [...$archivos, ...$archivosDe($educandoId)];
+            $archivos = [...$archivos, ...$vencidos[$educandoId]->archivos($db)];
         }
         $db->beginTransaction();
         try {
-            // Se borran explícitamente asistencias y vínculos: en bases creadas con el
-            // instalador antiguo no hay claves foráneas que lo hagan en cascada.
-            $borrarAsistencias = $db->prepare('DELETE FROM educandos_asistencias WHERE id_educando = ?');
-            $borrarVinculos = $db->prepare('DELETE FROM usuarios_educandos WHERE id_educando = ?');
-            $borrarEducando = $db->prepare('DELETE FROM educandos WHERE id = ?');
-            $hayDocumentacion = tablaExiste($db, 'documentos_educando');
             foreach ($borrarEducandos as $educandoId) {
-                if ($hayDocumentacion) {
-                    $db->prepare('DELETE FROM documentos_educando WHERE id_educando = ?')->execute([$educandoId]);
-                }
-                $borrarAsistencias->execute([$educandoId]);
-                $borrarVinculos->execute([$educandoId]);
-                $borrarEducando->execute([$educandoId]);
+                $vencidos[$educandoId]->borrarConDependencias($db);
             }
             $borrarTutor = $db->prepare(
                 "DELETE FROM usuarios WHERE id = ?
@@ -1241,7 +1165,7 @@ switch ($ruta) {
                 $columnas,
                 fn($columna) => $columna['tipo_formulario'] !== 'PASSWORD' && $columna['name'] !== 'rol'
             ));
-            $cargos = rolesDeUsuarios($db);
+            $cargos = Usuario::cargosDeTodos($db);
             foreach ($registros as &$registro) {
                 unset($registro['contraseña'], $registro['rol']);
                 $id = (int) $registro['id'];
@@ -1253,14 +1177,7 @@ switch ($ruta) {
             unset($registro);
         }
         if ($tabla === 'eventos' && tablaExiste($db, 'eventos_secciones')) {
-            $seccionesStmt = $db->query(
-                'SELECT id_evento, seccion FROM eventos_secciones ORDER BY seccion'
-            );
-            $seccionesPorEvento = [];
-            foreach ($seccionesStmt->fetchAll() as $filaSeccion) {
-                $seccionesPorEvento[$filaSeccion['id_evento']][] =
-                    $filaSeccion['seccion'];
-            }
+            $seccionesPorEvento = Evento::convocatoriasDeTodos($db);
             foreach ($registros as &$registro) {
                 $registro['convocatorias'] =
                     $seccionesPorEvento[$registro['id']] ?? [];
@@ -1432,21 +1349,10 @@ switch ($ruta) {
             $registroId = (int) $id;
         }
         if ($tabla === 'usuarios') {
-            $db->prepare('DELETE FROM usuarios_educandos WHERE id_usuario = ?')
-                ->execute([$registroId]);
-            $relacion = $db->prepare(
-                'INSERT INTO usuarios_educandos (id_usuario, id_educando)
-                 VALUES (?, ?)'
-            );
-            foreach (array_unique($educandosRelacionados) as $educandoId) {
-                $relacion->execute([$registroId, $educandoId]);
-            }
+            $usuarioGuardado = Usuario::buscar($db, $registroId);
+            $usuarioGuardado->asignarEducandos($db, $educandosRelacionados);
             if ($rolesUsuario !== null) {
-                $db->prepare('DELETE FROM usuarios_roles WHERE id_usuario = ?')->execute([$registroId]);
-                $insertarRol = $db->prepare('INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, ?)');
-                foreach ($rolesUsuario as $codigoRol) {
-                    $insertarRol->execute([$registroId, $codigoRol]);
-                }
+                $usuarioGuardado->asignarCargos($db, $rolesUsuario);
             }
             if (usuariosQueGestionanRoles($db) === 0) {
                 $db->rollBack();
@@ -1485,12 +1391,9 @@ switch ($ruta) {
         $pk = array_values(array_filter($columnas, fn($columna) => $columna['pk']))[0]['name'] ?? 'id';
         // Al borrar un evento, sus fotos se borran en cascada en la base de datos;
         // se guardan antes los nombres para borrar también los archivos.
-        $fotosEvento = [];
-        if ($tabla === 'eventos' && tablaExiste($db, 'galeria_fotos')) {
-            $fotosStmt = $db->prepare('SELECT archivo FROM galeria_fotos WHERE id_evento = ?');
-            $fotosStmt->execute([$id]);
-            $fotosEvento = $fotosStmt->fetchAll(PDO::FETCH_COLUMN);
-        }
+        $fotosEvento = $tabla === 'eventos'
+            ? (Evento::buscar($db, (int) $id)?->archivosGaleria($db) ?? [])
+            : [];
         $sql = 'DELETE FROM `' . str_replace('`', '``', $tabla) . '` WHERE `' . $pk . '` = ?';
         $db->beginTransaction();
         $db->prepare($sql)->execute([$id]);

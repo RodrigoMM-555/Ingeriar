@@ -2,37 +2,17 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
+require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
+require_once __DIR__ . '/../dominio/Educando.php';
 require_once __DIR__ . '/../auth/registro.php';
 
-
-// sesion.php usa responder() cuando no hay sesión; sin esta función la petición
-// terminaba en un error fatal en lugar de un 401.
-function responder($datos, int $estado = 200): never
-{
-    http_response_code($estado);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($datos, JSON_UNESCAPED_UNICODE);
-    exit;
-}
 
 $db = obtenerConexion();
 $usuario = exigirUsuario($db);
 $tipo = $_GET['tipo'] ?? '';
 $eventoId = (int) ($_GET['evento'] ?? 0);
 $educandoId = (int) ($_GET['educando'] ?? 0);
-
-function tutorTieneEducandoArchivo(PDO $db, int $usuarioId, int $educandoId): bool
-{
-    // Solo educandos activos: tras la baja el tutor deja de acceder a sus documentos.
-    $stmt = $db->prepare(
-        'SELECT 1 FROM usuarios_educandos ue
-         JOIN educandos e ON e.id = ue.id_educando
-         WHERE ue.id_usuario = ? AND ue.id_educando = ? AND e.fecha_baja IS NULL'
-    );
-    $stmt->execute([$usuarioId, $educandoId]);
-    return (bool) $stmt->fetchColumn();
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!tienePermiso('asistencia.responder_propios')) {
@@ -41,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (
         $tipo !== 'entrega' || $eventoId < 1 || $educandoId < 1
-        || !tutorTieneEducandoArchivo($db, $usuario['id'], $educandoId)
+        || !Educando::esTutorDe($db, $usuario['id'], $educandoId)
     ) {
         http_response_code(400);
         exit('Datos de entrega no válidos');
@@ -187,7 +167,7 @@ if ($tipo === 'circular') {
     // Ver todas las entregas, o solo las de sus educandos si es su tutor.
     if (!tienePermiso('documentos.ver_todos')
         && !(tienePermiso('asistencia.responder_propios')
-            && tutorTieneEducandoArchivo($db, $usuario['id'], $educandoId))) {
+            && Educando::esTutorDe($db, $usuario['id'], $educandoId))) {
         http_response_code(403);
         exit('No tienes permisos para este documento');
     }
