@@ -553,6 +553,11 @@ permite exportar las tablas a impresión, HTML, JSON o CSV.
 
 ## 12. Estilos y vistas
 
+**Caché del navegador**: `index.html`, `login.html` e `instalador.html` cargan los
+scripts y `estilo.css` con un número de versión (`codigo.js?v=20261117b`). Al cambiar
+cualquier JS o CSS hay que cambiar ese número en las tres páginas; si no, el navegador
+puede mezclar archivos nuevos con antiguos guardados en caché.
+
 `estilo.css` está organizado por secciones:
 
 - cabecera;
@@ -749,6 +754,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (caché)
+
+- Número de versión en los scripts y estilos de las páginas: el navegador mezclaba
+  el `codigo.js` nuevo con el `dashboard.js` antiguo y el dashboard no cargaba.
 
 ### 2026-11-17 (dashboard)
 

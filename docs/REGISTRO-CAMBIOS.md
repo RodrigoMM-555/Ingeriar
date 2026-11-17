@@ -15,6 +15,19 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Versión en los scripts y estilos (caché del navegador)
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: tras la revisión del dashboard, el navegador del usuario cargó el `codigo.js` nuevo con el
+  `dashboard.js` antiguo de su caché y el dashboard falló («this.exportacion is undefined»). Las páginas cargan ahora
+  los scripts y `estilo.css` con `?v=<versión>`, que hay que cambiar en cada modificación de JS o CSS.
+- Archivos creados o modificados: `public/index.html`, `public/login.html`, `public/instalador.html`, `noteas.md`.
+- Decisiones técnicas y motivo: un parámetro de versión en la URL es lo más simple y no depende de la configuración de
+  Apache (en la instalación local los `.htaccess` no se aplican).
+- Requisitos que cubre (RF/RNF): RNF-02, RNF-05.
+- Cómo probarlo (pasos): cambiar un JS, subir el número de versión y recargar sin forzar: se ve el cambio.
+- Impacto en la memoria (apartados que habría que revisar): despliegue y mantenimiento.
+- Pendiente o problemas: el número se cambia a mano.
+
 ## 2026-11-17 · Revisión del dashboard
 - Rama / commit: `feat/dashboard` (sale de `feat/E-11-instalador`)
 - Qué se ha hecho: el usuario revisó qué muestra el dashboard. Nuevo contenido por permisos: próximas actividades en tres
