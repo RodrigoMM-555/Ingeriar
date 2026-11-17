@@ -547,40 +547,50 @@ section h2{
     width:100%;
 }
 
-.vista-configuracion > .formulario{
+.vista-configuracion,
+.formulario-configuracion{
+    display:grid;
+    gap:20px;
+    align-content:start;
+}
+
+/* Cada apartado de Configuración es una caja con el mismo aspecto */
+.caja-configuracion{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+    gap:12px 24px;
     width:100%;
-    max-width:none;
     box-sizing:border-box;
-    grid-template-columns:repeat(12,minmax(0,1fr));
-    gap:0 24px;
-    padding:28px;
+    padding:24px;
 }
 
-.vista-configuracion > .formulario > .titulo-configuracion{
+/* Todo lo que no es un campo ocupa el ancho completo de la caja */
+.caja-configuracion > :not(.campo){
     grid-column:1 / -1;
-    margin-top:22px;
 }
 
-.vista-configuracion > .formulario > .titulo-configuracion:first-of-type{
-    margin-top:0;
+.caja-configuracion > .titulo-configuracion{
+    margin:0 0 4px;
 }
 
-.vista-configuracion > .formulario > .campo{
-    grid-column:span 4;
-}
-
-/* Bloques de configuración sin campos (copia de seguridad, datos vencidos) */
-.vista-configuracion > .formulario.bloque-extra{
-    margin-top:24px;
-}
-
-.vista-configuracion > .formulario.bloque-extra > *{
-    grid-column:1 / -1;
+.caja-configuracion > a.boton,
+.caja-configuracion > button{
     justify-self:start;
 }
 
-.vista-configuracion > .formulario > .bloque-catalogo{
-    grid-column:1 / -1;
+/* Botón de guardar fijo al pie mientras se recorre el formulario */
+.acciones-configuracion{
+    position:sticky;
+    bottom:0;
+    z-index:2;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-end;
+    gap:12px;
+    padding:12px 24px;
+    color:var(--color_secundario);
+    font-size:14px;
 }
 
 .bloque-listas-simples{
@@ -933,14 +943,9 @@ table tbody tr[class^="fila-seccion-"]:hover{
         padding:18px;
     }
 
-    .vista-configuracion > .formulario{
+    .caja-configuracion{
         grid-template-columns:1fr;
         padding:18px;
-    }
-
-    .vista-configuracion > .formulario > .campo,
-    .vista-configuracion > .formulario > .bloque-catalogo{
-        grid-column:1;
     }
 
     .bloque-listas-simples{

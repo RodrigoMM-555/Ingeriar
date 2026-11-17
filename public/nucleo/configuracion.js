@@ -79,8 +79,10 @@ class IngeriarConfiguracion {
             titulo.textContent = "Configuración";
             seccion.appendChild(titulo);
 
+            // Cada apartado va en su propia caja (.caja-configuracion); el formulario
+            // de datos generales agrupa varias cajas y un único botón Guardar.
             let formulario = document.createElement("form");
-            formulario.className = "formulario vista-superficie vista-formulario";
+            formulario.className = "formulario-configuracion";
 
             const campos = [
                 ["Identidad del grupo", [
@@ -119,10 +121,13 @@ class IngeriarConfiguracion {
                 categorias_factura: []
             };
             campos.forEach(([nombreGrupo, definiciones]) => {
+                const caja = document.createElement("div");
+                caja.className = "caja-configuracion vista-superficie";
                 let grupoTitulo = document.createElement("h3");
                 grupoTitulo.className = "titulo-configuracion";
                 grupoTitulo.textContent = nombreGrupo;
-                formulario.appendChild(grupoTitulo);
+                caja.appendChild(grupoTitulo);
+                formulario.appendChild(caja);
                 definiciones.forEach(([clave, texto, tipo]) => {
                 let grupo = document.createElement("div");
                 grupo.className = "campo";
@@ -160,13 +165,16 @@ class IngeriarConfiguracion {
                     entrada.accept = "image/jpeg,image/png,image/webp";
                 }
                 grupo.append(etiqueta, entrada);
-                formulario.appendChild(grupo);
+                caja.appendChild(grupo);
                 });
             });
+            const cajaListas = document.createElement("div");
+            cajaListas.className = "caja-configuracion vista-superficie";
             const tiposTitulo = document.createElement("h3");
             tiposTitulo.className = "titulo-configuracion";
-            tiposTitulo.textContent = "Configuración de tipos de listas";
-            formulario.appendChild(tiposTitulo);
+            tiposTitulo.textContent = "Listas de la aplicación";
+            cajaListas.appendChild(tiposTitulo);
+            formulario.appendChild(cajaListas);
             const tipos = this.crearEditorCatalogo(
                 "Tipos de evento", catalogos.tipos_evento, false
             );
@@ -178,13 +186,19 @@ class IngeriarConfiguracion {
                 catalogos.categorias_factura,
                 false
             );
-            formulario.append(tipos, secciones, categoriasFactura);
+            cajaListas.append(tipos, secciones, categoriasFactura);
 
+            // Botón fijo al pie: guarda todas las cajas del formulario.
+            const acciones = document.createElement("div");
+            acciones.className = "acciones-configuracion vista-superficie";
+            const aviso = document.createElement("span");
+            aviso.textContent = "Los apartados anteriores se guardan juntos.";
             let guardar = document.createElement("button");
             guardar.type = "submit";
-            guardar.textContent = "Guardar";
+            guardar.textContent = "Guardar configuración";
             guardar.className = "boton boton-crear";
-            formulario.appendChild(guardar);
+            acciones.append(aviso, guardar);
+            formulario.appendChild(acciones);
 
             formulario.onsubmit = (evento) => {
                 evento.preventDefault();
@@ -230,7 +244,7 @@ class IngeriarConfiguracion {
     // Cada columna se guarda por separado. El administrador no se puede modificar.
     crearBloqueRoles() {
         const bloque = document.createElement("div");
-        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        bloque.className = "caja-configuracion vista-superficie";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
         titulo.textContent = "Cargos y permisos";
@@ -375,7 +389,7 @@ class IngeriarConfiguracion {
     // El servidor decide qué está vencido y solo borra eso.
     crearBloqueVencidos() {
         const bloque = document.createElement("div");
-        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        bloque.className = "caja-configuracion vista-superficie";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
         titulo.textContent = "Datos vencidos";
@@ -484,7 +498,7 @@ class IngeriarConfiguracion {
     // El servidor comprueba que el usuario es administrador.
     crearBloqueCopia() {
         const bloque = document.createElement("div");
-        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        bloque.className = "caja-configuracion vista-superficie";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
         titulo.textContent = "Copia de seguridad";

@@ -5,8 +5,6 @@ require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/registro.php';
 
-// Circular de participación por defecto si aún no existe el catálogo de E-14.
-const CIRCULAR_FIJA = 'biblioteca/circular1.pdf';
 
 // sesion.php usa responder() cuando no hay sesión; sin esta función la petición
 // terminaba en un error fatal en lugar de un 401.
@@ -161,7 +159,7 @@ if ($tipo === 'circular') {
         exit('Este evento no tiene circular');
     }
     // E-14: la circular de participación es la plantilla del catálogo documentos_base.
-    $nombre = CIRCULAR_FIJA;
+    $nombre = null;
     try {
         $plantilla = $db->query(
             "SELECT archivo_plantilla FROM documentos_base
@@ -172,7 +170,11 @@ if ($tipo === 'circular') {
             $nombre = 'biblioteca/' . basename($plantilla);
         }
     } catch (PDOException $error) {
-        // Base anterior a E-14: se mantiene la circular fija.
+        // Base anterior a E-14: falta ejecutar la migración de documentación.
+    }
+    if ($nombre === null) {
+        http_response_code(404);
+        exit('El grupo todavía no ha subido la circular de participación (Configuración → Documentos base)');
     }
     $ruta = $baseDocumentos !== false
         ? realpath($baseDocumentos . '/' . $nombre)

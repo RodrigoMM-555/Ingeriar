@@ -155,7 +155,7 @@ class IngeriarDocumentos {
     // Bloque de Configuración: documentos base y sus plantillas en blanco.
     crearBloquePlantillas() {
         const bloque = document.createElement("div");
-        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        bloque.className = "caja-configuracion vista-superficie";
         const titulo = document.createElement("h3");
         titulo.className = "titulo-configuracion";
         titulo.textContent = "Documentos base y plantillas";

@@ -369,11 +369,11 @@ errores de escritura. Esta estructura es preferible a guardar una lista
 separada por comas o un JSON porque mantiene los datos normalizados y facilita
 las consultas y los filtros de asistencia.
 
-La circular fija se encuentra en:
-
-```text
-storage/documentos/biblioteca/circular1.pdf
-```
+La circular que se adjunta a los eventos es la plantilla «Autorización de
+participación en actividades» del catálogo `documentos_base` (E-14). El
+administrador la sube en Configuración → «Documentos base y plantillas» y se guarda
+en `storage/documentos/biblioteca/`. Mientras no se suba, la descarga responde 404
+con un aviso.
 
 Las entregas se guardan en:
 

@@ -325,9 +325,9 @@ switch ($accion) {
                      archivo_plantilla = COALESCE(?, archivo_plantilla)
                  WHERE codigo = ?'
             )->execute([$nombre, $obligatorio, $activo, $orden, $nuevoArchivo, $codigo]);
-            // La plantilla anterior se borra, salvo la circular de ejemplo del repositorio.
+            // La plantilla anterior se borra.
             $anterior = $nuevoArchivo ? rutaSegura('biblioteca/' . basename((string) $actual['archivo_plantilla'])) : null;
-            if ($anterior !== null && basename($anterior) !== 'circular1.pdf') {
+            if ($anterior !== null) {
                 unlink($anterior);
             }
         }

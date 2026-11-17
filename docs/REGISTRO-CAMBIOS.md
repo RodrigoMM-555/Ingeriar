@@ -15,6 +15,32 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-14 (cierre) · Fichas de la FEV y Configuración en cajas
+- Rama / commit: `feat/E-14-documentacion` (commit propio después del de E-14)
+- Qué se ha hecho:
+  - Catálogo de documentos base con las fichas de la FEV que el usuario ha reunido: ficha de inscripción, fichas sanitarias
+    (menor y mayor de edad), exclusión de responsabilidad, autorizaciones de ausencia, uso de imagen (menor y mayor),
+    grupos de WhatsApp, viaje en vehículo privado y volver solo a casa. La circular de los eventos es la «Autorización de
+    participación en actividades».
+  - Configuración: cada apartado en su propia caja con el mismo estilo (datos del grupo, apariencia, usuarios, archivos,
+    conservación, listas, cargos, documentos base, copia de seguridad y datos vencidos). El botón «Guardar configuración»
+    queda fijo al pie y guarda las cajas del formulario general.
+- Archivos creados o modificados: `server/data/semillas/documentos-base.sql`, `schema.sql`, `migraciones/2026-11-documentacion.sql`,
+  `server/api/archivo.php`, `server/api/documentos.php`, `public/nucleo/configuracion.js`, `documentos.js`, `public/estilo.css`,
+  `server/pruebas/pruebas.php`, `.gitignore`, `noteas.md`. Se elimina `storage/documentos/biblioteca/circular1.pdf` (era la hoja
+  de inscripción de la FEV; la quitó el usuario) y se añade `biblioteca/.gitkeep`.
+- Decisiones técnicas y motivo:
+  - Decisión del usuario: todas las fichas activas; ya decidirá cuáles son obligatorias. Por ahora son obligatorias todas
+    salvo las versiones «mayor de edad» (un menor no puede entregar las dos versiones).
+  - Las plantillas no se versionan (`.gitignore`): son documentos de la FEV y cada grupo sube las suyas. Por eso el catálogo
+    empieza sin archivos; mientras no se suba la circular de participación, su descarga responde 404 con un aviso.
+  - Las pruebas DOC-01 y DOC-14 ya no modifican la circular real del grupo: comprueban 200 si tiene plantilla y 404 si no.
+- Requisitos que cubre (RF/RNF): RF-04, RF-07, RNF-06.
+- Cómo probarlo (pasos): Configuración → cada apartado en su caja y «Guardar configuración» al pie; «Documentos base y
+  plantillas» con las 11 fichas. Como tutor, «Ver documentación» muestra todas. Pruebas: 93 de 93 con y sin plantilla de participación.
+- Impacto en la memoria (apartados que habría que revisar): RF-04 (lista de fichas), interfaz de Configuración.
+- Pendiente o problemas: decidir qué fichas son obligatorias; quizá algunas solo deban pedirse según la edad (menor o mayor).
+
 ## 2026-11-17 · E-14 · Documentación de inscripción
 - Rama / commit: `feat/E-14-documentacion` (sale de `feat/E-05-facturas`)
 - Qué se ha hecho: encargo nuevo propuesto por Claude Code y definido con el usuario. Las fichas básicas (ficha sanitaria,

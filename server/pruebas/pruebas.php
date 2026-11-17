@@ -748,8 +748,12 @@ try {
         }
         return null;
     };
-    prueba('DOC-01', 'Cualquier usuario descarga la circular de participación en blanco', fn() => esperar(
-        $tutor->get('/api/documentos.php?accion=plantilla&codigo=participacion'), 200));
+    // La circular de participación es configuración real del grupo: no se cambia, solo se
+    // comprueba que se sirve si tiene plantilla y que da 404 si todavía no la tiene.
+    $participacionConPlantilla = (bool) $db->query(
+        "SELECT archivo_plantilla IS NOT NULL FROM documentos_base WHERE codigo = 'participacion'")->fetchColumn();
+    prueba('DOC-01', 'La circular de participación en blanco se descarga (o 404 si aún no tiene plantilla)', fn() => esperar(
+        $tutor->get('/api/documentos.php?accion=plantilla&codigo=participacion'), $participacionConPlantilla ? 200 : 404));
     prueba('DOC-02', 'Un documento sin plantilla → 404', function () use ($documentosApi, $admin, $tutor) {
         $crear = $documentosApi($admin, 'guardar_plantilla', ['codigo' => 'prueba_doc', 'nombre' => 'Ficha de prueba', 'obligatorio' => '1', 'activo' => '1']);
         return esperar($crear, 200) === true ? esperar($tutor->get('/api/documentos.php?accion=plantilla&codigo=prueba_doc'), 404) : $crear['texto'];
@@ -804,11 +808,13 @@ try {
         $respuesta = $scouter->get('/api/documentos.php?accion=ver&id=' . $entregaPrueba($scouter, $educandoId)['id']);
         return esperar($respuesta, 200) === true && $registros('documento_inscripcion', 'scouter') === $antes + 1 ?: 'sin registro';
     });
-    prueba('DOC-14', 'La circular de participación de los eventos sale del catálogo', function () use ($tutor, $db, $eventoTropa) {
+    prueba('DOC-14', 'La circular de los eventos es la del catálogo (o 404 si aún no tiene plantilla)', function () use ($tutor, $db, $eventoTropa, $participacionConPlantilla) {
         $db->prepare('UPDATE eventos SET circular = 1 WHERE id = ?')->execute([$eventoTropa]);
-        $respuesta = $tutor->get('/api/archivo.php?tipo=circular&evento=' . $eventoTropa);
-        return esperar($respuesta, 200) === true && ($respuesta['cabeceras']['content-type'] ?? '') === 'application/pdf'
-            ?: $respuesta['codigo'] . ' ' . ($respuesta['cabeceras']['content-type'] ?? '');
+        $circular = $tutor->get('/api/archivo.php?tipo=circular&evento=' . $eventoTropa);
+        $plantilla = $tutor->get('/api/documentos.php?accion=plantilla&codigo=participacion');
+        return $participacionConPlantilla
+            ? (esperar($circular, 200) === true && $circular['texto'] === $plantilla['texto'] ?: 'no coincide con la plantilla')
+            : esperar($circular, 404);
     });
 } finally {
     limpiarDatosPrueba($db);
