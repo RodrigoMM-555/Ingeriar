@@ -83,7 +83,33 @@ class IngeriarFacturas {
             vacio.textContent = "Ninguna factura.";
             elemento.appendChild(vacio);
         }
-        facturas.forEach((factura) => elemento.appendChild(this.crearTarjeta(factura)));
+        if (!this.datos.permisos.ver_todas) {
+            facturas.forEach((factura) => elemento.appendChild(this.crearTarjeta(factura)));
+            return elemento;
+        }
+        // Quien ve las facturas de todos (tesorería): agrupadas por responsable, con un
+        // separador con su nombre, el número de facturas y el importe.
+        const grupos = new Map();
+        facturas.forEach((factura) => {
+            if (!grupos.has(factura.responsable_id)) {
+                grupos.set(factura.responsable_id, []);
+            }
+            grupos.get(factura.responsable_id).push(factura);
+        });
+        [...grupos.values()]
+            .sort((a, b) => a[0].responsable_nombre.localeCompare(b[0].responsable_nombre, "es"))
+            .forEach((grupo) => {
+                const separador = document.createElement("div");
+                separador.className = "separador-responsable";
+                const nombre = document.createElement("span");
+                nombre.textContent = grupo[0].responsable_nombre;
+                const resumen = document.createElement("small");
+                const importe = grupo.reduce((suma, factura) => suma + Number(factura.precio), 0);
+                resumen.textContent = grupo.length + " · " + this.formatearImporte(importe);
+                separador.append(nombre, resumen);
+                elemento.appendChild(separador);
+                grupo.forEach((factura) => elemento.appendChild(this.crearTarjeta(factura)));
+            });
         return elemento;
     }
 
@@ -108,12 +134,8 @@ class IngeriarFacturas {
         const detalle = document.createElement("small");
         detalle.textContent = this.formatearFecha(factura.fecha_compra) + " · " +
             this.nombreCategoria(factura.categoria);
+        // El responsable ya aparece en el separador de su grupo.
         datos.append(concepto, importe, detalle);
-        if (this.datos.permisos.ver_todas) {
-            const responsable = document.createElement("small");
-            responsable.textContent = factura.responsable_nombre;
-            datos.appendChild(responsable);
-        }
         abrir.append(miniatura, datos);
         abrir.onclick = () => this.mostrarDetalle(factura);
         tarjeta.appendChild(abrir);

@@ -352,8 +352,11 @@ como JSON dentro de ese formulario.
 
 La vista «Facturas» (`facturas.js` y `api/facturas.php`) muestra tres columnas:
 Pendientes, Revisadas y Pagadas. Cada factura es una tarjeta con la miniatura de su
-imagen (Web Worker), el concepto, el importe, la fecha de compra, la categoría y, para
-quien ve todas, el responsable. Al pulsarla se abre el detalle con la imagen grande.
+imagen (Web Worker), el concepto, el importe, la fecha de compra y la categoría. Al
+pulsarla se abre el detalle con la imagen grande. Quien ve todas las facturas
+(`facturas.ver_todas`: tesorería y administrador) las tiene agrupadas en cada columna por
+responsable, por orden alfabético, con un separador que indica su nombre, el número de
+facturas y el importe.
 
 - Estados: `pendiente` → `revisada` → `pagada` (se eliminó `rechazada`). Solo
   `facturas.cambiar_estado` (tesorería y administrador) los cambia, con botones en la
@@ -784,6 +787,10 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (facturas por responsable)
+
+- Tablero de facturas: para quien ve todas, cada columna se separa por responsable.
 
 ### 2026-11-17 (facturas de tesorería)
 

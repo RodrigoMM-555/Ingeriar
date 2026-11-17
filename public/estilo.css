@@ -2278,6 +2278,29 @@ tr.fila-baja td{
     outline-offset:-3px;
 }
 
+/* Separador por responsable (quien ve las facturas de todos) */
+.separador-responsable{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:6px;
+    font-weight:700;
+    font-size:14px;
+}
+
+.separador-responsable::after{
+    content:"";
+    flex:1;
+    border-top:2px solid var(--color_borde);
+}
+
+.separador-responsable small{
+    order:1;
+    color:var(--color_secundario);
+    font-weight:400;
+    white-space:nowrap;
+}
+
 .tarjeta-factura{
     display:grid;
     gap:8px;

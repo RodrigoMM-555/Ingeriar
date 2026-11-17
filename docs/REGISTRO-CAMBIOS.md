@@ -15,6 +15,22 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Facturas: tablero agrupado por responsable
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, en el tablero de facturas, quien ve las facturas de todos (tesorería y
+  administrador) las tiene agrupadas por persona en las tres columnas. Cada grupo empieza con un separador con el
+  nombre del responsable, una línea y el número de facturas e importe de ese grupo; los grupos van por orden
+  alfabético. El nombre del responsable se quita de la tarjeta porque ya está en el separador.
+- Archivos creados o modificados: `public/nucleo/facturas.js` (`crearColumna`, `crearTarjeta`), `public/estilo.css`
+  (`.separador-responsable`), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: solo es presentación; los datos y permisos no cambian (el servidor ya enviaba el
+  responsable a quien tiene `facturas.ver_todas`). Arrastrar entre columnas sigue funcionando igual.
+- Requisitos que cubre (RF/RNF): RF de facturas (E-05), RNF-03.
+- Cómo probarlo (pasos): entrar como tesorería o administrador y abrir Facturas: las tarjetas aparecen bajo el nombre
+  de cada persona; un monitor sin tesorería ve sus facturas sin separadores.
+- Impacto en la memoria (apartados que habría que revisar): facturas (E-05).
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-17 · Dashboard: facturas pendientes de revisar y de pagar (tesorería)
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: a petición del usuario, el dashboard de tesorería muestra el bloque «Facturas» con dos columnas:
