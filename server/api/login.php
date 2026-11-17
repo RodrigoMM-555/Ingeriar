@@ -1,7 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../data/database.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 
 function responderLogin(array $datos, int $estado = 200): never
@@ -27,7 +27,7 @@ if ($email === '' || $contrasena === '') {
 try {
     $db = obtenerConexion();
     $stmt = $db->prepare(
-        'SELECT id, nombre, apellidos, email, rol, `contraseña`
+        'SELECT id, nombre, apellidos, email, `contraseña`
          FROM usuarios WHERE email = ? LIMIT 1'
     );
     $stmt->execute([$email]);
@@ -63,12 +63,7 @@ if (contrasenaNecesitaActualizarse($guardada)) {
 }
 
 session_regenerate_id(true);
-$_SESSION['usuario'] = [
-    'id' => (int) $usuario['id'],
-    'nombre' => $usuario['nombre'],
-    'apellidos' => $usuario['apellidos'],
-    'email' => $usuario['email'],
-    'rol' => $usuario['rol'],
-];
+// Cargos y permisos del usuario (E-13). Se recargan en cada petición posterior.
+$_SESSION['usuario'] = cargarPermisosUsuario($db, (int) $usuario['id']);
 
 responderLogin(['usuario' => $_SESSION['usuario']]);

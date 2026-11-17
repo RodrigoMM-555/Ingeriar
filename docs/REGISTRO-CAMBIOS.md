@@ -15,6 +15,57 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-13 · Roles y permisos (RBAC)
+- Rama / commit: `feat/E-13-roles-permisos` (sale de `main` en `ae37f8f` más el commit de los encargos nuevos)
+- Qué se ha hecho: los permisos pasan de estar escritos por rol en cada ruta a una tabla de permisos.
+  Cada usuario tiene un cargo básico (administrador, monitor o tutor) y puede sumar cargos adicionales (tesorería
+  y los que se creen). Todas las comprobaciones usan `tienePermiso()`. En Configuración hay una tabla para editar
+  los permisos de cada cargo y crear cargos nuevos. El formulario de usuario permite elegir los cargos.
+- Archivos creados o modificados:
+  - Nuevos: `server/auth/permisos.php`, `server/data/semillas/roles-permisos.sql`,
+    `server/data/migraciones/2026-11-roles.sql` y `2026-11-roles-retirar-columna.sql`.
+  - Servidor: `superapi.php` (mapa `PERMISOS_TABLAS`, dashboard por permisos, ruta `roles`, cargos de usuarios,
+    facturas propias, reglas contra el bloqueo), `login.php`, `archivo.php`, `galeria.php`, `salida.php`,
+    `instalar.php`, `sesion.php` (se elimina `exigirRol`).
+  - Datos: `schema.sql` (tablas nuevas, sin `usuarios.rol`), `demo.sql` (cargos en `usuarios_roles`; el usuario 2 es
+    monitor con tesorería), `modeloDeDatos.txt`, `config.php` (sin `nombre_rol_*`).
+  - Cliente: `utilidades.js` (`tienePermiso`, `nombreCargos`), `codigo.js`, `configuracion.js` (cargos y permisos),
+    `formulario.js` (cargos del usuario y filtros de responsables), `tabla.js`, `calendario.js`, `dashboard.js`, `estilo.css`.
+  - Pruebas y documentación: `server/pruebas/pruebas.php` (20 pruebas nuevas), `docs/PLAN-PRUEBAS.md`, `noteas.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Decisiones del usuario: cargos básicos excluyentes y cargos adicionales combinables con cualquiera (también con tutor)
+    sin repetir permisos; el monitor gestiona educandos (alta, edición y baja) pero no asistencias, y solo el administrador
+    borra educandos; el monitor ve solo sus facturas y tesorería las ve todas y cambia estados.
+  - Permisos recargados de la base de datos en cada petición (una consulta) y guardados en la sesión: los cambios y las
+    bajas de usuarios tienen efecto inmediato. Antes, un usuario borrado conservaba su sesión.
+  - **Precisión sobre el encargo**: el administrador tiene todos los permisos **salvo** `educandos.ver_propios` y
+    `asistencia.responder_propios`, que describen la relación de un tutor con «sus» educandos; con ellos el administrador
+    vería el panel y el calendario de tutor.
+  - Permisos añadidos a la lista del encargo, necesarios para conservar el comportamiento: `usuarios.ver`,
+    `educandos.ver_todos`, `educandos.borrar`, `asistencia.gestionar`, `facturas.gestionar_todas` y `registro.ver`.
+  - Contra el bloqueo: los permisos del administrador no se pueden editar, los cargos básicos no se desactivan y cualquier
+    cambio de usuarios, cargos o conservación que dejaría a nadie con `roles.gestionar` se deshace (transacción).
+  - Migración en dos pasos: el código funciona con y sin la columna `usuarios.rol` (mientras existe, se mantiene igual al
+    cargo básico), así que se puede comprobar todo antes de borrarla.
+  - Parte de E-05 adelantada en el servidor (facturas propias y quién cambia estados), por decisión del usuario.
+  - Dashboard: el administrador ve ahora también el desglose del sábado (tiene `asistencia.ver_todas`); el monitor con
+    tesorería ve el gasto total.
+- Requisitos que cubre (RF/RNF): RF-01, RF-02, RF-05, RNF-03, RNF-05.
+- Cómo probarlo (pasos):
+  1. En la base existente: `2026-11-roles.sql`. Entrar con cada tipo de usuario: todo debe funcionar como antes, salvo
+     que el monitor ya solo ve sus facturas y no tiene botón Borrar en educandos.
+  2. `php server/pruebas/pruebas.php <url> --confirmar` → 69 de 69. Después, `2026-11-roles-retirar-columna.sql` y repetir.
+  3. Configuración → «Cargos y permisos»: crear un cargo, darle permisos y asignárselo a un usuario.
+  4. Pruebas manuales MAN-24 a MAN-28 de `docs/PLAN-PRUEBAS.md`.
+  Probado: 69 de 69 en las tres bases (esquema anterior más migración 1, tras la migración 2, y `schema.sql` nuevo); el
+  dashboard de cada tipo de usuario de `demo.sql`; instalación desde cero con el instalador y primer administrador.
+- Impacto en la memoria (apartados que habría que revisar): 2.5, 2.6 (RF-01), 3.1, 3.4, 3.9 (indicados en el encargo);
+  modelo de datos (cuatro tablas nuevas, sin `usuarios.rol`); descripción de roles; RF-05 (facturas propias).
+- Pendiente o problemas:
+  - La interfaz nueva (tabla de cargos, control de cargos del usuario) no se ha visto en un navegador desde aquí.
+  - Un cargo adicional desactivado no aparece en el formulario de usuario: si se guarda el usuario, ese cargo se le quita.
+  - La prueba del bloqueo por quedarse sin administradores es manual (MAN-26): con `demo.sql` hay diez administradores.
+
 ## 2026-11-17 · E-10 · Reversión: contraseña de desarrollo en el código
 - Rama / commit: `feat/E-06-conservacion` (commit propio después del de E-06)
 - Qué se ha hecho: `database.php` vuelve a usar la contraseña de desarrollo escrita en el código cuando Apache no define

@@ -209,7 +209,7 @@ function iniciarAplicacion() {
             document.querySelector("#usuario-actual").textContent =
                 nombreCompleto;
             document.querySelector("#rol-actual").textContent =
-                utilidades.capitalizar(usuarioActual.rol);
+                utilidades.nombreCargos(usuarioActual);
             document.querySelector("#avatar-usuario").textContent =
                 (usuarioActual.nombre || "?").charAt(0).toUpperCase();
             configuracion.cargar();
@@ -217,7 +217,7 @@ function iniciarAplicacion() {
             cargarEntidades();
             crearRedimensionable(document.querySelector("#modulos"));
             crearRedimensionable(document.querySelector("#entidades"));
-            if (usuarioActual.rol === "administrador") {
+            if (utilidades.tienePermiso("configuracion.gestionar")) {
                 configuracion.crearBoton();
             }
         })

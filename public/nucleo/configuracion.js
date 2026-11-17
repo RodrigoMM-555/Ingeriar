@@ -39,12 +39,6 @@ class IngeriarConfiguracion {
         document.documentElement.dataset.categoriasFactura = JSON.stringify(
             configuracion.catalogos?.categorias_factura || []
         );
-        const rol = document.querySelector("#rol-actual");
-        if (rol && typeof usuarioActual !== "undefined" && usuarioActual) {
-            rol.textContent = configuracion[
-                "nombre_rol_" + usuarioActual.rol
-            ] || utilidades.capitalizar(usuarioActual.rol);
-        }
         const logo = document.querySelector("#logo-grupo");
         if (logo) {
             logo.hidden = !configuracion.logo_archivo;
@@ -107,9 +101,6 @@ class IngeriarConfiguracion {
                     ["coordinador", "Coordinador", "text"]
                 ]],
                 ["Usuarios y educandos", [
-                    ["nombre_rol_administrador", "Nombre del rol administrador", "text"],
-                    ["nombre_rol_scouter", "Nombre del rol monitor", "text"],
-                    ["nombre_rol_tutor", "Nombre del rol tutor", "text"],
                     ["formato_nombre", "Formato del nombre", "select"],
                     ["mostrar_educandos_sin_seccion", "Mostrar educandos sin sección", "checkbox"]
                 ]],
@@ -218,9 +209,162 @@ class IngeriarConfiguracion {
             };
 
             seccion.appendChild(formulario);
-            seccion.appendChild(this.crearBloqueCopia());
-            seccion.appendChild(this.crearBloqueVencidos());
+            // Cada bloque solo aparece con su permiso; el servidor lo vuelve a comprobar.
+            if (this.utilidades.tienePermiso("roles.gestionar")) {
+                seccion.appendChild(this.crearBloqueRoles());
+            }
+            if (this.utilidades.tienePermiso("copia.descargar")) {
+                seccion.appendChild(this.crearBloqueCopia());
+            }
+            if (this.utilidades.tienePermiso("conservacion.gestionar")) {
+                seccion.appendChild(this.crearBloqueVencidos());
+            }
         });
+    }
+
+    // Cargos y permisos (E-13): una columna por cargo y una fila por permiso.
+    // Cada columna se guarda por separado. El administrador no se puede modificar.
+    crearBloqueRoles() {
+        const bloque = document.createElement("div");
+        bloque.className = "formulario vista-superficie vista-formulario bloque-extra";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = "Cargos y permisos";
+        const ayuda = document.createElement("p");
+        ayuda.textContent = "Cada usuario tiene un cargo básico (administrador, monitor o " +
+            "tutor) y puede tener cargos adicionales. Sus permisos son la suma de los de " +
+            "todos sus cargos. Los cambios se aplican en la siguiente acción de cada usuario.";
+        const contenido = document.createElement("div");
+        contenido.className = "contenedor-tabla-roles";
+        contenido.textContent = "Cargando…";
+        bloque.append(titulo, ayuda, contenido);
+
+        const cargar = () => this.utilidades.obtenerJson("api/superapi.php?ruta=roles")
+            .then((datos) => {
+                contenido.replaceChildren(this.crearTablaRoles(datos, cargar));
+                contenido.appendChild(this.crearFormularioCargo(cargar));
+            })
+            .catch((error) => {
+                contenido.textContent = error.message;
+            });
+        cargar();
+        return bloque;
+    }
+
+    crearTablaRoles(datos, recargar) {
+        const tabla = document.createElement("table");
+        tabla.className = "tabla-roles";
+        const cabecera = document.createElement("tr");
+        const vacia = document.createElement("th");
+        vacia.textContent = "Permiso";
+        vacia.scope = "col";
+        cabecera.appendChild(vacia);
+        const columnas = datos.roles.map((rol) => {
+            const celda = document.createElement("th");
+            celda.scope = "col";
+            const nombre = document.createElement("input");
+            nombre.type = "text";
+            nombre.value = rol.nombre;
+            nombre.disabled = rol.codigo === "administrador";
+            nombre.setAttribute("aria-label", "Nombre del cargo " + rol.codigo);
+            const tipo = document.createElement("small");
+            tipo.textContent = rol.basico ? "Básico" : "Adicional";
+            const activo = document.createElement("label");
+            const casillaActivo = document.createElement("input");
+            casillaActivo.type = "checkbox";
+            casillaActivo.checked = rol.activo;
+            casillaActivo.disabled = rol.basico;
+            activo.append(casillaActivo, " Activo");
+            celda.append(nombre, tipo, activo);
+            cabecera.appendChild(celda);
+            return {rol, nombre, casillaActivo, casillas: []};
+        });
+        tabla.appendChild(cabecera);
+
+        datos.permisos.forEach((permiso) => {
+            const fila = document.createElement("tr");
+            const descripcion = document.createElement("th");
+            descripcion.scope = "row";
+            descripcion.textContent = permiso.descripcion;
+            const codigo = document.createElement("small");
+            codigo.textContent = permiso.codigo;
+            descripcion.append(document.createElement("br"), codigo);
+            fila.appendChild(descripcion);
+            columnas.forEach((columna) => {
+                const celda = document.createElement("td");
+                const casilla = document.createElement("input");
+                casilla.type = "checkbox";
+                casilla.value = permiso.codigo;
+                casilla.checked = columna.rol.permisos.includes(permiso.codigo);
+                casilla.disabled = columna.rol.codigo === "administrador";
+                casilla.setAttribute(
+                    "aria-label",
+                    permiso.descripcion + " para " + columna.rol.nombre
+                );
+                columna.casillas.push(casilla);
+                celda.appendChild(casilla);
+                fila.appendChild(celda);
+            });
+            tabla.appendChild(fila);
+        });
+
+        const filaGuardar = document.createElement("tr");
+        filaGuardar.appendChild(document.createElement("th"));
+        columnas.forEach((columna) => {
+            const celda = document.createElement("td");
+            if (columna.rol.codigo !== "administrador") {
+                const guardar = document.createElement("button");
+                guardar.type = "button";
+                guardar.className = "boton boton-crear";
+                guardar.textContent = "Guardar";
+                guardar.onclick = () => this.utilidades.enviarJson(
+                    "api/superapi.php?ruta=roles",
+                    {
+                        codigo: columna.rol.codigo,
+                        nombre: columna.nombre.value,
+                        activo: columna.casillaActivo.checked,
+                        orden: columna.rol.orden,
+                        permisos: columna.casillas
+                            .filter((casilla) => casilla.checked)
+                            .map((casilla) => casilla.value)
+                    }
+                ).then(recargar).catch((error) => alert(error.message));
+                celda.appendChild(guardar);
+            }
+            filaGuardar.appendChild(celda);
+        });
+        tabla.appendChild(filaGuardar);
+        return tabla;
+    }
+
+    // Alta de un cargo adicional nuevo (los básicos son fijos).
+    crearFormularioCargo(recargar) {
+        const formulario = document.createElement("form");
+        formulario.className = "formulario-cargo";
+        const codigo = document.createElement("input");
+        codigo.placeholder = "código (p. ej. secretaria)";
+        codigo.pattern = "[a-z][a-z0-9_]{1,49}";
+        codigo.required = true;
+        codigo.setAttribute("aria-label", "Código del cargo nuevo");
+        const nombre = document.createElement("input");
+        nombre.placeholder = "Nombre visible (p. ej. Secretaría)";
+        nombre.required = true;
+        nombre.setAttribute("aria-label", "Nombre del cargo nuevo");
+        const crear = document.createElement("button");
+        crear.type = "submit";
+        crear.className = "boton";
+        crear.textContent = "+ Nuevo cargo adicional";
+        formulario.append(codigo, nombre, crear);
+        formulario.onsubmit = (envio) => {
+            envio.preventDefault();
+            this.utilidades.enviarJson("api/superapi.php?ruta=roles", {
+                codigo: codigo.value.trim(),
+                nombre: nombre.value.trim(),
+                activo: true,
+                permisos: []
+            }).then(recargar).catch((error) => alert(error.message));
+        };
+        return formulario;
     }
 
     // Datos vencidos (E-06): educandos de baja cuyo plazo de conservación ha pasado.

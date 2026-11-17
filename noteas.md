@@ -220,33 +220,52 @@ desde `storage`.
 
 ## 6. Roles y permisos
 
-### Administrador
+Desde E-13 los permisos no dependen del nombre del rol, sino de una tabla de
+permisos (control de acceso basado en roles):
 
-- acceso completo a usuarios, educandos, eventos y facturas;
-- gestión de la configuración del grupo;
-- acceso al dashboard general;
-- exportación de datos;
-- consulta de documentación de cualquier educando.
+```text
+usuarios ── usuarios_roles ── roles ── roles_permisos ── permisos
+```
 
-### Scouter
+- **Cargo básico**: administrador, monitor (`scouter`) o tutor. Todo usuario tiene
+  exactamente uno; el servidor rechaza cero o dos.
+- **Cargos adicionales**: tesorería y los que se creen. Se suman al básico (también
+  a un tutor: el comité lo forman familias) y solo añaden permisos que el básico no tiene.
+- Los permisos de un usuario son la **unión** de los de todos sus cargos activos.
+- `server/auth/permisos.php`: `exigirUsuario()` recarga en cada petición los cargos y
+  permisos (una consulta) y los guarda en la sesión; `tienePermiso()` y
+  `exigirPermiso()` son las únicas comprobaciones. Quitar un permiso o borrar un usuario
+  tiene efecto en su siguiente acción.
+- Lo que depende de «ser tutor de» un educando se sigue comprobando con
+  `usuarios_educandos`.
+- `superapi.php` tiene un mapa `PERMISOS_TABLAS` (tabla → permisos de lectura,
+  escritura, borrado y menú). Una tabla que no esté en el mapa exige
+  `configuracion.gestionar`.
 
-- gestión de eventos, educandos y facturas;
-- consulta de asistencias;
-- subida de imágenes de facturas;
-- dashboard de actividades y gastos;
-- consulta de documentación de cualquier educando.
+| Cargo | Tipo | Permisos |
+|---|---|---|
+| Administrador | básico | todos menos los de tutor (`educandos.ver_propios`, `asistencia.responder_propios`) |
+| Monitor | básico | usuarios.ver, educandos.ver_todos, educandos.gestionar, eventos.ver, eventos.gestionar, asistencia.ver_todas, documentos.ver_todos, galeria.ver, galeria.subir, facturas.subir_propias |
+| Tutor | básico | educandos.ver_propios, eventos.ver, asistencia.responder_propios, galeria.ver |
+| Tesorería | adicional | facturas.ver_todas, facturas.cambiar_estado |
 
-### Tutor
+Reglas destacadas:
 
-- consulta únicamente de sus educandos;
-- consulta del calendario;
-- registro de asistencia de sus educandos;
-- subida de entregas cuando corresponda;
-- consulta de la documentación de sus educandos;
-- sin edición ni borrado general de datos.
+- El monitor crea y edita educandos y los da de baja; solo el administrador los
+  borra (`educandos.borrar`). El monitor ya no edita la tabla de asistencias.
+- Facturas: cada uno ve, edita y borra solo las suyas; el responsable es siempre quien
+  la sube. Solo `facturas.cambiar_estado` (tesorería, administrador) cambia estados,
+  también en las propias. `facturas.ver_todas` muestra las de todos.
+- Evitar el bloqueo: los permisos del administrador no se pueden cambiar, los cargos
+  básicos no se pueden desactivar y se rechaza cualquier cambio de usuarios o cargos que
+  deje a nadie con `roles.gestionar`.
+- Configuración → «Cargos y permisos» (`roles.gestionar`): tabla de cargos por permisos,
+  alta de cargos adicionales y desactivación.
+- Dashboard: cada bloque aparece si el usuario tiene su permiso; con varios cargos se
+  suman los bloques y los indicadores comunes salen una vez.
 
-Los permisos se comprueban siempre en el servidor. Ocultar un botón en el
-cliente solo mejora la interfaz, pero no sustituye la comprobación de PHP.
+Los permisos se comprueban siempre en el servidor. Ocultar un botón en el cliente
+(`utilidades.tienePermiso`) solo mejora la interfaz.
 
 ## 7. Base de datos
 
@@ -257,7 +276,8 @@ La base de datos estable se llama `ingeriar`. Las tablas principales son:
 - `usuarios_educandos`: relación entre tutores y educandos;
 - `eventos`: actividades del calendario;
 - `educandos_asistencias`: asistencia y archivo de entrega;
-- `facturas`: gastos, responsable e imagen opcional.
+- `facturas`: gastos, responsable e imagen opcional;
+- `roles`, `permisos`, `usuarios_roles` y `roles_permisos`: cargos y permisos (E-13).
 
 Las claves foráneas mantienen la integridad de las relaciones. La relación entre
 usuario y educando se guarda en una tabla intermedia porque un tutor puede tener
@@ -500,8 +520,10 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
    `storage/facturas/`, `storage/galeria/` y `storage/configuracion/`.
 8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
    `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
-9. En bases ya creadas, ejecutar `server/data/migraciones/2026-11-galeria.sql` y
-   `server/data/migraciones/2026-11-bajas-accesos.sql`.
+9. En bases ya creadas, ejecutar en este orden `server/data/migraciones/2026-11-galeria.sql`,
+   `2026-11-bajas-accesos.sql` y `2026-11-roles.sql`. Cuando las pruebas pasen,
+   `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
+   código funciona antes y después de este último paso.
 
 El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
 aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
@@ -567,6 +589,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-13)
+
+- E-13: roles y permisos con tablas (cargo básico único y cargos adicionales), función
+  `tienePermiso`, pantalla de cargos en configuración, facturas propias para el monitor
+  y migración en dos pasos. 69 pruebas automáticas superadas.
 
 ### 2026-11-17 (E-10 revertido)
 

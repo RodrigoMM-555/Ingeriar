@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 require_once __DIR__ . '/../auth/registro.php';
 
@@ -18,7 +18,8 @@ function tablaExiste(PDO $db, string $tabla): bool
     $stmt->execute([$tabla]);
     return (bool) $stmt->fetchColumn();
 }
-$usuario = exigirAutenticacion();
+// Usuario con sus cargos y permisos recargados de la base de datos (E-13).
+$usuario = exigirUsuario($db);
 
 const CIRCULAR_FIJA = 'biblioteca/circular1.pdf';
 
@@ -226,30 +227,94 @@ function tutorTieneEducando(PDO $db, int $usuarioId, int $educandoId): bool
     return (bool) $stmt->fetchColumn();
 }
 
+// Permisos necesarios para cada tabla de la API genérica (E-13). Basta con uno de la lista.
+// «menu»: permisos para que la tabla aparezca en el menú (si no se indica, los de lectura).
+// «borrado»: permisos para borrar (si no se indica, los de escritura).
+// Las tablas que no están aquí solo las maneja quien tiene configuracion.gestionar.
+const PERMISOS_TABLAS = [
+    'usuarios' => [
+        'lectura' => ['usuarios.ver', 'usuarios.gestionar'],
+        'escritura' => ['usuarios.gestionar'],
+        'menu' => ['usuarios.gestionar'],
+    ],
+    'usuarios_educandos' => [
+        'lectura' => ['usuarios.gestionar'],
+        'escritura' => ['usuarios.gestionar'],
+    ],
+    'educandos' => [
+        'lectura' => ['educandos.ver_todos', 'educandos.ver_propios'],
+        'escritura' => ['educandos.gestionar'],
+        'borrado' => ['educandos.borrar'],
+    ],
+    'eventos' => [
+        'lectura' => ['eventos.ver'],
+        'escritura' => ['eventos.gestionar'],
+        'menu' => ['eventos.gestionar'],
+    ],
+    'educandos_asistencias' => [
+        'lectura' => ['asistencia.ver_todas'],
+        'escritura' => ['asistencia.gestionar'],
+    ],
+    'facturas' => [
+        'lectura' => ['facturas.ver_todas', 'facturas.subir_propias'],
+        'escritura' => ['facturas.subir_propias', 'facturas.gestionar_todas'],
+    ],
+    // El registro de accesos solo lo escribe el servidor: nadie lo edita ni lo borra.
+    'registro_accesos' => [
+        'lectura' => ['registro.ver'],
+        'escritura' => [],
+    ],
+];
+
+function permisosTabla(string $tabla, string $operacion): array
+{
+    $definicion = PERMISOS_TABLAS[$tabla] ?? null;
+    if ($definicion === null) {
+        return ['configuracion.gestionar'];
+    }
+    return $definicion[$operacion]
+        ?? ($operacion === 'borrado' ? $definicion['escritura'] : $definicion['lectura']);
+}
+
 function exigirPermisoTabla(array $usuario, string $tabla, string $operacion): void
 {
-    // El registro de accesos solo lo escribe el servidor: nadie lo edita ni lo borra.
-    if ($tabla === 'registro_accesos' && $operacion === 'escritura') {
-        responder(['error' => 'El registro de accesos no se puede modificar'], 403);
+    if (!tieneAlgunPermiso(permisosTabla($tabla, $operacion))) {
+        responder(['error' => $tabla === 'registro_accesos' && $operacion !== 'lectura'
+            ? 'El registro de accesos no se puede modificar'
+            : 'No tienes permisos para esta operación'], 403);
     }
-    if ($usuario['rol'] === 'administrador') {
+}
+
+// Sin facturas.gestionar_todas solo se pueden editar o borrar las facturas propias.
+function exigirFacturaPropia(PDO $db, array $usuario, $facturaId): void
+{
+    if (tienePermiso('facturas.gestionar_todas')) {
         return;
     }
-
-    $permisos = [
-        'scouter' => [
-            'lectura' => ['usuarios', 'educandos', 'eventos', 'educandos_asistencias', 'facturas'],
-            'escritura' => ['eventos', 'educandos_asistencias', 'facturas'],
-        ],
-        'tutor' => [
-            'lectura' => ['eventos', 'educandos'],
-            'escritura' => [],
-        ],
-    ];
-    $grupo = $permisos[$usuario['rol']][$operacion] ?? [];
-    if (!in_array($tabla, $grupo, true)) {
-        responder(['error' => 'No tienes permisos para esta operación'], 403);
+    $stmt = $db->prepare('SELECT responsable_id FROM facturas WHERE id = ?');
+    $stmt->execute([$facturaId]);
+    if ((int) $stmt->fetchColumn() !== (int) $usuario['id']) {
+        responder(['error' => 'Solo puedes modificar tus propias facturas'], 403);
     }
+}
+
+// Cargos de los usuarios indicados: [id => ['codigos' => [...], 'nombres' => '...']].
+function rolesDeUsuarios(PDO $db): array
+{
+    $roles = [];
+    foreach ($db->query(
+        'SELECT ur.id_usuario, r.codigo, r.nombre, r.basico
+         FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
+         ORDER BY r.basico DESC, r.orden'
+    ) as $fila) {
+        $id = (int) $fila['id_usuario'];
+        $roles[$id]['codigos'][] = $fila['codigo'];
+        $roles[$id]['nombres'][] = $fila['nombre'];
+        if ($fila['basico']) {
+            $roles[$id]['basico'] = $fila['codigo'];
+        }
+    }
+    return $roles;
 }
 
 switch ($ruta) {
@@ -269,7 +334,7 @@ switch ($ruta) {
         };
 
         $datos = [
-            'rol' => $usuario['rol'],
+            'rol' => $usuario['rol_basico'],
             'indicadores' => [],
             'graficas' => [],
         ];
@@ -288,8 +353,10 @@ switch ($ruta) {
                     $convocatoria['seccion'];
             }
         }
+        // Quien no ve todos los educandos (el tutor) solo ve lo que afecta a los suyos.
+        $soloPropios = !tienePermiso('educandos.ver_todos');
         $seccionesUsuario = [];
-        if ($usuario['rol'] === 'tutor') {
+        if ($soloPropios) {
             $educandosUsuario = $consultarTodos(
                 'SELECT naz FROM educandos e
                  JOIN usuarios_educandos ue ON ue.id_educando = e.id
@@ -304,9 +371,9 @@ switch ($ruta) {
             }
         }
         $eventoConvoca = function (array $evento) use (
-            $usuario, $seccionesUsuario, $convocatoriasDashboard
+            $soloPropios, $seccionesUsuario, $convocatoriasDashboard
         ): bool {
-            if ($usuario['rol'] !== 'tutor') {
+            if (!$soloPropios) {
                 return true;
             }
             $convocatorias = $convocatoriasDashboard[$evento['id']] ?? [];
@@ -398,26 +465,53 @@ switch ($ruta) {
             'valores' => array_map('intval', array_column($eventosProximos, 'cantidad')),
         ];
 
-        if ($usuario['rol'] === 'administrador') {
-            $usuarios = $consultarTodos(
-                'SELECT rol, COUNT(*) AS cantidad FROM usuarios GROUP BY rol ORDER BY rol'
+        // Bloques del dashboard según los permisos (E-13). Con varios cargos se suman los
+        // bloques de cada uno; los indicadores comunes aparecen una sola vez.
+        $indicadores = [];
+        if (tienePermiso('usuarios.gestionar')) {
+            $usuariosPorCargo = $consultarTodos(
+                'SELECT r.nombre AS cargo, COUNT(*) AS cantidad
+                 FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
+                 GROUP BY r.codigo, r.nombre, r.orden ORDER BY r.orden'
             );
+            $indicadores[] = ['nombre' => 'Usuarios', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM usuarios')['cantidad'] ?? 0, 'detalle' => 'Cuentas registradas'];
+            $datos['graficas'][] = [
+                'tipo' => 'barras',
+                'titulo' => 'Usuarios por cargo',
+                'etiquetas' => array_column($usuariosPorCargo, 'cargo'),
+                'valores' => array_map('intval', array_column($usuariosPorCargo, 'cantidad')),
+            ];
+        }
+        if (tienePermiso('educandos.ver_todos')) {
+            $indicadores[] = ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'];
+        }
+        if (tienePermiso('asistencia.responder_propios')) {
+            $educandosPropios = $consultar(
+                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos ue
+                 JOIN educandos educ ON educ.id = ue.id_educando
+                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL',
+                [$usuario['id']]
+            );
+            $indicadores[] = ['nombre' => 'Mis educandos', 'valor' => $educandosPropios['cantidad'] ?? 0, 'detalle' => 'Personas vinculadas'];
+        }
+        $indicadores[] = ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'];
+
+        if (tienePermiso('facturas.ver_todas')) {
             $facturas = $consultar(
                 'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total FROM facturas'
             );
-            $datos['indicadores'] = [
-                ['nombre' => 'Usuarios', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM usuarios')['cantidad'] ?? 0, 'detalle' => 'Cuentas registradas'],
-                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'],
-                ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'],
-                ['nombre' => 'Gasto registrado', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => $facturas['cantidad'] . ' facturas'],
-            ];
-            $datos['graficas'][] = [
-                'tipo' => 'barras',
-                'titulo' => 'Usuarios por rol',
-                'etiquetas' => array_column($usuarios, 'rol'),
-                'valores' => array_map('intval', array_column($usuarios, 'cantidad')),
-            ];
-        } elseif ($usuario['rol'] === 'scouter') {
+            $indicadores[] = ['nombre' => 'Gasto registrado', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => $facturas['cantidad'] . ' facturas'];
+        } elseif (tienePermiso('facturas.subir_propias')) {
+            $facturas = $consultar(
+                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total
+                 FROM facturas WHERE responsable_id = ?',
+                [$usuario['id']]
+            );
+            $indicadores[] = ['nombre' => 'Mis facturas', 'valor' => $facturas['cantidad'], 'detalle' => 'Facturas registradas'];
+            $indicadores[] = ['nombre' => 'Mi gasto', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => 'Total de mis facturas'];
+        }
+
+        if (tienePermiso('asistencia.ver_todas')) {
             $sabado = $sabadosProximos[0] ?? null;
             $asistenciaSabado = [];
             if ($sabado) {
@@ -447,24 +541,9 @@ switch ($ruta) {
                 'evento' => $sabado,
                 'secciones' => $asistenciaSabado,
             ];
-            $facturas = $consultar(
-                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total
-                 FROM facturas WHERE responsable_id = ?',
-                [$usuario['id']]
-            );
-            $datos['indicadores'] = [
-                ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'A tu cargo en la aplicación'],
-                ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'],
-                ['nombre' => 'Mis facturas', 'valor' => $facturas['cantidad'], 'detalle' => 'Facturas registradas'],
-                ['nombre' => 'Mi gasto', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => 'Total de mis facturas'],
-            ];
-        } else {
-            $educandos = $consultar(
-                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos ue
-                 JOIN educandos educ ON educ.id = ue.id_educando
-                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL',
-                [$usuario['id']]
-            );
+        }
+
+        if (tienePermiso('asistencia.responder_propios')) {
             $asistencias = $consultar(
                 "SELECT
                     SUM(ea.estado = 'si') AS confirmadas,
@@ -479,12 +558,8 @@ switch ($ruta) {
                    AND educ.fecha_baja IS NULL",
                 [$usuario['id']]
             );
-            $datos['indicadores'] = [
-                ['nombre' => 'Mis educandos', 'valor' => $educandos['cantidad'] ?? 0, 'detalle' => 'Personas vinculadas'],
-                ['nombre' => 'Próximas actividades', 'valor' => $eventosPendientes, 'detalle' => 'Eventos del calendario'],
-                ['nombre' => 'Asistencias pendientes', 'valor' => $asistencias['pendientes'] ?? 0, 'detalle' => 'Requieren respuesta'],
-                ['nombre' => 'Confirmadas', 'valor' => $asistencias['confirmadas'] ?? 0, 'detalle' => 'Asistencias registradas'],
-            ];
+            $indicadores[] = ['nombre' => 'Asistencias pendientes', 'valor' => $asistencias['pendientes'] ?? 0, 'detalle' => 'Requieren respuesta'];
+            $indicadores[] = ['nombre' => 'Confirmadas', 'valor' => $asistencias['confirmadas'] ?? 0, 'detalle' => 'Asistencias registradas'];
             $datos['graficas'][] = [
                 'tipo' => 'tarta',
                 'titulo' => 'Estado de próximas asistencias',
@@ -522,11 +597,12 @@ switch ($ruta) {
                 'asistencias_pendientes' => (int) ($asistencias['pendientes'] ?? 0),
             ];
         }
+        $datos['indicadores'] = $indicadores;
 
         responder($datos);
 
     case 'asistencia_tutor':
-        if ($usuario['rol'] !== 'tutor') {
+        if (!tienePermiso('asistencia.responder_propios')) {
             responder(['error' => 'Solo los tutores pueden usar esta ruta'], 403);
         }
 
@@ -616,8 +692,9 @@ switch ($ruta) {
 
     case 'educando_documentos':
         $educandoId = (int) ($_GET['educando'] ?? 0);
-        $puedeConsultar = $usuario['rol'] !== 'tutor'
-            || tutorTieneEducando($db, $usuario['id'], $educandoId);
+        $puedeConsultar = tienePermiso('documentos.ver_todos')
+            || (tienePermiso('asistencia.responder_propios')
+                && tutorTieneEducando($db, $usuario['id'], $educandoId));
         if ($educandoId < 1 || !$puedeConsultar) {
             responder(['error' => 'Educando no válido'], 403);
         }
@@ -639,10 +716,11 @@ switch ($ruta) {
             responder(['error' => 'Faltan los catálogos. Ejecuta la migración de catálogos.'], 500);
         }
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            responder(catalogos($db, $usuario['rol'] === 'tutor'));
+            // Quien no gestiona eventos ni configuración (el tutor) solo ve los activos.
+            responder(catalogos($db, !tieneAlgunPermiso(['eventos.gestionar', 'configuracion.gestionar'])));
         }
         if ($_SERVER['REQUEST_METHOD'] !== 'POST'
-            || $usuario['rol'] !== 'administrador') {
+            || !tienePermiso('configuracion.gestionar')) {
             responder(['error' => 'No tienes permisos para modificar catálogos'], 403);
         }
         $recibida = json_decode(file_get_contents('php://input'), true);
@@ -772,7 +850,7 @@ switch ($ruta) {
                 : ['error' => 'La configuración no es válida']);
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            exigirRol(['administrador']);
+            exigirPermiso('configuracion.gestionar');
             $recibida = isset($_POST['configuracion'])
                 ? json_decode($_POST['configuracion'], true)
                 : json_decode(file_get_contents('php://input'), true);
@@ -784,8 +862,7 @@ switch ($ruta) {
             $camposTexto = [
                 'nombre_grupo', 'color', 'color_secundario', 'cif',
                 'direccion', 'municipio', 'provincia', 'telefono', 'correo',
-                'coordinador', 'nombre_rol_administrador',
-                'nombre_rol_scouter', 'nombre_rol_tutor', 'formato_nombre',
+                'coordinador', 'formato_nombre',
                 'formatos_entrega'
             ];
             foreach ($camposTexto as $campo) {
@@ -865,7 +942,7 @@ switch ($ruta) {
     case 'conservacion':
         // E-06: educandos dados de baja cuyo plazo de conservación ha vencido.
         // GET lista lo que se borraría; POST lo borra (archivos y registro).
-        exigirRol(['administrador']);
+        exigirPermiso('conservacion.gestionar');
         $configuracion = json_decode(
             (string) file_get_contents(__DIR__ . '/../data/config.php'),
             true
@@ -890,13 +967,18 @@ switch ($ruta) {
             return $stmt->fetchAll(PDO::FETCH_COLUMN);
         };
         // Tutores cuyos educandos están todos vencidos: se quedarían sin ninguno.
+        // Solo se ofrecen los que no tienen ningún otro cargo (un tutor que además
+        // lleva un cargo del comité sigue haciendo falta).
         $tutoresSinEducandos = [];
         if ($idsVencidos) {
             $marcas = implode(',', array_fill(0, count($idsVencidos), '?'));
             $tutoresStmt = $db->prepare(
                 "SELECT u.id, u.nombre, u.apellidos, u.email
                  FROM usuarios u
-                 WHERE u.rol = 'tutor'
+                 WHERE EXISTS (SELECT 1 FROM usuarios_roles ur
+                               WHERE ur.id_usuario = u.id AND ur.codigo_rol = 'tutor')
+                   AND NOT EXISTS (SELECT 1 FROM usuarios_roles ur
+                                   WHERE ur.id_usuario = u.id AND ur.codigo_rol <> 'tutor')
                    AND EXISTS (SELECT 1 FROM usuarios_educandos ue
                                WHERE ue.id_usuario = u.id AND ue.id_educando IN ({$marcas}))
                    AND NOT EXISTS (SELECT 1 FROM usuarios_educandos ue
@@ -949,11 +1031,16 @@ switch ($ruta) {
                 $borrarEducando->execute([$educandoId]);
             }
             $borrarTutor = $db->prepare(
-                "DELETE FROM usuarios WHERE id = ? AND rol = 'tutor'
-                 AND NOT EXISTS (SELECT 1 FROM usuarios_educandos WHERE id_usuario = ?)"
+                "DELETE FROM usuarios WHERE id = ?
+                 AND NOT EXISTS (SELECT 1 FROM usuarios_educandos WHERE id_usuario = ?)
+                 AND NOT EXISTS (SELECT 1 FROM usuarios_roles
+                                 WHERE id_usuario = usuarios.id AND codigo_rol <> 'tutor')"
             );
             foreach ($borrarTutores as $tutorId) {
                 $borrarTutor->execute([$tutorId, $tutorId]);
+            }
+            if (usuariosQueGestionanRoles($db) === 0) {
+                throw new RuntimeException('el sistema se quedaría sin nadie que gestione los cargos');
             }
             $db->commit();
         } catch (Throwable $error) {
@@ -998,13 +1085,91 @@ switch ($ruta) {
             'archivos' => $archivosBorrados,
         ]);
 
+    case 'roles':
+        // E-13: cargos y permisos. GET: lista (también para el formulario de usuarios).
+        // POST: crear o editar un cargo y sus permisos (roles.gestionar).
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            exigirPermiso('roles.gestionar', 'usuarios.gestionar');
+            $roles = $db->query(
+                'SELECT codigo, nombre, basico, activo, orden FROM roles ORDER BY basico DESC, orden, nombre'
+            )->fetchAll();
+            $permisosPorRol = [];
+            foreach ($db->query('SELECT codigo_rol, codigo_permiso FROM roles_permisos') as $fila) {
+                $permisosPorRol[$fila['codigo_rol']][] = $fila['codigo_permiso'];
+            }
+            foreach ($roles as &$rol) {
+                $rol['basico'] = (bool) $rol['basico'];
+                $rol['activo'] = (bool) $rol['activo'];
+                $rol['permisos'] = $permisosPorRol[$rol['codigo']] ?? [];
+            }
+            unset($rol);
+            responder([
+                'roles' => $roles,
+                'permisos' => $db->query('SELECT codigo, descripcion FROM permisos ORDER BY codigo')->fetchAll(),
+            ]);
+        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            responder(['error' => 'Método no permitido'], 405);
+        }
+        exigirPermiso('roles.gestionar');
+        $datos = json_decode(file_get_contents('php://input'), true);
+        $codigo = trim((string) ($datos['codigo'] ?? ''));
+        $nombre = trim((string) ($datos['nombre'] ?? ''));
+        $activo = filter_var($datos['activo'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $orden = max(0, min(65535, (int) ($datos['orden'] ?? 100)));
+        $permisosRol = array_values(array_unique(array_map('strval', (array) ($datos['permisos'] ?? []))));
+        if (preg_match('/^[a-z][a-z0-9_]{1,49}$/', $codigo) !== 1) {
+            responder(['error' => 'El código del cargo solo admite minúsculas, números y guiones bajos'], 400);
+        }
+        if ($nombre === '') {
+            responder(['error' => 'El cargo necesita un nombre'], 400);
+        }
+        $actualStmt = $db->prepare('SELECT basico FROM roles WHERE codigo = ?');
+        $actualStmt->execute([$codigo]);
+        $basicoActual = $actualStmt->fetchColumn();
+        $esBasico = $basicoActual !== false && (bool) $basicoActual;
+        if ($codigo === 'administrador') {
+            // Evitar el bloqueo: el administrador conserva siempre sus permisos y no se desactiva.
+            responder(['error' => 'Los permisos del administrador no se pueden cambiar'], 400);
+        }
+        if ($esBasico && !$activo) {
+            responder(['error' => 'Los cargos básicos no se pueden desactivar'], 400);
+        }
+        if ($permisosRol) {
+            $marcas = implode(',', array_fill(0, count($permisosRol), '?'));
+            $existentes = $db->prepare("SELECT COUNT(*) FROM permisos WHERE codigo IN ({$marcas})");
+            $existentes->execute($permisosRol);
+            if ((int) $existentes->fetchColumn() !== count($permisosRol)) {
+                responder(['error' => 'Algún permiso no existe'], 400);
+            }
+        }
+
+        $db->beginTransaction();
+        if ($basicoActual === false) {
+            // Los cargos nuevos son siempre adicionales: los básicos son fijos.
+            $db->prepare('INSERT INTO roles (codigo, nombre, basico, activo, orden) VALUES (?, ?, 0, ?, ?)')
+                ->execute([$codigo, $nombre, $activo ? 1 : 0, $orden]);
+        } else {
+            $db->prepare('UPDATE roles SET nombre = ?, activo = ?, orden = ? WHERE codigo = ?')
+                ->execute([$nombre, $activo ? 1 : 0, $orden, $codigo]);
+        }
+        $db->prepare('DELETE FROM roles_permisos WHERE codigo_rol = ?')->execute([$codigo]);
+        $insertarPermiso = $db->prepare('INSERT INTO roles_permisos (codigo_rol, codigo_permiso) VALUES (?, ?)');
+        foreach ($permisosRol as $permiso) {
+            $insertarPermiso->execute([$codigo, $permiso]);
+        }
+        if (usuariosQueGestionanRoles($db) === 0) {
+            $db->rollBack();
+            responder(['error' => 'No se puede: nadie podría gestionar los cargos'], 400);
+        }
+        $db->commit();
+        responder(['ok' => true]);
+
     case 'modulos':
         responder([]);
 
     case 'entidades':
-        if ($usuario['rol'] === 'tutor') {
-            responder(['educandos']);
-        }
+        // Tablas del menú según los permisos (E-13).
         $entidades = $db->query(
             "SELECT TABLE_NAME FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = DATABASE()
@@ -1013,17 +1178,18 @@ switch ($ruta) {
                    'tipos_evento',
                    'secciones',
                    'categorias_factura',
-                   'galeria_fotos'
+                   'galeria_fotos',
+                   'roles',
+                   'permisos',
+                   'usuarios_roles',
+                   'roles_permisos'
                )
              ORDER BY TABLE_NAME"
         )->fetchAll(PDO::FETCH_COLUMN);
-        if ($usuario['rol'] === 'scouter') {
-            $permitidas = [
-                'educandos', 'eventos', 'educandos_asistencias', 'facturas'
-            ];
-            $entidades = array_values(array_intersect($entidades, $permitidas));
-        }
-        responder($entidades);
+        responder(array_values(array_filter(
+            $entidades,
+            fn(string $tabla): bool => tieneAlgunPermiso(permisosTabla($tabla, 'menu'))
+        )));
 
     case 'tabla':
         $tabla = $_GET['tabla'] ?? '';
@@ -1050,9 +1216,14 @@ switch ($ruta) {
                    LEFT JOIN usuarios u ON u.id = e.id_responsable'
                 : 'SELECT * FROM `' . str_replace('`', '``', $tabla) . '`');
         $parametros = [];
-        if ($usuario['rol'] === 'tutor' && $tabla === 'educandos') {
+        if ($tabla === 'educandos' && !tienePermiso('educandos.ver_todos')) {
             $sql .= ' WHERE fecha_baja IS NULL
                       AND id IN (SELECT id_educando FROM usuarios_educandos WHERE id_usuario = ?)';
+            $parametros[] = $usuario['id'];
+        }
+        if ($tabla === 'facturas' && !tienePermiso('facturas.ver_todas')) {
+            // Sin facturas.ver_todas cada uno ve solo las suyas.
+            $sql .= ' WHERE f.responsable_id = ?';
             $parametros[] = $usuario['id'];
         }
         if ($tabla === 'educandos') {
@@ -1067,12 +1238,20 @@ switch ($ruta) {
         $registros = $stmt->fetchAll();
         if ($tabla === 'usuarios') {
             // Se quita el hash de la contraseña: no debe salir nunca del servidor.
+            // La columna antigua «rol» (hasta la segunda migración de E-13) tampoco se muestra:
+            // los cargos se añaden desde usuarios_roles.
             $columnas = array_values(array_filter(
                 $columnas,
-                fn($columna) => $columna['tipo_formulario'] !== 'PASSWORD'
+                fn($columna) => $columna['tipo_formulario'] !== 'PASSWORD' && $columna['name'] !== 'rol'
             ));
+            $cargos = rolesDeUsuarios($db);
             foreach ($registros as &$registro) {
-                unset($registro['contraseña']);
+                unset($registro['contraseña'], $registro['rol']);
+                $id = (int) $registro['id'];
+                $registro['cargos'] = implode(' · ', $cargos[$id]['nombres'] ?? []);
+                $registro['roles_codigos'] = $cargos[$id]['codigos'] ?? [];
+                $registro['rol_basico'] = $cargos[$id]['basico'] ?? null;
+                $registro['puede_tener_facturas'] = usuarioTienePermiso($db, $id, 'facturas.subir_propias');
             }
             unset($registro);
         }
@@ -1107,12 +1286,25 @@ switch ($ruta) {
     case 'columnas':
         $tabla = $_GET['tabla'] ?? '';
         exigirPermisoTabla($usuario, $tabla, 'lectura');
-        responder($tabla === '' ? ['error' => 'No se ha indicado ninguna tabla'] : obtenerColumnas($db, $tabla));
+        if ($tabla === '') {
+            responder(['error' => 'No se ha indicado ninguna tabla']);
+        }
+        $columnas = obtenerColumnas($db, $tabla);
+        if ($tabla === 'usuarios') {
+            // Los cargos se eligen con un control propio, no con la columna antigua.
+            $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'rol'));
+        }
+        if ($tabla === 'facturas' && !tienePermiso('facturas.gestionar_todas')) {
+            // El responsable es siempre quien sube la factura.
+            $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'responsable_id'));
+        }
+        if ($tabla === 'facturas' && !tienePermiso('facturas.cambiar_estado')) {
+            $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'estado'));
+        }
+        responder($columnas);
 
     case 'educandos_usuario':
-        if ($usuario['rol'] !== 'administrador') {
-            responder(['error' => 'No tienes permisos para esta operación'], 403);
-        }
+        exigirPermiso('usuarios.gestionar');
         $usuarioId = (int) ($_GET['usuario'] ?? 0);
         $stmt = $db->prepare(
             'SELECT e.id, e.nombre, e.apellidos
@@ -1131,7 +1323,17 @@ switch ($ruta) {
         if ($tabla === '' || !is_array($datos)) {
             responder(['error' => 'Datos incorrectos']);
         }
-        exigirPermisoTabla($usuario, $tabla, 'escritura');
+        if ($tabla === 'facturas') {
+            // Crear exige poder tener facturas; para editar basta con poder cambiar el
+            // estado (tesorería), y entonces solo se guarda el estado.
+            if ($ruta === 'crear') {
+                exigirPermiso('facturas.subir_propias', 'facturas.gestionar_todas');
+            } else {
+                exigirPermiso('facturas.subir_propias', 'facturas.gestionar_todas', 'facturas.cambiar_estado');
+            }
+        } else {
+            exigirPermisoTabla($usuario, $tabla, 'escritura');
+        }
         if ($tabla === 'eventos' && !tablaExiste($db, 'eventos_secciones')) {
             responder([
                 'error' => 'Falta crear la tabla eventos_secciones. Ejecuta la migración de noteas.md'
@@ -1146,8 +1348,13 @@ switch ($ruta) {
         $convocatorias = $tabla === 'eventos'
             ? ($datos['convocatorias'] ?? [])
             : [];
+        // Cargos del usuario (E-13): null si no se envían al editar (se conservan).
+        $rolesUsuario = $tabla === 'usuarios' && isset($datos['roles']) && is_array($datos['roles'])
+            ? array_values(array_unique(array_map('strval', $datos['roles'])))
+            : null;
         unset($datos['educandos_relacionados']);
         unset($datos['convocatorias']);
+        unset($datos['roles']);
         $columnas = obtenerColumnas($db, $tabla);
         $permitidas = array_column(array_filter($columnas, fn($columna) => !$columna['pk']), 'name');
         $datosValidos = array_intersect_key($datos, array_flip($permitidas));
@@ -1197,19 +1404,65 @@ switch ($ruta) {
                 }
                 $datosValidos['contraseña'] = cifrarContrasena($contrasena);
             }
+            unset($datosValidos['rol']);
+            if ($rolesUsuario === null && $ruta === 'crear') {
+                responder(['error' => 'El usuario debe tener un cargo básico'], 400);
+            }
+            if ($rolesUsuario !== null) {
+                $errorRoles = validarRolesUsuario($db, $rolesUsuario);
+                if ($errorRoles !== null) {
+                    responder(['error' => $errorRoles], 400);
+                }
+                // Mientras exista la columna antigua usuarios.rol (hasta la segunda
+                // migración) se mantiene igual que el cargo básico.
+                if (existeColumnaRolAntigua($db)) {
+                    $basicoStmt = $db->prepare(
+                        'SELECT codigo FROM roles WHERE basico = 1 AND codigo IN ('
+                        . implode(',', array_fill(0, count($rolesUsuario), '?')) . ')'
+                    );
+                    $basicoStmt->execute($rolesUsuario);
+                    $datosValidos['rol'] = $basicoStmt->fetchColumn();
+                }
+            }
         }
-        if ($tabla === 'facturas' && array_key_exists('responsable_id', $datosValidos)) {
-            $responsableStmt = $db->prepare(
-                "SELECT 1 FROM usuarios
-                 WHERE id = ? AND rol = 'scouter'"
-            );
-            $responsableStmt->execute([(int) $datosValidos['responsable_id']]);
-            if (!$responsableStmt->fetchColumn()) {
+        if ($tabla === 'facturas') {
+            $puedeTodas = tienePermiso('facturas.gestionar_todas');
+            if ($ruta === 'editar' && !$puedeTodas) {
+                $responsableActual = $db->prepare('SELECT responsable_id FROM facturas WHERE id = ?');
+                $responsableActual->execute([$_POST['id'] ?? 0]);
+                $esPropia = (int) $responsableActual->fetchColumn() === (int) $usuario['id'];
+                if (!$esPropia || !tienePermiso('facturas.subir_propias')) {
+                    // Factura de otro: solo quien puede cambiar estados, y solo el estado.
+                    if (!tienePermiso('facturas.cambiar_estado') || !array_key_exists('estado', $datosValidos)) {
+                        responder(['error' => 'Solo puedes modificar tus propias facturas'], 403);
+                    }
+                    $datosValidos = ['estado' => $datosValidos['estado']];
+                }
+            }
+            // Nadie cambia el estado sin facturas.cambiar_estado, ni en sus propias facturas.
+            if (!tienePermiso('facturas.cambiar_estado')) {
+                unset($datosValidos['estado']);
+                if ($ruta === 'crear') {
+                    $datosValidos['estado'] = 'pendiente';
+                }
+            }
+            if (!$puedeTodas) {
+                // El responsable es siempre quien sube la factura y no se puede cambiar.
+                unset($datosValidos['responsable_id']);
+                if ($ruta === 'crear') {
+                    $datosValidos['responsable_id'] = $usuario['id'];
+                }
+            } elseif (array_key_exists('responsable_id', $datosValidos)
+                && !usuarioTienePermiso($db, (int) $datosValidos['responsable_id'], 'facturas.subir_propias')) {
                 responder([
-                    'error' => 'El responsable de una factura debe ser un monitor (scouter)'
+                    'error' => 'El responsable de una factura debe poder tener facturas (monitor)'
                 ], 400);
             }
         }
+
+        // Todo el guardado va en una transacción: si algo falla (imagen no válida,
+        // cargos que dejarían el sistema sin administrador…), no queda a medias.
+        $db->beginTransaction();
 
         if ($ruta === 'crear') {
             $nombres = array_keys($datosValidos);
@@ -1240,6 +1493,17 @@ switch ($ruta) {
             foreach (array_unique($educandosRelacionados) as $educandoId) {
                 $relacion->execute([$registroId, $educandoId]);
             }
+            if ($rolesUsuario !== null) {
+                $db->prepare('DELETE FROM usuarios_roles WHERE id_usuario = ?')->execute([$registroId]);
+                $insertarRol = $db->prepare('INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, ?)');
+                foreach ($rolesUsuario as $codigoRol) {
+                    $insertarRol->execute([$registroId, $codigoRol]);
+                }
+            }
+            if (usuariosQueGestionanRoles($db) === 0) {
+                $db->rollBack();
+                responder(['error' => 'No se puede: nadie podría gestionar los cargos'], 400);
+            }
         }
         if ($tabla === 'facturas') {
             guardarImagenFactura($db, $registroId);
@@ -1262,12 +1526,16 @@ switch ($ruta) {
                 $seccionStmt->execute([$registroId, $seccion]);
             }
         }
+        $db->commit();
         responder(['ok' => true]);
 
     case 'borrar':
         $tabla = $_POST['tabla'] ?? '';
         $id = $_POST['id'] ?? '';
-        exigirPermisoTabla($usuario, $tabla, 'escritura');
+        exigirPermisoTabla($usuario, $tabla, 'borrado');
+        if ($tabla === 'facturas') {
+            exigirFacturaPropia($db, $usuario, $id);
+        }
         $columnas = obtenerColumnas($db, $tabla);
         $pk = array_values(array_filter($columnas, fn($columna) => $columna['pk']))[0]['name'] ?? 'id';
         // Al borrar un evento, sus fotos se borran en cascada en la base de datos;
@@ -1279,7 +1547,13 @@ switch ($ruta) {
             $fotosEvento = $fotosStmt->fetchAll(PDO::FETCH_COLUMN);
         }
         $sql = 'DELETE FROM `' . str_replace('`', '``', $tabla) . '` WHERE `' . $pk . '` = ?';
+        $db->beginTransaction();
         $db->prepare($sql)->execute([$id]);
+        if ($tabla === 'usuarios' && usuariosQueGestionanRoles($db) === 0) {
+            $db->rollBack();
+            responder(['error' => 'No se puede borrar: nadie podría gestionar los cargos'], 400);
+        }
+        $db->commit();
         foreach ($fotosEvento as $archivo) {
             $rutaFoto = __DIR__ . '/../../storage/galeria/' . basename($archivo);
             if (is_file($rutaFoto)) {

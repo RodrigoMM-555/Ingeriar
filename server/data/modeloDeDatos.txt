@@ -25,7 +25,29 @@ usuarios
 - telefono VARCHAR(20) NOT NULL UNIQUE
 # contraseña guarda el hash de password_hash(), nunca la contraseña en claro
 - contraseña VARCHAR(255) NOT NULL
-- rol ENUM('administrador', 'scouter', 'tutor') NOT NULL
+
+# Roles y permisos (E-13). El instalador carga los valores iniciales de
+# server/data/semillas/roles-permisos.sql.
+roles
+- codigo VARCHAR(50) PRIMARY KEY
+- nombre VARCHAR(100) NOT NULL
+- basico BOOLEAN NOT NULL DEFAULT FALSE
+- activo BOOLEAN NOT NULL DEFAULT TRUE
+- orden SMALLINT UNSIGNED NOT NULL DEFAULT 0
+
+permisos
+- codigo VARCHAR(60) PRIMARY KEY
+- descripcion VARCHAR(255) NOT NULL
+
+usuarios_roles
+- id_usuario INT UNSIGNED NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE
+- codigo_rol VARCHAR(50) NOT NULL REFERENCES roles(codigo) ON DELETE CASCADE
+- PRIMARY KEY (id_usuario, codigo_rol)
+
+roles_permisos
+- codigo_rol VARCHAR(50) NOT NULL REFERENCES roles(codigo) ON DELETE CASCADE
+- codigo_permiso VARCHAR(60) NOT NULL REFERENCES permisos(codigo) ON DELETE CASCADE
+- PRIMARY KEY (codigo_rol, codigo_permiso)
 
 educandos
 - nombre VARCHAR(100) NOT NULL

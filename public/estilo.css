@@ -1754,6 +1754,70 @@ span{
 }
 
 
+/* Cargos y permisos (E-13) */
+.contenedor-tabla-roles{
+    max-width:100%;
+    overflow-x:auto;
+}
+
+.tabla-roles{
+    border-collapse:collapse;
+    font-size:14px;
+}
+
+.tabla-roles th,
+.tabla-roles td{
+    padding:6px 10px;
+    border-bottom:1px solid var(--color_borde);
+    text-align:center;
+    vertical-align:middle;
+}
+
+.tabla-roles th[scope="row"]{
+    text-align:left;
+    font-weight:400;
+}
+
+.tabla-roles th[scope="row"] small,
+.tabla-roles th[scope="col"] small{
+    color:var(--color_secundario);
+}
+
+.tabla-roles th[scope="col"]{
+    display:table-cell;
+    min-width:120px;
+}
+
+.tabla-roles th[scope="col"] input[type="text"]{
+    width:110px;
+}
+
+.tabla-roles th[scope="col"] small,
+.tabla-roles th[scope="col"] label{
+    display:block;
+    font-weight:400;
+}
+
+.formulario-cargo{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:16px;
+}
+
+.campo-cargos{
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+    padding:10px 14px;
+}
+
+.lista-cargos{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 18px;
+    margin:6px 0;
+}
+
 /* Educandos dados de baja (E-06) */
 tr.fila-baja td{
     color:var(--color_secundario);

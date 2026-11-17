@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/registro.php';
 
 const CIRCULAR_FIJA = 'biblioteca/circular1.pdf';
@@ -17,8 +17,8 @@ function responder($datos, int $estado = 200): never
     exit;
 }
 
-$usuario = exigirAutenticacion();
 $db = obtenerConexion();
+$usuario = exigirUsuario($db);
 $tipo = $_GET['tipo'] ?? '';
 $eventoId = (int) ($_GET['evento'] ?? 0);
 $educandoId = (int) ($_GET['educando'] ?? 0);
@@ -36,7 +36,7 @@ function tutorTieneEducandoArchivo(PDO $db, int $usuarioId, int $educandoId): bo
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($usuario['rol'] !== 'tutor') {
+    if (!tienePermiso('asistencia.responder_propios')) {
         http_response_code(403);
         exit('Solo los tutores pueden subir entregas');
     }
@@ -168,7 +168,10 @@ if ($tipo === 'circular') {
         http_response_code(409);
         exit('La entrega solo está disponible cuando se confirma la asistencia');
     }
-    if ($usuario['rol'] === 'tutor' && !tutorTieneEducandoArchivo($db, $usuario['id'], $educandoId)) {
+    // Ver todas las entregas, o solo las de sus educandos si es su tutor.
+    if (!tienePermiso('documentos.ver_todos')
+        && !(tienePermiso('asistencia.responder_propios')
+            && tutorTieneEducandoArchivo($db, $usuario['id'], $educandoId))) {
         http_response_code(403);
         exit('No tienes permisos para este documento');
     }

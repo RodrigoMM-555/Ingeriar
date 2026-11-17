@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 header('Content-Type: text/html; charset=utf-8');
 
 // Indica si la aplicación ya está en uso: existe la base de datos y la tabla
@@ -38,7 +38,17 @@ try {
     http_response_code(500);
     exit('No se pudo comprobar el estado de la instalación. Revisa la configuración de MySQL.');
 }
-if ($enUso && (usuarioActual()['rol'] ?? '') !== 'administrador') {
+// Una vez en uso, hace falta una sesión con configuracion.gestionar (E-13).
+$puedeReinstalar = false;
+if ($enUso && usuarioActual() !== null) {
+    try {
+        $permisosSesion = cargarPermisosUsuario(obtenerConexion(), (int) usuarioActual()['id']);
+        $puedeReinstalar = in_array('configuracion.gestionar', $permisosSesion['permisos'] ?? [], true);
+    } catch (Throwable $error) {
+        $puedeReinstalar = false;
+    }
+}
+if ($enUso && !$puedeReinstalar) {
     http_response_code(403);
     exit('La aplicación ya está instalada. Solo un administrador con la sesión iniciada puede volver a ejecutar el instalador.');
 }
@@ -155,6 +165,18 @@ try {
         $db->exec($sql);
     }
 
+    // Cargos y permisos iniciales (E-13), si el modelo incluye sus tablas.
+    $existeTablaRoles = $db->query("SHOW TABLES LIKE 'roles_permisos'")->fetchColumn();
+    if ($existeTablaRoles) {
+        $semilla = (string) file_get_contents(__DIR__ . '/../data/semillas/roles-permisos.sql');
+        $semilla = preg_replace('/^--.*$/m', '', $semilla);
+        foreach (preg_split('/;\s*(\R|$)/', $semilla) as $sentencia) {
+            if (trim($sentencia) !== '') {
+                $db->exec($sentencia);
+            }
+        }
+    }
+
     // El administrador inicial solo se crea si todavía no hay ningún usuario.
     // Así el instalador no sirve para darse de alta en una instalación ya en uso.
     $mensajeAdministrador = '';
@@ -163,9 +185,14 @@ try {
         if ($hayUsuarios) {
             $mensajeAdministrador = 'Ya existen usuarios: no se ha creado el administrador.';
         } else {
+            if (!$existeTablaRoles) {
+                throw new RuntimeException('El modelo no incluye las tablas de roles: no se puede crear el administrador.');
+            }
+            $columnaRol = $db->query("SHOW COLUMNS FROM usuarios LIKE 'rol'")->fetchColumn();
             $db->prepare(
-                "INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`, rol)
-                 VALUES (?, ?, ?, ?, ?, 'administrador')"
+                'INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`'
+                . ($columnaRol ? ', rol' : '') . ')
+                 VALUES (?, ?, ?, ?, ?' . ($columnaRol ? ", 'administrador'" : '') . ')'
             )->execute([
                 $administrador['nombre'],
                 $administrador['apellidos'],
@@ -173,6 +200,8 @@ try {
                 $administrador['telefono'],
                 cifrarContrasena($administrador['contrasena']),
             ]);
+            $db->prepare("INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, 'administrador')")
+                ->execute([(int) $db->lastInsertId()]);
             $mensajeAdministrador = 'Se ha creado el administrador '
                 . $administrador['email'] . '.';
         }

@@ -31,12 +31,13 @@ class IngeriarDashboard {
             this.renderCabecera(datos.rol);
             this.contenedor.appendChild(this.renderIndicadores(datos.indicadores));
             this.contenedor.appendChild(this.renderResumen(datos.resumen));
-            if (datos.rol === "scouter") {
+            // Los bloques dependen de los permisos (E-13): aparecen si el servidor los envía.
+            if (datos.asistencias_sabado) {
                 this.contenedor.appendChild(
                     this.renderAsistenciasSabado(datos.asistencias_sabado)
                 );
             }
-            if (datos.rol === "tutor") {
+            if (datos.tutor) {
                 this.contenedor.appendChild(this.renderPanelTutor(
                     datos.tutor,
                     datos.mini_calendario

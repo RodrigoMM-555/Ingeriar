@@ -23,11 +23,4 @@ function exigirAutenticacion(): array
     return $usuario;
 }
 
-function exigirRol(array $roles): array
-{
-    $usuario = exigirAutenticacion();
-    if (!in_array($usuario['rol'], $roles, true)) {
-        responder(['error' => 'No tienes permisos para esta operación'], 403);
-    }
-    return $usuario;
-}
+// Las comprobaciones de permisos están en permisos.php (exigirUsuario, exigirPermiso).

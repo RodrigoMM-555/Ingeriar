@@ -9,6 +9,37 @@ class IngeriarTabla {
         this.tabla = "";
     }
 
+    // Permisos por tabla y operación (E-13). Reflejo de PERMISOS_TABLAS de superapi.php,
+    // solo para decidir qué botones se muestran: el servidor comprueba siempre.
+    permisosTabla(operacion) {
+        const mapa = {
+            usuarios: {escritura: ["usuarios.gestionar"]},
+            usuarios_educandos: {escritura: ["usuarios.gestionar"]},
+            educandos: {escritura: ["educandos.gestionar"], borrado: ["educandos.borrar"]},
+            eventos: {escritura: ["eventos.gestionar"]},
+            educandos_asistencias: {escritura: ["asistencia.gestionar"]},
+            facturas: {
+                creacion: ["facturas.subir_propias", "facturas.gestionar_todas"],
+                escritura: ["facturas.subir_propias", "facturas.gestionar_todas",
+                    "facturas.cambiar_estado"]
+            },
+            registro_accesos: {escritura: []}
+        };
+        const definicion = mapa[this.tabla];
+        if (!definicion) {
+            return ["configuracion.gestionar"];
+        }
+        return definicion[operacion] || definicion.escritura;
+    }
+
+    tieneAlguno(permisos) {
+        return permisos.some((permiso) => this.utilidades.tienePermiso(permiso));
+    }
+
+    puedeEscribir() {
+        return this.tieneAlguno(this.permisosTabla("escritura"));
+    }
+
     cargar(tabla) {
         this.tabla = tabla;
         return this.utilidades.obtenerJson(
@@ -41,7 +72,7 @@ class IngeriarTabla {
         cabecera.className = "cabecera-tabla";
         let titulo = document.createElement("h2");
         titulo.textContent = this.utilidades.capitalizar(this.tabla);
-        if (usuarioActual?.rol === "administrador") {
+        if (this.utilidades.tienePermiso("configuracion.gestionar")) {
             let exportacion = document.createElement("div");
             exportacion.className = "controles-exportacion";
             let formato = document.createElement("select");
@@ -81,9 +112,8 @@ class IngeriarTabla {
             null,
             datos.primaryKey
         );
-        if (usuarioActual?.rol === "tutor") {
-            nuevo.hidden = true;
-        }
+        // Solo se ofrece crear a quien puede escribir en la tabla.
+        nuevo.hidden = !this.tieneAlguno(this.permisosTabla("creacion"));
 
         if (registros.length === 0) {
             filtros.appendChild(nuevo);
@@ -96,9 +126,11 @@ class IngeriarTabla {
         }
 
         let nombres = Object.keys(registros[0]).filter((nombre) =>
-            (nombre !== "id" || usuarioActual?.rol === "administrador") &&
+            (nombre !== "id" || this.utilidades.tienePermiso("configuracion.gestionar")) &&
             !(this.tabla === "facturas" &&
-                ["responsable_id", "imagen_factura"].includes(nombre))
+                ["responsable_id", "imagen_factura"].includes(nombre)) &&
+            !(this.tabla === "usuarios" &&
+                ["roles_codigos", "rol_basico", "puede_tener_facturas"].includes(nombre))
         );
         let selector = document.createElement("select");
         selector.className = "selector-columna";
@@ -200,9 +232,9 @@ class IngeriarTabla {
                         celda.textContent = registro[nombre] ?? "";
                     }
                 }
-                const columnaDestacada = usuarioActual?.rol === "tutor"
-                    ? 0
-                    : 1;
+                const columnaDestacada = this.utilidades.tienePermiso("educandos.ver_todos")
+                    ? 1
+                    : 0;
                 if (this.tabla === "educandos" &&
                     indice === columnaDestacada) {
                     celda.classList.add("celda-destacada");
@@ -223,7 +255,7 @@ class IngeriarTabla {
                 info.onclick = () => this.mostrarDocumentosEducando(registro);
                 celdaAcciones.appendChild(info);
             }
-            if (usuarioActual?.rol === "tutor") {
+            if (!this.puedeEscribir()) {
                 fila.appendChild(celdaAcciones);
                 cuerpo.appendChild(fila);
                 return;
@@ -242,6 +274,8 @@ class IngeriarTabla {
                 registro[datos.primaryKey],
                 datos.primaryKey
             );
+            // El monitor da de baja a un educando (editándolo); borrar es del administrador.
+            borrar.hidden = !this.tieneAlguno(this.permisosTabla("borrado"));
             celdaAcciones.append(editar, borrar);
             fila.appendChild(celdaAcciones);
             cuerpo.appendChild(fila);

@@ -19,6 +19,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
+require_once __DIR__ . '/../auth/permisos.php';
 
 $argumentos = array_slice($argv, 1);
 $base = rtrim((string) ($argumentos[0] ?? ''), '/');
@@ -175,7 +176,10 @@ function limpiarDatosPrueba(PDO $db): void
     }
     $db->prepare("DELETE FROM educandos WHERE DNI LIKE '9999999_Z'")->execute();
     $db->prepare('DELETE FROM registro_accesos WHERE usuario_email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
+    $db->prepare('DELETE f FROM facturas f JOIN usuarios u ON u.id = f.responsable_id WHERE u.email LIKE ?')
+        ->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare('DELETE FROM usuarios WHERE email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
+    $db->prepare("DELETE FROM roles WHERE codigo LIKE 'prueba\\_%'")->execute();
     borrarCarpeta(__DIR__ . '/../../storage/documentos/' . CARPETA_PRUEBAS);
 }
 
@@ -221,18 +225,36 @@ function crearEntrega(PDO $db, int $educandoId, int $eventoId): string
     return $ruta;
 }
 
-function crearUsuario(PDO $db, string $nombre, string $rol, string $telefono, ?string $hash = null): int
+// Crea un usuario de prueba con sus cargos (el primero es el básico).
+function crearUsuario(PDO $db, string $nombre, array|string $roles, string $telefono, ?string $hash = null): int
 {
+    $roles = (array) $roles;
+    $conRol = existeColumnaRolAntigua($db);
     $db->prepare(
-        "INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`, rol)
-         VALUES (?, 'Prueba', ?, ?, ?, ?)"
+        'INSERT INTO usuarios (nombre, apellidos, email, telefono, `contraseña`' . ($conRol ? ', rol' : '') . ")
+         VALUES (?, 'Prueba', ?, ?, ?" . ($conRol ? ', ?' : '') . ')'
     )->execute([
         $nombre,
         $nombre . DOMINIO_PRUEBAS,
         $telefono,
         $hash ?? cifrarContrasena(CONTRASENA_PRUEBAS),
-        $rol,
+        ...($conRol ? [$roles[0]] : []),
     ]);
+    $id = (int) $db->lastInsertId();
+    $insertar = $db->prepare('INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, ?)');
+    foreach ($roles as $rol) {
+        $insertar->execute([$id, $rol]);
+    }
+    return $id;
+}
+
+function crearFactura(PDO $db, int $responsableId, string $concepto): int
+{
+    $db->prepare(
+        "INSERT INTO facturas (responsable_id, numero_fact, CIF_prov, fecha_emision, fecha_compra,
+                               concepto, precio, categoria, estado)
+         VALUES (?, 99, 'B00000000', '2026-11-01 10:00:00', '2026-11-01 10:00:00', ?, 10.00, 'material', 'pendiente')"
+    )->execute([$responsableId, $concepto]);
     return (int) $db->lastInsertId();
 }
 
@@ -264,6 +286,13 @@ try {
     crearUsuario($db, 'enclaro', 'tutor', '699000005', CONTRASENA_PRUEBAS);
 
     $tutorVencidoId = crearUsuario($db, 'tutorvencido', 'tutor', '699000006');
+    // E-13: cargos combinados.
+    $scouterId = (int) $db->query("SELECT id FROM usuarios WHERE email = 'scouter" . DOMINIO_PRUEBAS . "'")->fetchColumn();
+    $monitor2Id = crearUsuario($db, 'monitor2', 'scouter', '699000007');
+    crearUsuario($db, 'tesorero', ['scouter', 'tesoreria'], '699000008');
+    crearUsuario($db, 'tutortesorero', ['tutor', 'tesoreria'], '699000009');
+    $facturaScouter = crearFactura($db, $scouterId, 'Factura del scouter de prueba');
+    $facturaMonitor2 = crearFactura($db, $monitor2Id, 'Factura del monitor 2 de prueba');
 
     // Educando con 11 años al empezar la ronda 2026-2027: sección tropa.
     $educandoId = crearEducando($db, '99999999Z', null, $tutorId);
@@ -313,7 +342,7 @@ try {
         'tabla' => 'usuarios',
         'datos' => json_encode([
             'nombre' => 'Nuevo', 'apellidos' => 'Prueba', 'email' => $email . DOMINIO_PRUEBAS,
-            'telefono' => '699000099', 'contraseña' => $contrasena, 'rol' => 'tutor',
+            'telefono' => '699000099', 'contraseña' => $contrasena, 'roles' => ['tutor'],
         ]),
     ]);
     prueba('CON-01', 'Alta con contraseña de menos de 8 caracteres → 400', fn() => esperar($nuevoUsuario('abc1'), 400));
@@ -331,7 +360,7 @@ try {
             'tabla' => 'usuarios', 'id' => $antes['id'],
             'datos' => json_encode([
                 'nombre' => 'Editado', 'apellidos' => 'Prueba', 'email' => 'nuevo' . DOMINIO_PRUEBAS,
-                'telefono' => '699000099', 'contraseña' => '', 'rol' => 'tutor',
+                'telefono' => '699000099', 'contraseña' => '', 'roles' => ['tutor'],
             ]),
         ]);
         $despues = $db->query('SELECT `contraseña` FROM usuarios WHERE id = ' . (int) $antes['id'])->fetchColumn();
@@ -495,6 +524,126 @@ try {
             is_file($entregaActiva) ? null : 'se borró un archivo que no estaba vencido',
         ]);
         return $fallos ? implode('; ', $fallos) : true;
+    });
+
+    echo "\nCargos y permisos (E-13)\n";
+    $tesorero = new ClienteHttp($base);
+    $tesorero->iniciarSesion('tesorero' . DOMINIO_PRUEBAS);
+    $tutorTesorero = new ClienteHttp($base);
+    $tutorTesorero->iniciarSesion('tutortesorero' . DOMINIO_PRUEBAS);
+    $idsFacturas = fn(ClienteHttp $cliente) => array_map('intval', array_column(
+        (array) ($cliente->get('/api/superapi.php?ruta=tabla&tabla=facturas')['json']['registros'] ?? []), 'id'));
+    $estadoFactura = function (int $id) use ($db): array {
+        return $db->query('SELECT estado, concepto, responsable_id FROM facturas WHERE id = ' . $id)->fetch();
+    };
+    $editarFactura = fn(ClienteHttp $cliente, int $id, array $cambios) => $cliente->post('/api/superapi.php?ruta=editar', [
+        'tabla' => 'facturas', 'id' => (string) $id, 'datos' => json_encode($cambios),
+    ]);
+    prueba('ROL-01', 'Un monitor solo ve sus facturas', function () use ($idsFacturas, $scouter, $facturaScouter, $facturaMonitor2) {
+        $ids = $idsFacturas($scouter);
+        return in_array($facturaScouter, $ids, true) && !in_array($facturaMonitor2, $ids, true)
+            ?: 've ' . count($ids) . ' facturas';
+    });
+    prueba('ROL-02', 'Un monitor con tesorería ve todas las facturas', function () use ($idsFacturas, $tesorero, $facturaScouter, $facturaMonitor2) {
+        $ids = $idsFacturas($tesorero);
+        return in_array($facturaScouter, $ids, true) && in_array($facturaMonitor2, $ids, true) ?: 'no las ve todas';
+    });
+    prueba('ROL-03', 'Un monitor no puede editar la factura de otro → 403', fn() => esperar(
+        $editarFactura($scouter, $facturaMonitor2, ['concepto' => 'Cambiado']), 403));
+    prueba('ROL-04', 'Un monitor no cambia el estado de su propia factura', function () use ($editarFactura, $scouter, $facturaScouter, $estadoFactura) {
+        $respuesta = $editarFactura($scouter, $facturaScouter, ['concepto' => 'Editada por su monitor', 'estado' => 'pagada']);
+        $factura = $estadoFactura($facturaScouter);
+        return esperar($respuesta, 200) === true && $factura['estado'] === 'pendiente'
+            && $factura['concepto'] === 'Editada por su monitor' ?: 'estado ' . $factura['estado'];
+    });
+    prueba('ROL-05', 'Tesorería cambia el estado de una factura ajena (y nada más)', function () use ($editarFactura, $tutorTesorero, $facturaMonitor2, $estadoFactura) {
+        $respuesta = $editarFactura($tutorTesorero, $facturaMonitor2, ['estado' => 'pagada', 'concepto' => 'No debe cambiar']);
+        $factura = $estadoFactura($facturaMonitor2);
+        return esperar($respuesta, 200) === true && $factura['estado'] === 'pagada'
+            && $factura['concepto'] !== 'No debe cambiar' ?: json_encode($factura);
+    });
+    prueba('ROL-06', 'La factura nueva de un monitor es suya y queda pendiente', function () use ($scouter, $db, $scouterId, $monitor2Id) {
+        $respuesta = $scouter->post('/api/superapi.php?ruta=crear', ['tabla' => 'facturas', 'datos' => json_encode([
+            'responsable_id' => $monitor2Id, 'numero_fact' => 98, 'CIF_prov' => 'B11111111',
+            'fecha_emision' => '2026-11-02 10:00:00', 'fecha_compra' => '2026-11-02 10:00:00',
+            'concepto' => 'Factura nueva de prueba', 'precio' => '5.00', 'categoria' => 'material', 'estado' => 'pagada',
+        ])]);
+        $factura = $db->query("SELECT responsable_id, estado FROM facturas WHERE concepto = 'Factura nueva de prueba'")->fetch();
+        return esperar($respuesta, 200) === true && (int) $factura['responsable_id'] === $scouterId
+            && $factura['estado'] === 'pendiente' ?: json_encode($factura ?: $respuesta['texto']);
+    });
+    prueba('ROL-07', 'Unión de permisos: tutor con tesorería ve todas las facturas pero no sube fotos', function () use ($idsFacturas, $tutorTesorero, $facturaMonitor2, $subir, $eventoTropa, $imagen) {
+        $ve = in_array($facturaMonitor2, $idsFacturas($tutorTesorero), true);
+        $fotos = $subir($tutorTesorero, $eventoTropa, $imagen, 'x.png')['codigo'];
+        return $ve && $fotos === 403 ?: "ve facturas: " . var_export($ve, true) . ", subir fotos: {$fotos}";
+    });
+    $altaUsuario = fn(array $roles, string $email) => $admin->post('/api/superapi.php?ruta=crear', [
+        'tabla' => 'usuarios',
+        'datos' => json_encode([
+            'nombre' => 'Cargos', 'apellidos' => 'Prueba', 'email' => $email . DOMINIO_PRUEBAS,
+            'telefono' => '6990001' . strlen($email) . count($roles), 'contraseña' => CONTRASENA_PRUEBAS, 'roles' => $roles,
+        ]),
+    ]);
+    prueba('ROL-08', 'Un usuario no puede tener dos cargos básicos → 400', fn() => esperar($altaUsuario(['scouter', 'tutor'], 'dosbasicos'), 400));
+    prueba('ROL-09', 'Un usuario sin cargo básico → 400', fn() => esperar($altaUsuario(['tesoreria'], 'sinbasico'), 400));
+    prueba('ROL-10', 'Alta con cargo básico y adicional guarda los dos', function () use ($altaUsuario, $db) {
+        $respuesta = $altaUsuario(['scouter', 'tesoreria'], 'doscargos');
+        $roles = $db->query("SELECT ur.codigo_rol FROM usuarios_roles ur JOIN usuarios u ON u.id = ur.id_usuario
+                             WHERE u.email = 'doscargos" . DOMINIO_PRUEBAS . "' ORDER BY ur.codigo_rol")->fetchAll(PDO::FETCH_COLUMN);
+        return esperar($respuesta, 200) === true && $roles === ['scouter', 'tesoreria'] ?: implode(',', $roles) . ' ' . $respuesta['texto'];
+    });
+    prueba('ROL-11', 'Un monitor no puede ver ni editar los cargos → 403', function () use ($scouter) {
+        $ver = $scouter->get('/api/superapi.php?ruta=roles')['codigo'];
+        $editar = $scouter->json('/api/superapi.php?ruta=roles', ['codigo' => 'prueba_x', 'nombre' => 'X'])['codigo'];
+        return $ver === 403 && $editar === 403 ?: "ver {$ver}, editar {$editar}";
+    });
+    prueba('ROL-12', 'Los permisos del administrador no se pueden cambiar → 400', fn() => esperar($admin->json(
+        '/api/superapi.php?ruta=roles', ['codigo' => 'administrador', 'nombre' => 'Admin', 'permisos' => []]), 400));
+    prueba('ROL-13', 'Un cargo básico no se puede desactivar → 400', fn() => esperar($admin->json(
+        '/api/superapi.php?ruta=roles', ['codigo' => 'tutor', 'nombre' => 'Tutor', 'activo' => false,
+            'permisos' => ['educandos.ver_propios', 'eventos.ver', 'asistencia.responder_propios', 'galeria.ver']]), 400));
+    prueba('ROL-14', 'Un cargo nuevo da permisos y quitarlos tiene efecto sin volver a entrar', function () use ($admin, $tutor, $db, $tutorId, $subir, $eventoTropa, $imagen) {
+        $crear = $admin->json('/api/superapi.php?ruta=roles', ['codigo' => 'prueba_fotos', 'nombre' => 'Prueba fotos', 'permisos' => ['galeria.subir']]);
+        $db->prepare("INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES (?, 'prueba_fotos')")->execute([$tutorId]);
+        $conPermiso = $subir($tutor, $eventoTropa, $imagen, 'con-permiso.png')['codigo'];
+        $admin->json('/api/superapi.php?ruta=roles', ['codigo' => 'prueba_fotos', 'nombre' => 'Prueba fotos', 'permisos' => []]);
+        $sinPermiso = $subir($tutor, $eventoTropa, $imagen, 'sin-permiso.png')['codigo'];
+        return $crear['codigo'] === 200 && $conPermiso === 200 && $sinPermiso === 403
+            ?: "crear {$crear['codigo']}, con permiso {$conPermiso}, sin permiso {$sinPermiso}";
+    });
+    prueba('ROL-15', 'Un cargo desactivado no da permisos', function () use ($admin, $tutor, $subir, $eventoTropa, $imagen) {
+        $admin->json('/api/superapi.php?ruta=roles', ['codigo' => 'prueba_fotos', 'nombre' => 'Prueba fotos', 'activo' => false, 'permisos' => ['galeria.subir']]);
+        return $subir($tutor, $eventoTropa, $imagen, 'desactivado.png')['codigo'] === 403 ?: 'sigue pudiendo subir';
+    });
+    prueba('ROL-16', 'Un usuario borrado pierde la sesión al momento → 401', function () use ($base, $db) {
+        crearUsuario($db, 'borrado', 'scouter', '699000010');
+        $cliente = new ClienteHttp($base);
+        $cliente->iniciarSesion('borrado' . DOMINIO_PRUEBAS);
+        $antes = $cliente->get('/api/superapi.php?ruta=usuario_actual')['codigo'];
+        $db->prepare('DELETE FROM usuarios WHERE email = ?')->execute(['borrado' . DOMINIO_PRUEBAS]);
+        $despues = $cliente->get('/api/superapi.php?ruta=usuario_actual')['codigo'];
+        return $antes === 200 && $despues === 401 ?: "antes {$antes}, después {$despues}";
+    });
+    prueba('ROL-17', 'Un monitor da de alta y edita educandos', function () use ($scouter, $db) {
+        $datos = ['nombre' => 'Alta', 'apellidos' => 'Monitor', 'DNI' => '99999996Z', 'naz' => '2016-05-05'];
+        $alta = $scouter->post('/api/superapi.php?ruta=crear', ['tabla' => 'educandos', 'datos' => json_encode($datos)]);
+        $id = (int) $db->query("SELECT id FROM educandos WHERE DNI = '99999996Z'")->fetchColumn();
+        $baja = $scouter->post('/api/superapi.php?ruta=editar', ['tabla' => 'educandos', 'id' => (string) $id,
+            'datos' => json_encode($datos + ['fecha_baja' => date('Y-m-d')])]);
+        return esperar($alta, 200) === true && esperar($baja, 200) === true ?: $alta['texto'] . ' / ' . $baja['texto'];
+    });
+    prueba('ROL-18', 'Un monitor no borra educandos (403); el administrador sí', function () use ($scouter, $admin, $db) {
+        $id = (string) $db->query("SELECT id FROM educandos WHERE DNI = '99999996Z'")->fetchColumn();
+        $monitor = $scouter->post('/api/superapi.php?ruta=borrar', ['tabla' => 'educandos', 'id' => $id])['codigo'];
+        $administrador = $admin->post('/api/superapi.php?ruta=borrar', ['tabla' => 'educandos', 'id' => $id])['codigo'];
+        return $monitor === 403 && $administrador === 200 ?: "monitor {$monitor}, administrador {$administrador}";
+    });
+    prueba('ROL-19', 'Un monitor no edita la tabla de asistencias → 403', fn() => esperar($scouter->post('/api/superapi.php?ruta=crear', [
+        'tabla' => 'educandos_asistencias', 'datos' => json_encode(['id_educando' => $educandoId, 'id_evento' => $eventoTropa, 'estado' => 'si']),
+    ]), 403));
+    prueba('ROL-20', 'La cabecera recibe los nombres de los cargos', function () use ($tesorero) {
+        $roles = array_column($tesorero->get('/api/superapi.php?ruta=usuario_actual')['json']['usuario']['roles'] ?? [], 'nombre');
+        return $roles === ['Monitor', 'Tesorería'] ?: implode(', ', $roles);
     });
 } finally {
     limpiarDatosPrueba($db);

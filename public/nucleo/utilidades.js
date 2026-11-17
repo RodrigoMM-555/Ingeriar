@@ -1,4 +1,16 @@
 class IngeriarUtilidades {
+    // ¿Tiene el usuario actual este permiso? (E-13). Solo sirve para mostrar u ocultar
+    // botones: el servidor vuelve a comprobarlo siempre.
+    tienePermiso(codigo) {
+        return typeof usuarioActual !== "undefined" &&
+            Boolean(usuarioActual?.permisos?.includes(codigo));
+    }
+
+    // Nombres de los cargos del usuario actual, por ejemplo «Monitor · Tesorería».
+    nombreCargos(usuario) {
+        return (usuario?.roles || []).map((rol) => rol.nombre).join(" · ");
+    }
+
     capitalizar(texto) {
         return String(texto)
             .replaceAll("_", " ")

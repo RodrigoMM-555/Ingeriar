@@ -11,7 +11,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 
 const FORMATOS_GALERIA = [
     'image/jpeg' => 'jpg',
@@ -20,7 +20,7 @@ const FORMATOS_GALERIA = [
 ];
 const MAXIMO_FOTOS_POR_SUBIDA = 20;
 
-// sesion.php usa responder() en exigirAutenticacion() y exigirRol().
+// sesion.php y permisos.php usan responder() cuando falta la sesión o un permiso.
 function responder($datos, int $estado = 200): never
 {
     http_response_code($estado);
@@ -56,7 +56,8 @@ function tamanoMaximoGaleria(): int
 // Un evento sin secciones convoca a todas.
 function filtroVisibilidad(PDO $db, array $usuario): callable
 {
-    if ($usuario['rol'] !== 'tutor') {
+    // Quien ve todos los educandos (monitor, administrador) ve todas las fotos.
+    if (tienePermiso('educandos.ver_todos')) {
         return static fn(array $evento): bool => true;
     }
 
@@ -173,10 +174,11 @@ function archivosSubidos(): array
     return $lista;
 }
 
-$usuario = exigirAutenticacion();
 $db = obtenerConexion();
+$usuario = exigirUsuario($db);
+exigirPermiso('galeria.ver');
 $accion = $_GET['accion'] ?? '';
-$puedeEditar = in_array($usuario['rol'], ['administrador', 'scouter'], true);
+$puedeEditar = tienePermiso('galeria.subir');
 
 switch ($accion) {
     case 'listar':
@@ -279,7 +281,7 @@ switch ($accion) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             responder(['error' => 'Método no permitido'], 405);
         }
-        exigirRol(['administrador', 'scouter']);
+        exigirPermiso('galeria.subir');
 
         $eventoId = (int) ($_POST['evento'] ?? 0);
         $eventoStmt = $db->prepare('SELECT 1 FROM eventos WHERE id = ?');
@@ -347,7 +349,7 @@ switch ($accion) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             responder(['error' => 'Método no permitido'], 405);
         }
-        exigirRol(['administrador', 'scouter']);
+        exigirPermiso('galeria.subir');
         $foto = buscarFoto($db, (int) ($_POST['id'] ?? 0));
         if ($foto === null) {
             responder(['error' => 'No existe la foto'], 404);

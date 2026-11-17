@@ -84,7 +84,29 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | BAJ-11 | No se puede borrar un educando que no ha vencido → 400 | RNF-03 | Superada | 2026-11-17 |
 | BAJ-12 | Eliminar vencidos borra educando, tutor elegido y archivos | RF-02, RF-04, RNF-03 | Superada | 2026-11-17 |
 
-Resultado: 49 de 49 superadas (las 37 primeras se repitieron el 2026-11-17 con el mismo resultado).
+| ROL-01 | Un monitor solo ve sus facturas | RF-05, RNF-03 | Superada | 2026-11-17 |
+| ROL-02 | Un monitor con tesorería ve todas las facturas | RF-01, RF-05 | Superada | 2026-11-17 |
+| ROL-03 | Un monitor no puede editar la factura de otro → 403 | RF-05, RNF-03 | Superada | 2026-11-17 |
+| ROL-04 | Un monitor no cambia el estado de su propia factura | RF-05, RNF-03 | Superada | 2026-11-17 |
+| ROL-05 | Tesorería cambia el estado de una factura ajena (y nada más) | RF-05 | Superada | 2026-11-17 |
+| ROL-06 | La factura nueva de un monitor es suya y queda pendiente | RF-05 | Superada | 2026-11-17 |
+| ROL-07 | Unión de permisos: tutor con tesorería ve todas las facturas pero no sube fotos | RF-01 | Superada | 2026-11-17 |
+| ROL-08 | Un usuario no puede tener dos cargos básicos → 400 | RF-01 | Superada | 2026-11-17 |
+| ROL-09 | Un usuario sin cargo básico → 400 | RF-01 | Superada | 2026-11-17 |
+| ROL-10 | Alta con cargo básico y adicional guarda los dos | RF-01 | Superada | 2026-11-17 |
+| ROL-11 | Un monitor no puede ver ni editar los cargos → 403 | RF-01, RNF-03 | Superada | 2026-11-17 |
+| ROL-12 | Los permisos del administrador no se pueden cambiar → 400 | RNF-03 | Superada | 2026-11-17 |
+| ROL-13 | Un cargo básico no se puede desactivar → 400 | RNF-03 | Superada | 2026-11-17 |
+| ROL-14 | Un cargo nuevo da permisos y quitarlos tiene efecto sin volver a entrar | RF-01, RNF-03 | Superada | 2026-11-17 |
+| ROL-15 | Un cargo desactivado no da permisos | RF-01 | Superada | 2026-11-17 |
+| ROL-16 | Un usuario borrado pierde la sesión al momento → 401 | RNF-03 | Superada | 2026-11-17 |
+| ROL-17 | Un monitor da de alta y edita educandos | RF-02 | Superada | 2026-11-17 |
+| ROL-18 | Un monitor no borra educandos (403); el administrador sí | RF-02, RNF-03 | Superada | 2026-11-17 |
+| ROL-19 | Un monitor no edita la tabla de asistencias → 403 | RF-03, RNF-03 | Superada | 2026-11-17 |
+| ROL-20 | La cabecera recibe los nombres de los cargos | RF-01 | Superada | 2026-11-17 |
+
+Resultado: 69 de 69 superadas el 2026-11-17 en tres bases: con el esquema anterior más `2026-11-roles.sql`
+(columna `rol` aún presente), después de `2026-11-roles-retirar-columna.sql` y con `schema.sql` y `demo.sql` nuevos.
 
 ## Pruebas manuales (interfaz)
 
@@ -117,3 +139,8 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-21 | Administrador | Poner `fecha_baja` a un educando desde su formulario | Sale en cursiva al final de la tabla; desaparece del tutor y del dashboard | RF-02 | Pendiente | |
 | MAN-22 | Administrador | Configuración → «Datos vencidos» con un educando de baja de hace más de 5 años | Aparece con su número de archivos; al eliminar desaparece | RF-02, RNF-03 | Pendiente | |
 | MAN-23 | Administrador | Abrir la tabla `registro_accesos` tras ver una entrega | Aparece la fila; editar o borrar da error | RNF-03 | Pendiente | |
+| MAN-24 | Administrador | Crear un usuario: elegir un cargo básico y marcar Tesorería | Se guardan los dos; la tabla muestra «Monitor · Tesorería» | RF-01 | Pendiente | |
+| MAN-25 | Administrador | Configuración → «Cargos y permisos»: crear «Secretaría» y darle `educandos.gestionar` | Aparece la columna; un tutor con ese cargo puede editar educandos | RF-01 | Pendiente | |
+| MAN-26 | Administrador | En una base con un único administrador, quitarle el cargo o borrarlo | «No se puede: nadie podría gestionar los cargos» | RNF-03 | Pendiente | |
+| MAN-27 | Monitor | Tabla de educandos | Ve Nuevo y Editar, no Borrar; puede rellenar `fecha_baja` | RF-02 | Pendiente | |
+| MAN-28 | Monitor con tesorería | Cabecera, dashboard y facturas | Cabecera «Monitor · Tesorería»; ve el gasto total y todas las facturas | RF-01, RF-07 | Pendiente | |

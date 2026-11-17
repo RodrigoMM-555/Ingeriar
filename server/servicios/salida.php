@@ -4,8 +4,14 @@
 // Solo para administradores: contiene datos personales de usuarios y educandos.
 
 require_once __DIR__ . '/../data/database.php';
-require_once __DIR__ . '/../auth/sesion.php';
+require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../auth/registro.php';
+
+// permisos.php usa responder() para el 401 y el 403.
+function responder(array $datos, int $estado = 200): never
+{
+    responderSalida($datos, $estado);
+}
 
 function responderSalida(array $datos, int $estado): never
 {
@@ -15,16 +21,14 @@ function responderSalida(array $datos, int $estado): never
     exit;
 }
 
-// El permiso se comprueba en el servidor antes de abrir la base de datos.
-$usuario = usuarioActual();
-if ($usuario === null) {
+// La sesión se comprueba antes de abrir la base de datos; el permiso, al recargarlo.
+if (usuarioActual() === null) {
     responderSalida(['error' => 'No autenticado'], 401);
 }
-if ($usuario['rol'] !== 'administrador') {
-    responderSalida(['error' => 'No tienes permisos para esta operación'], 403);
-}
-
 $db = obtenerConexion();
+$usuario = exigirUsuario($db);
+exigirPermiso('copia.descargar');
+
 registrarAcceso($db, $usuario, 'descargar', 'copia_completa');
 $tablas = $db->query(
     "SELECT TABLE_NAME

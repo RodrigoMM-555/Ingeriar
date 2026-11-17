@@ -38,6 +38,7 @@ class IngeriarFormulario {
         this.ultimoElementoActivo = document.activeElement;
         this.controlEducandos = null;
         this.controlSecciones = null;
+        this.controlRoles = null;
         return this.obtenerColumnas().then((columnas) => {
             const columnasEditables = columnas.filter(
                 (columna) => columna.pk === 0 &&
@@ -59,6 +60,9 @@ class IngeriarFormulario {
                 "formulario vista-superficie vista-formulario";
             const controlEducandos = this.tabla === "usuarios"
                 ? this.crearControlEducandos(registro)
+                : Promise.resolve(null);
+            const controlRoles = this.tabla === "usuarios"
+                ? this.crearControlRoles(registro)
                 : Promise.resolve(null);
             const controlImagenFactura = this.tabla === "facturas"
                 ? this.crearControlImagenFactura()
@@ -83,6 +87,7 @@ class IngeriarFormulario {
                 ...columnasEditables.map((columna) =>
                     this.crearControl(columna, registro)
                 ),
+                controlRoles,
                 controlEducandos,
                 controlImagenFactura,
                 controlSecciones
@@ -385,6 +390,51 @@ class IngeriarFormulario {
         });
     }
 
+    // Cargos del usuario (E-13): exactamente un cargo básico (opción única) y
+    // cualquier número de cargos adicionales (casillas).
+    crearControlRoles(registro) {
+        return this.utilidades.obtenerJson("api/superapi.php?ruta=roles")
+            .then((datos) => {
+                const actuales = new Set(registro?.roles_codigos || []);
+                const grupo = document.createElement("fieldset");
+                grupo.className = "campo campo-cargos";
+                const leyenda = document.createElement("legend");
+                leyenda.textContent = "Cargos";
+                grupo.appendChild(leyenda);
+
+                const crearOpcion = (rol, tipo) => {
+                    const etiqueta = document.createElement("label");
+                    etiqueta.className = "opcion-cargo";
+                    const control = document.createElement("input");
+                    control.type = tipo;
+                    control.name = tipo === "radio" ? "cargo_basico" : "cargos_adicionales";
+                    control.value = rol.codigo;
+                    control.checked = actuales.has(rol.codigo);
+                    control.required = tipo === "radio";
+                    etiqueta.append(control, " " + rol.nombre);
+                    return etiqueta;
+                };
+                const activos = (datos.roles || []).filter((rol) => rol.activo);
+                const basicos = document.createElement("div");
+                basicos.className = "lista-cargos";
+                activos.filter((rol) => rol.basico)
+                    .forEach((rol) => basicos.appendChild(crearOpcion(rol, "radio")));
+                grupo.appendChild(basicos);
+
+                const adicionales = activos.filter((rol) => !rol.basico);
+                if (adicionales.length > 0) {
+                    const titulo = document.createElement("small");
+                    titulo.textContent = "Cargos adicionales (opcionales)";
+                    const lista = document.createElement("div");
+                    lista.className = "lista-cargos";
+                    adicionales.forEach((rol) => lista.appendChild(crearOpcion(rol, "checkbox")));
+                    grupo.append(titulo, lista);
+                }
+                this.controlRoles = grupo;
+                return grupo;
+            });
+    }
+
     obtenerOpcionesTabla(tabla) {
         return this.utilidades.obtenerJson(
             "api/superapi.php?ruta=tabla&tabla=" + encodeURIComponent(tabla)
@@ -412,12 +462,13 @@ class IngeriarFormulario {
     }
 
     filtrarRelaciones(registros, columna) {
+        // Responsables posibles según el cargo y los permisos (E-13).
         let filtros = {
             "eventos.id_responsable": {
-                rol: ["scouter", "administrador"]
+                rol_basico: ["scouter", "administrador"]
             },
             "facturas.responsable_id": {
-                rol: ["scouter"]
+                puede_tener_facturas: [true]
             }
         };
         let filtro = filtros[this.tabla + "." + columna.name];
@@ -445,6 +496,17 @@ class IngeriarFormulario {
             datos[columna.name] =
                 valor === "" && !columna.required ? null : valor;
         });
+        if (this.controlRoles) {
+            const basico = this.controlRoles.querySelector(
+                '[name="cargo_basico"]:checked'
+            );
+            datos.roles = [
+                ...(basico ? [basico.value] : []),
+                ...Array.from(this.controlRoles.querySelectorAll(
+                    '[name="cargos_adicionales"]:checked'
+                )).map((control) => control.value)
+            ];
+        }
         if (this.controlEducandos) {
             datos.educandos_relacionados = Array.from(
                 this.controlEducandos.selectedOptions

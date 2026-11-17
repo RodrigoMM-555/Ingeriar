@@ -72,6 +72,9 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Registrar quién cambió el estado y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
 - La comprobación es en el servidor (permisos del E-13), no solo en la interfaz.
 - Propuestas a confirmar con el usuario: imagen obligatoria al subir; una factura pagada no se puede editar.
+- Adelantado en E-13 (decisión del usuario): el servidor ya aplica que el monitor ve, edita y borra solo sus facturas,
+  que el responsable es quien la sube y que solo `facturas.cambiar_estado` cambia estados. Falta el tablero, los estados
+  nuevos y `estado_cambiado_por` / `estado_cambiado_en`.
 - Aceptación: monitor ve solo las suyas y no puede cambiar estados; tesorería y administrador las ven todas y pueden cambiarlos;
   un monitor que intenta cambiar un estado por la API recibe 403; las miniaturas cargan; pruebas automáticas nuevas.
 - Estado: pendiente
@@ -189,4 +192,10 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Aceptación: un usuario con dos roles obtiene la unión de sus permisos; las 49 pruebas automáticas siguen superadas
   (actualizando las que dependen de rol) y hay pruebas nuevas de varios roles y de no bloqueo; ya no existe `usuarios.rol`.
 - Riesgo: toca todas las comprobaciones de permisos. Hacerlo en una rama propia, con las pruebas automáticas como red de seguridad.
-- Estado: pendiente
+- Decisiones del usuario (2026-11-17): administrador, monitor y tutor son cargos básicos excluyentes (exactamente uno por
+  usuario); los cargos adicionales (tesorería y futuros) se combinan con cualquiera, también con tutor, y no repiten permisos
+  del básico. El monitor gestiona educandos (alta, edición y baja) pero no asistencias; solo el administrador borra educandos.
+  El monitor ve solo sus facturas; tesorería ve todas y cambia estados. Permisos recargados en cada petición.
+  Dashboard: suma de bloques según permisos.
+- Estado: hecho (rama `feat/E-13-roles-permisos`, pendiente de fusionar). La columna `usuarios.rol` se retira con la
+  segunda migración, que el usuario ejecuta en su base después de comprobar las pruebas.

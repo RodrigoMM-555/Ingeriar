@@ -16,8 +16,9 @@ class IngeriarCalendario {
         this.usuario = usuario;
     }
 
+    // Vista de tutor: responde la asistencia de sus educandos en lugar de gestionar eventos.
     esTutor() {
-        return this.usuario?.rol === "tutor";
+        return Boolean(this.usuario?.permisos?.includes("asistencia.responder_propios"));
     }
 
     cargar(tabla = "eventos") {
