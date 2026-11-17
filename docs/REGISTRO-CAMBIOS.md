@@ -15,6 +15,50 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-14 · Documentación de inscripción
+- Rama / commit: `feat/E-14-documentacion` (sale de `feat/E-05-facturas`)
+- Qué se ha hecho: encargo nuevo propuesto por Claude Code y definido con el usuario. Las fichas básicas (ficha sanitaria,
+  hoja de inscripción, exclusión de responsabilidad, autorización para ausentarse) se pueden descargar en blanco y entregar
+  desde la ficha de cada educando; un monitor las revisa. El administrador sube y cambia las plantillas desde Configuración.
+  La circular de participación de los eventos pasa a ser una entrada del mismo catálogo.
+- Archivos creados o modificados:
+  - Nuevos: `server/api/documentos.php`, `public/api/documentos.php`, `public/nucleo/documentos.js`,
+    `server/data/semillas/documentos-base.sql`, `server/data/migraciones/2026-11-documentacion.sql`.
+  - `server/api/archivo.php` (circular desde el catálogo), `superapi.php` (borrado de vencidos incluye estos documentos;
+    indicadores del dashboard), `instalar.php` (carga la semilla de documentos), `tabla.js` (bloque en «Ver documentación»),
+    `configuracion.js` (bloque de plantillas), `codigo.js`, `index.html`, `estilo.css`.
+  - Datos: `schema.sql`, `modeloDeDatos.txt`, `semillas/roles-permisos.sql`, `migraciones/2026-11-roles.sql`
+    (permisos `documentos.subir_propios` y `documentos.revisar`).
+  - Se eliminan `storage/documentos/biblioteca/todas.pdf` y `todas si.pdf` (pruebas de una aplicación antigua, según el usuario);
+    `.gitignore` deja fuera las plantillas que se suban.
+  - `server/pruebas/pruebas.php` (14 pruebas nuevas), `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Decisiones del usuario: las fichas se entregan una sola vez (se pueden volver a subir para actualizar datos); un monitor
+    las revisa (provisional, pendiente de consultarlo con el grupo); las plantillas las sube el administrador porque cada grupo
+    usa las suyas.
+  - Se guardan en la misma carpeta que las circulares (ronda / sección / educando) para que el borrado de datos vencidos
+    (E-06) las elimine sin cambios. Una fila por educando y documento (`UNIQUE`): volver a subir sustituye el archivo.
+  - `documentos.subir_propios` es un permiso «propio» del tutor y, como los otros dos, no lo tiene el administrador.
+    El monitor puede entregar en nombre de una familia (por si la trae en papel).
+  - Las plantillas en blanco no son datos personales: cualquier usuario con sesión las descarga. Los documentos entregados sí,
+    y cada acceso se registra.
+- Requisitos que cubre (RF/RNF): RF-04, RF-02, RNF-03.
+- Cómo probarlo (pasos):
+  1. Ejecutar `2026-11-documentacion.sql`.
+  2. Como administrador: Configuración → «Documentos base y plantillas» → subir las plantillas de la FEV.
+  3. Como tutor: Educandos → «Ver documentación» → descargar en blanco y subir. El dashboard muestra los pendientes.
+  4. Como monitor: revisar o pedir corrección. `php server/pruebas/pruebas.php <url> --confirmar` → 93 de 93.
+  Probado: 93 de 93 con base nueva y en una copia de la base del usuario con todas las migraciones; instalación desde cero
+  con el catálogo de documentos cargado.
+- Impacto en la memoria (apartados que habría que revisar): RF-04 (documentación), modelo de datos (`documentos_base`,
+  `documentos_educando`), permisos (dos nuevos), interfaz (ficha del educando y Configuración). Es un encargo nuevo: el chat
+  del documento debe decidir en qué apartados encaja.
+- Pendiente o problemas:
+  - La revisión por un monitor es provisional hasta que el usuario lo consulte con el grupo.
+  - `circular1.pdf` es en realidad la hoja de inscripción de la FEV: hasta que se suba la circular de participación real
+    desde Configuración, es la que se descarga en los eventos.
+  - La interfaz nueva no se ha visto en un navegador desde aquí (MAN-33 a MAN-35).
+
 ## 2026-11-17 · Correcciones de interfaz (E-03 y E-05)
 - Rama / commit: `feat/E-05-facturas` (commit propio después del de E-05)
 - Qué se ha hecho: arreglos pedidos por el usuario al probar en el navegador.

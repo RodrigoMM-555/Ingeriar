@@ -213,6 +213,10 @@ class IngeriarConfiguracion {
             if (this.utilidades.tienePermiso("roles.gestionar")) {
                 seccion.appendChild(this.crearBloqueRoles());
             }
+            // Documentos base y plantillas (E-14); el formulario ya exige configuracion.gestionar.
+            seccion.appendChild(
+                new IngeriarDocumentos({utilidades: this.utilidades}).crearBloquePlantillas()
+            );
             if (this.utilidades.tienePermiso("copia.descargar")) {
                 seccion.appendChild(this.crearBloqueCopia());
             }

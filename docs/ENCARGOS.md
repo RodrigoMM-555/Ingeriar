@@ -200,3 +200,23 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   Dashboard: suma de bloques según permisos.
 - Estado: hecho (rama `feat/E-13-roles-permisos`, pendiente de fusionar). La columna `usuarios.rol` se retira con la
   segunda migración, que el usuario ejecuta en su base después de comprobar las pruebas.
+
+## E-14 · Documentación de inscripción
+- Requisitos: RF-04, RF-02, RNF-03. Propuesto por Claude Code y definido con el usuario el 2026-11-17.
+  Apartados de la memoria afectados: a determinar por el chat del documento (documentación y galería, RF-04).
+- Hoy solo existe la circular de participación (fija en el código) que se adjunta a los eventos con circular. Las fichas
+  básicas del grupo (ficha sanitaria, hoja de inscripción, exclusión de responsabilidad y autorización para ausentarse)
+  no se pueden descargar ni entregar desde la aplicación.
+- Catálogo de documentos base con su plantilla en blanco (en `storage/documentos/biblioteca/`). El administrador sube y
+  cambia las plantillas desde Configuración, porque cada grupo usa las suyas (este grupo, las de la FEV). La circular de
+  participación pasa a ser una entrada más del catálogo.
+- El tutor descarga cada plantilla y sube el documento relleno desde la ficha de su educando. Las fichas se entregan una
+  vez; se pueden volver a subir para actualizar los datos (vuelven a quedar pendientes de revisión).
+- Un monitor revisa cada documento (revisado o a corregir, con observaciones). Decisión provisional del usuario: puede
+  cambiar cuando lo consulte con el grupo.
+- Se guardan junto a las circulares, en la carpeta del educando en la ronda: `storage/documentos/<ronda>/<sección>/<educando>/`.
+  El borrado de datos vencidos (E-06) los elimina con el resto. Cada acceso queda en `registro_accesos`.
+- Dashboard: documentos pendientes para el tutor y documentos por revisar para el monitor.
+- Aceptación: el tutor descarga las plantillas y sube los documentos de sus educandos (no de otros); el monitor los ve y
+  los revisa; el administrador cambia las plantillas; volver a subir deja el documento pendiente; pruebas automáticas nuevas.
+- Estado: hecho (rama `feat/E-14-documentacion`, pendiente de fusionar)

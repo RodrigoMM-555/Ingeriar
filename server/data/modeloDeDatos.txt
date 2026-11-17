@@ -114,3 +114,26 @@ registro_accesos
 - id_educando INT UNSIGNED NULL REFERENCES educandos(id) ON DELETE SET NULL
 - detalle VARCHAR(255) NULL
 - ip VARCHAR(45) NULL
+
+# Documentación de inscripción (E-14). El instalador carga los valores iniciales de
+# server/data/semillas/documentos-base.sql.
+documentos_base
+- codigo VARCHAR(50) PRIMARY KEY
+- nombre VARCHAR(150) NOT NULL
+- tipo ENUM('participacion', 'inscripcion') NOT NULL DEFAULT 'inscripcion'
+- archivo_plantilla VARCHAR(255) NULL
+- obligatorio BOOLEAN NOT NULL DEFAULT TRUE
+- activo BOOLEAN NOT NULL DEFAULT TRUE
+- orden SMALLINT UNSIGNED NOT NULL DEFAULT 0
+
+documentos_educando
+- id_educando INT UNSIGNED NOT NULL REFERENCES educandos(id) ON DELETE CASCADE
+- codigo_documento VARCHAR(50) NOT NULL REFERENCES documentos_base(codigo)
+- archivo VARCHAR(255) NOT NULL
+- subido_por INT UNSIGNED NULL REFERENCES usuarios(id) ON DELETE SET NULL
+- fecha_subida DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+- estado ENUM('pendiente', 'revisado', 'corregir') NOT NULL DEFAULT 'pendiente'
+- observaciones VARCHAR(255) NULL
+- revisado_por INT UNSIGNED NULL REFERENCES usuarios(id) ON DELETE SET NULL
+- revisado_en DATETIME NULL
+- UNIQUE (id_educando, codigo_documento)

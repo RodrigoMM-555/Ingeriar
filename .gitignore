@@ -9,3 +9,6 @@ storage/configuracion/*
 storage/documentos/*
 !storage/documentos/.gitkeep
 !storage/documentos/biblioteca/
+# Plantillas que sube el administrador (E-14): solo se versiona la circular de ejemplo.
+storage/documentos/biblioteca/*
+!storage/documentos/biblioteca/circular1.pdf

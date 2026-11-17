@@ -13,10 +13,12 @@ const formulario = new IngeriarFormulario({
     }
 });
 const exportacion = new IngeriarExportacion({contenedor: "section"});
+const documentos = new IngeriarDocumentos({utilidades});
 const tabla = new IngeriarTabla({
     utilidades,
     formulario,
-    exportacion
+    exportacion,
+    documentos
 });
 const configuracion = new IngeriarConfiguracion({
     utilidades,

@@ -118,7 +118,25 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | FAC-11 | El monitor borra su factura pendiente y su imagen | RF-05 | Superada | 2026-11-17 |
 | FAC-12 | Un tutor no accede a las facturas → 403 | RNF-03 | Superada | 2026-11-17 |
 
-Resultado: 79 de 79 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
+| DOC-01 | Cualquier usuario descarga la circular de participación en blanco | RF-04 | Superada | 2026-11-17 |
+| DOC-02 | Un documento sin plantilla → 404 | RF-04 | Superada | 2026-11-17 |
+| DOC-03 | El administrador sube la plantilla y el tutor la descarga | RF-04, RF-07 | Superada | 2026-11-17 |
+| DOC-04 | Un monitor no cambia las plantillas → 403 | RNF-03 | Superada | 2026-11-17 |
+| DOC-05 | El tutor ve la documentación de su educando | RF-04 | Superada | 2026-11-17 |
+| DOC-06 | El tutor no ve la documentación de otro educando → 403 | RNF-03 | Superada | 2026-11-17 |
+| DOC-07 | El tutor entrega un documento y queda pendiente en la carpeta del educando | RF-04 | Superada | 2026-11-17 |
+| DOC-08 | El tutor no entrega documentos de otro educando → 403 | RNF-03 | Superada | 2026-11-17 |
+| DOC-09 | Un archivo con formato no admitido → 415 | RNF-03 | Superada | 2026-11-17 |
+| DOC-10 | El tutor no puede revisar → 403 | RNF-03 | Superada | 2026-11-17 |
+| DOC-11 | Un monitor pide corrección (con observaciones obligatorias) | RF-04 | Superada | 2026-11-17 |
+| DOC-12 | Volver a entregar deja el documento pendiente y borra el archivo anterior | RF-04 | Superada | 2026-11-17 |
+| DOC-13 | Un monitor ve el documento y el acceso queda registrado | RNF-03 | Superada | 2026-11-17 |
+| DOC-14 | La circular de participación de los eventos sale del catálogo | RF-03, RF-04 | Superada | 2026-11-17 |
+
+Resultado: 93 de 93 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
+con todas las migraciones aplicadas.
+
+Resultado anterior: 79 de 79 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
 tras aplicar todas las migraciones.
 
 Resultado anterior: 69 de 69 superadas el 2026-11-17 en tres bases: con el esquema anterior más `2026-11-roles.sql`
@@ -164,3 +182,6 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-30 | Tesorería | Mover una factura con los botones y arrastrándola | Cambia de columna; el detalle muestra quién y cuándo | RF-05, RNF-06 | Pendiente | |
 | MAN-31 | Cualquiera | Abrir una factura pagada | Sin botones de editar ni borrar; aviso de bloqueo | RF-05 | Pendiente | |
 | MAN-32 | Monitor | Tablero en pantalla estrecha | Las columnas se apilan | RNF-02, RNF-06 | Pendiente | |
+| MAN-33 | Administrador | Configuración → «Documentos base y plantillas»: subir la ficha sanitaria | Aparece «Plantilla actual» | RF-04, RF-07 | Pendiente | |
+| MAN-34 | Tutor | Educandos → «Ver documentación»: descargar y subir la ficha sanitaria | Queda «pendiente de revisión»; el dashboard baja el contador | RF-04 | Pendiente | |
+| MAN-35 | Monitor | Revisar ese documento y pedir una corrección | El tutor ve «A corregir» con la observación | RF-04 | Pendiente | |

@@ -1,9 +1,10 @@
 class IngeriarTabla {
-    constructor({contenedor = "section", utilidades, formulario, exportacion}) {
+    constructor({contenedor = "section", utilidades, formulario, exportacion, documentos}) {
         this.contenedor = typeof contenedor === "string"
             ? document.querySelector(contenedor)
             : contenedor;
         this.utilidades = utilidades;
+        this.documentos = documentos;
         this.formulario = formulario;
         this.exportacion = exportacion;
         this.tabla = "";
@@ -292,9 +293,16 @@ class IngeriarTabla {
             const contenedor = document.querySelector("#contenedor-formulario");
             contenedor.replaceChildren();
             const titulo = document.createElement("h2");
-            titulo.textContent = "Circulares: " + educando.nombre + " " +
+            titulo.textContent = "Documentación: " + educando.nombre + " " +
                 educando.apellidos;
             contenedor.appendChild(titulo);
+            // E-14: fichas de inscripción, antes de las circulares de actividades.
+            if (this.documentos) {
+                contenedor.appendChild(this.documentos.crearBloqueInscripcion(educando));
+            }
+            const tituloCirculares = document.createElement("h3");
+            tituloCirculares.textContent = "Circulares de actividades";
+            contenedor.appendChild(tituloCirculares);
             const rejilla = document.createElement("div");
             rejilla.className = "rejilla-documentos";
             contenedor.appendChild(rejilla);

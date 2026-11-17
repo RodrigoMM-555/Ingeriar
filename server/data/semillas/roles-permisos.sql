@@ -32,13 +32,15 @@ INSERT IGNORE INTO permisos (codigo, descripcion) VALUES
     ('roles.gestionar', 'Crear cargos y editar sus permisos'),
     ('copia.descargar', 'Descargar copias de seguridad'),
     ('conservacion.gestionar', 'Eliminar los datos vencidos de educandos dados de baja'),
-    ('registro.ver', 'Consultar el registro de accesos');
+    ('registro.ver', 'Consultar el registro de accesos'),
+    ('documentos.subir_propios', 'Entregar la documentación de inscripción de sus educandos'),
+    ('documentos.revisar', 'Revisar la documentación de inscripción y entregarla en nombre de las familias');
 
 -- El administrador tiene todos los permisos salvo los de tutor («sus» educandos), que
 -- describen una relación y no una capacidad: con ellos vería el panel de tutor.
 INSERT IGNORE INTO roles_permisos (codigo_rol, codigo_permiso)
 SELECT 'administrador', codigo FROM permisos
-WHERE codigo NOT IN ('educandos.ver_propios', 'asistencia.responder_propios');
+WHERE codigo NOT IN ('educandos.ver_propios', 'asistencia.responder_propios', 'documentos.subir_propios');
 
 INSERT IGNORE INTO roles_permisos (codigo_rol, codigo_permiso) VALUES
     ('scouter', 'usuarios.ver'),
@@ -51,9 +53,11 @@ INSERT IGNORE INTO roles_permisos (codigo_rol, codigo_permiso) VALUES
     ('scouter', 'galeria.ver'),
     ('scouter', 'galeria.subir'),
     ('scouter', 'facturas.subir_propias'),
+    ('scouter', 'documentos.revisar'),
     ('tutor', 'educandos.ver_propios'),
     ('tutor', 'eventos.ver'),
     ('tutor', 'asistencia.responder_propios'),
     ('tutor', 'galeria.ver'),
+    ('tutor', 'documentos.subir_propios'),
     ('tesoreria', 'facturas.ver_todas'),
     ('tesoreria', 'facturas.cambiar_estado');

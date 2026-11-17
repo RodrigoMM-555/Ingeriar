@@ -36,6 +36,7 @@ ingeriar v3/
 │   │   ├── calendario.js           Calendario y asistencias
 │   │   ├── galeria.js              Galería de fotos por ronda y tipo de evento
 │   │   ├── facturas.js             Facturas en tablero (pendientes, revisadas, pagadas)
+│   │   ├── documentos.js           Documentación de inscripción y plantillas
 │   │   ├── dashboard.js            Indicadores y gráficas por rol
 │   │   ├── graficas.js             Gráficas SVG sin librerías externas
 │   │   ├── exportacion.js          Exportación de tablas y dashboard
@@ -49,6 +50,7 @@ ingeriar v3/
 │   │   ├── archivo.php             Subida y descarga de documentos
 │   │   ├── galeria.php             Fotos de la galería (listar, ver, subir, borrar)
 │   │   ├── facturas.php            Facturas: listar, imagen, crear, editar, borrar, estado
+│   │   ├── documentos.php          Documentación de inscripción y plantillas
 │   │   └── instalar.php            Creación de la base de datos
 │   ├── auth/sesion.php              Sesión y autenticación
 │   ├── data/
@@ -445,6 +447,26 @@ Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
   administrador lo consulta como una tabla, pero nadie puede editarlo ni borrarlo.
 - Bases existentes: ejecutar `server/data/migraciones/2026-11-bajas-accesos.sql`.
 
+## 10 cuater. Documentación de inscripción (E-14)
+
+Las fichas básicas del grupo (ficha sanitaria, hoja de inscripción, exclusión de
+responsabilidad y autorización para ausentarse) están en el catálogo `documentos_base`
+junto con la circular de participación que se adjunta a los eventos.
+
+- El administrador sube y cambia las plantillas en blanco en Configuración →
+  «Documentos base y plantillas» (cada grupo usa las suyas) y puede añadir documentos.
+  Se guardan en `storage/documentos/biblioteca/` con nombre aleatorio.
+- En la ficha de cada educando («Ver documentación») el tutor descarga cada plantilla y
+  sube el documento relleno. Se entrega una vez; volver a subirlo sustituye al anterior y
+  lo deja pendiente de revisión. Un monitor también puede entregarlo (copia en papel).
+- Un monitor lo marca como revisado o pide corrección con observaciones
+  (`documentos.revisar`). Estados: pendiente, revisado, corregir.
+- Los archivos van con las circulares, en la carpeta del educando en la ronda
+  (`storage/documentos/<ronda>/<sección>/<educando>/inscripcion-<documento>-<aleatorio>`),
+  así que el borrado de datos vencidos los elimina. Ver y subir queda en `registro_accesos`.
+- Dashboard: «Documentos pendientes» (tutor) y «Documentos por revisar» (monitor).
+- Bases existentes: `2026-11-documentacion.sql`.
+
 ## 11. Dashboard, gráficas y exportación
 
 El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
@@ -529,8 +551,8 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
    `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
 9. En bases ya creadas, ejecutar en este orden `server/data/migraciones/2026-11-galeria.sql`,
    `2026-11-bajas-accesos.sql`, `2026-11-roles.sql`, `2026-11-facturas-tablero.sql` y
-   `2026-11-claves-foraneas.sql` (esta última crea las claves foráneas que faltan en
-   bases hechas con el instalador antiguo). Cuando las pruebas pasen,
+   `2026-11-claves-foraneas.sql` (crea las claves foráneas que faltan en bases hechas
+   con el instalador antiguo) y `2026-11-documentacion.sql`. Cuando las pruebas pasen,
    `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
    código funciona antes y después de este último paso.
 
@@ -598,6 +620,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-14)
+
+- E-14: documentación de inscripción. Catálogo de documentos base con plantillas que
+  sube el administrador, entrega por el tutor desde la ficha del educando y revisión
+  por un monitor. Se quitaron de `biblioteca/` dos PDF de pruebas antiguos.
 
 ### 2026-11-17 (E-05)
 

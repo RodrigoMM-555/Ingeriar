@@ -21,7 +21,6 @@ function tablaExiste(PDO $db, string $tabla): bool
 // Usuario con sus cargos y permisos recargados de la base de datos (E-13).
 $usuario = exigirUsuario($db);
 
-const CIRCULAR_FIJA = 'biblioteca/circular1.pdf';
 
 function responder($datos, int $estado = 200): void
 {
@@ -449,6 +448,32 @@ switch ($ruta) {
             $indicadores[] = ['nombre' => 'Mis educandos', 'valor' => $educandosPropios['cantidad'] ?? 0, 'detalle' => 'Personas vinculadas'];
         }
         $indicadores[] = ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'];
+
+        // Documentación de inscripción (E-14).
+        if (tablaExiste($db, 'documentos_educando')) {
+            if (tienePermiso('documentos.revisar')) {
+                $porRevisar = $consultar(
+                    "SELECT COUNT(*) AS cantidad FROM documentos_educando d
+                     JOIN educandos e ON e.id = d.id_educando
+                     WHERE d.estado = 'pendiente' AND e.fecha_baja IS NULL"
+                );
+                $indicadores[] = ['nombre' => 'Documentos por revisar', 'valor' => $porRevisar['cantidad'] ?? 0, 'detalle' => 'Documentación de inscripción'];
+            }
+            if (tienePermiso('documentos.subir_propios')) {
+                // Obligatorios que faltan o que hay que corregir, de sus educandos activos.
+                $pendientes = $consultar(
+                    "SELECT COUNT(*) AS cantidad
+                     FROM usuarios_educandos ue
+                     JOIN educandos e ON e.id = ue.id_educando AND e.fecha_baja IS NULL
+                     JOIN documentos_base b ON b.tipo = 'inscripcion' AND b.activo = 1 AND b.obligatorio = 1
+                     LEFT JOIN documentos_educando d
+                        ON d.id_educando = e.id AND d.codigo_documento = b.codigo
+                     WHERE ue.id_usuario = ? AND (d.id IS NULL OR d.estado = 'corregir')",
+                    [$usuario['id']]
+                );
+                $indicadores[] = ['nombre' => 'Documentos pendientes', 'valor' => $pendientes['cantidad'] ?? 0, 'detalle' => 'Fichas de inscripción por entregar'];
+            }
+        }
 
         if (tienePermiso('facturas.ver_todas')) {
             $facturas = $consultar(
@@ -912,13 +937,20 @@ switch ($ruta) {
         $vencidos = $vencidosStmt->fetchAll();
         $idsVencidos = array_map('intval', array_column($vencidos, 'id'));
 
+        // Archivos del educando: entregas de circulares y documentación de inscripción (E-14).
         $archivosDe = function (int $educandoId) use ($db): array {
             $stmt = $db->prepare(
                 'SELECT archivo_entrega FROM educandos_asistencias
                  WHERE id_educando = ? AND archivo_entrega IS NOT NULL'
             );
             $stmt->execute([$educandoId]);
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $archivos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (tablaExiste($db, 'documentos_educando')) {
+                $stmt = $db->prepare('SELECT archivo FROM documentos_educando WHERE id_educando = ?');
+                $stmt->execute([$educandoId]);
+                $archivos = [...$archivos, ...$stmt->fetchAll(PDO::FETCH_COLUMN)];
+            }
+            return $archivos;
         };
         // Tutores cuyos educandos están todos vencidos: se quedarían sin ninguno.
         // Solo se ofrecen los que no tienen ningún otro cargo (un tutor que además
@@ -984,7 +1016,11 @@ switch ($ruta) {
             $borrarAsistencias = $db->prepare('DELETE FROM educandos_asistencias WHERE id_educando = ?');
             $borrarVinculos = $db->prepare('DELETE FROM usuarios_educandos WHERE id_educando = ?');
             $borrarEducando = $db->prepare('DELETE FROM educandos WHERE id = ?');
+            $hayDocumentacion = tablaExiste($db, 'documentos_educando');
             foreach ($borrarEducandos as $educandoId) {
+                if ($hayDocumentacion) {
+                    $db->prepare('DELETE FROM documentos_educando WHERE id_educando = ?')->execute([$educandoId]);
+                }
                 $borrarAsistencias->execute([$educandoId]);
                 $borrarVinculos->execute([$educandoId]);
                 $borrarEducando->execute([$educandoId]);
@@ -1141,7 +1177,9 @@ switch ($ruta) {
                    'roles',
                    'permisos',
                    'usuarios_roles',
-                   'roles_permisos'
+                   'roles_permisos',
+                   'documentos_base',
+                   'documentos_educando'
                )
              ORDER BY TABLE_NAME"
         )->fetchAll(PDO::FETCH_COLUMN);

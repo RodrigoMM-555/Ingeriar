@@ -1765,6 +1765,89 @@ span{
 }
 
 
+/* Documentación de inscripción (E-14) */
+.bloque-inscripcion{
+    margin:12px 0 24px;
+}
+
+.lista-inscripcion{
+    display:grid;
+    gap:10px;
+}
+
+.fila-inscripcion{
+    display:grid;
+    grid-template-columns:minmax(160px,1fr) minmax(160px,1.2fr) auto;
+    align-items:center;
+    gap:10px 16px;
+    padding:12px;
+}
+
+.acciones-inscripcion{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:6px;
+}
+
+.acciones-inscripcion .boton{
+    text-decoration:none;
+}
+
+.estado-documento{
+    font-size:14px;
+}
+
+.estado-falta,
+.estado-corregir{
+    color:var(--color_peligro);
+}
+
+.estado-pendiente{
+    color:#d97706;
+}
+
+.estado-revisado{
+    color:var(--color_exito);
+}
+
+/* Botón que abre el selector de archivos: el input queda oculto pero accesible */
+.boton-archivo{
+    position:relative;
+    overflow:hidden;
+}
+
+.boton-archivo input[type="file"]{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    cursor:pointer;
+}
+
+.boton-archivo.cargando{
+    opacity:.6;
+    pointer-events:none;
+}
+
+.fila-plantilla{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px 14px;
+    padding:10px 0;
+    border-bottom:1px solid var(--color_borde);
+}
+
+@media (max-width:700px){
+    .fila-inscripcion{
+        grid-template-columns:1fr;
+    }
+
+    .acciones-inscripcion{
+        justify-content:flex-start;
+    }
+}
+
 /* Campos de sí o no del formulario genérico */
 .campo-si-no{
     border:0;

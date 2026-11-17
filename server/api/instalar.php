@@ -165,10 +165,18 @@ try {
         $db->exec($sql);
     }
 
-    // Cargos y permisos iniciales (E-13), si el modelo incluye sus tablas.
+    // Valores iniciales (server/data/semillas/) de las tablas que incluya el modelo:
+    // cargos y permisos (E-13) y documentos base (E-14).
     $existeTablaRoles = $db->query("SHOW TABLES LIKE 'roles_permisos'")->fetchColumn();
-    if ($existeTablaRoles) {
-        $semilla = (string) file_get_contents(__DIR__ . '/../data/semillas/roles-permisos.sql');
+    $semillas = [
+        'roles-permisos.sql' => (bool) $existeTablaRoles,
+        'documentos-base.sql' => (bool) $db->query("SHOW TABLES LIKE 'documentos_base'")->fetchColumn(),
+    ];
+    foreach ($semillas as $archivoSemilla => $tablaExiste) {
+        if (!$tablaExiste) {
+            continue;
+        }
+        $semilla = (string) file_get_contents(__DIR__ . '/../data/semillas/' . $archivoSemilla);
         $semilla = preg_replace('/^--.*$/m', '', $semilla);
         foreach (preg_split('/;\s*(\R|$)/', $semilla) as $sentencia) {
             if (trim($sentencia) !== '') {

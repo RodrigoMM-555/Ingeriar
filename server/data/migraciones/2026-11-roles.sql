@@ -70,7 +70,7 @@ INSERT IGNORE INTO permisos (codigo, descripcion) VALUES
 -- describen una relación y no una capacidad: con ellos vería el panel de tutor.
 INSERT IGNORE INTO roles_permisos (codigo_rol, codigo_permiso)
 SELECT 'administrador', codigo FROM permisos
-WHERE codigo NOT IN ('educandos.ver_propios', 'asistencia.responder_propios');
+WHERE codigo NOT IN ('educandos.ver_propios', 'asistencia.responder_propios', 'documentos.subir_propios');
 
 INSERT IGNORE INTO roles_permisos (codigo_rol, codigo_permiso) VALUES
     ('scouter', 'usuarios.ver'),

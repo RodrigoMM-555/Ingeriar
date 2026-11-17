@@ -174,6 +174,31 @@ function limpiarDatosPrueba(PDO $db): void
         }
         $db->prepare('DELETE FROM eventos WHERE id = ?')->execute([$evento]);
     }
+    // Documentación de inscripción (E-14) de los educandos y plantillas de prueba.
+    if ($db->query("SHOW TABLES LIKE 'documentos_educando'")->fetchColumn()) {
+        $base = __DIR__ . '/../../storage/documentos/';
+        foreach ($db->query("SELECT d.archivo FROM documentos_educando d JOIN educandos e ON e.id = d.id_educando
+                             WHERE e.DNI LIKE '9999999_Z'")->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
+            if (is_file($base . $archivo)) {
+                unlink($base . $archivo);
+            }
+            // Carpetas vacías del educando, la sección y la ronda.
+            $carpeta = dirname($base . $archivo);
+            while (str_starts_with(realpath($carpeta) ?: '', realpath($base)) && realpath($carpeta) !== realpath($base)
+                && is_dir($carpeta) && count(scandir($carpeta)) === 2) {
+                rmdir($carpeta);
+                $carpeta = dirname($carpeta);
+            }
+        }
+        $db->query("DELETE d FROM documentos_educando d JOIN educandos e ON e.id = d.id_educando WHERE e.DNI LIKE '9999999_Z'");
+        foreach ($db->query("SELECT archivo_plantilla FROM documentos_base WHERE codigo LIKE 'prueba\\_%'
+                             AND archivo_plantilla IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN) as $plantilla) {
+            if (is_file($base . 'biblioteca/' . basename($plantilla))) {
+                unlink($base . 'biblioteca/' . basename($plantilla));
+            }
+        }
+        $db->query("DELETE FROM documentos_base WHERE codigo LIKE 'prueba\\_%'");
+    }
     $db->prepare("DELETE FROM educandos WHERE DNI LIKE '9999999_Z'")->execute();
     $db->prepare('DELETE FROM registro_accesos WHERE usuario_email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
     $imagenes = $db->prepare('SELECT f.imagen_factura FROM facturas f JOIN usuarios u ON u.id = f.responsable_id
@@ -704,6 +729,87 @@ try {
         return esperar($respuesta, 200) === true && !is_file($archivo) ?: 'código ' . $respuesta['codigo'] . ', archivo ' . (is_file($archivo) ? 'sigue' : 'borrado');
     });
     prueba('FAC-12', 'Un tutor no accede a las facturas → 403', fn() => esperar($tutor->get('/api/facturas.php?accion=listar'), 403));
+
+    echo "\nDocumentación de inscripción (E-14)\n";
+    $tutorTesoreroId = (int) $db->query("SELECT id FROM usuarios WHERE email = 'tutortesorero" . DOMINIO_PRUEBAS . "'")->fetchColumn();
+    $educandoAjenoId = crearEducando($db, '99999995Z', null, $tutorTesoreroId);
+    $documentosApi = fn(ClienteHttp $cliente, string $accion, array $campos) =>
+        $cliente->post('/api/documentos.php?accion=' . $accion, $campos);
+    $entregar = fn(ClienteHttp $cliente, int $educando, string $archivo = '', string $codigo = 'prueba_doc') => $documentosApi($cliente, 'subir', [
+        'id_educando' => (string) $educando, 'codigo' => $codigo,
+        'archivo' => new CURLFile($archivo ?: $imagen, 'image/png', 'ficha.png'),
+    ]);
+    $estadoDocumentos = fn(ClienteHttp $cliente, int $educando) => $cliente->get('/api/documentos.php?accion=educando&id=' . $educando);
+    $entregaPrueba = function (ClienteHttp $cliente, int $educando) use ($estadoDocumentos): ?array {
+        foreach ($estadoDocumentos($cliente, $educando)['json']['documentos'] ?? [] as $documento) {
+            if ($documento['codigo'] === 'prueba_doc') {
+                return $documento['entrega'];
+            }
+        }
+        return null;
+    };
+    prueba('DOC-01', 'Cualquier usuario descarga la circular de participación en blanco', fn() => esperar(
+        $tutor->get('/api/documentos.php?accion=plantilla&codigo=participacion'), 200));
+    prueba('DOC-02', 'Un documento sin plantilla → 404', function () use ($documentosApi, $admin, $tutor) {
+        $crear = $documentosApi($admin, 'guardar_plantilla', ['codigo' => 'prueba_doc', 'nombre' => 'Ficha de prueba', 'obligatorio' => '1', 'activo' => '1']);
+        return esperar($crear, 200) === true ? esperar($tutor->get('/api/documentos.php?accion=plantilla&codigo=prueba_doc'), 404) : $crear['texto'];
+    });
+    prueba('DOC-03', 'El administrador sube la plantilla y el tutor la descarga', function () use ($documentosApi, $admin, $tutor, $imagen) {
+        $subir = $documentosApi($admin, 'guardar_plantilla', ['codigo' => 'prueba_doc', 'nombre' => 'Ficha de prueba',
+            'obligatorio' => '1', 'activo' => '1', 'plantilla' => new CURLFile($imagen, 'image/png', 'plantilla.png')]);
+        $descarga = $tutor->get('/api/documentos.php?accion=plantilla&codigo=prueba_doc');
+        return esperar($subir, 200) === true && esperar($descarga, 200) === true ?: "subir {$subir['codigo']}, descargar {$descarga['codigo']}";
+    });
+    prueba('DOC-04', 'Un monitor no cambia las plantillas → 403', fn() => esperar($documentosApi($scouter, 'guardar_plantilla',
+        ['codigo' => 'prueba_doc', 'nombre' => 'Cambiada']), 403));
+    prueba('DOC-05', 'El tutor ve la documentación de su educando', function () use ($estadoDocumentos, $tutor, $educandoId) {
+        $respuesta = $estadoDocumentos($tutor, $educandoId);
+        $codigos = array_column($respuesta['json']['documentos'] ?? [], 'codigo');
+        return esperar($respuesta, 200) === true && in_array('prueba_doc', $codigos, true)
+            && ($respuesta['json']['puede_subir'] ?? false) && !($respuesta['json']['puede_revisar'] ?? true) ?: $respuesta['texto'];
+    });
+    prueba('DOC-06', 'El tutor no ve la documentación de otro educando → 403', fn() => esperar($estadoDocumentos($tutor, $educandoAjenoId), 403));
+    prueba('DOC-07', 'El tutor entrega un documento y queda pendiente en la carpeta del educando', function () use ($entregar, $tutor, $educandoId, $db) {
+        $respuesta = $entregar($tutor, $educandoId);
+        $fila = $db->query("SELECT estado, archivo FROM documentos_educando WHERE id_educando = {$educandoId} AND codigo_documento = 'prueba_doc'")->fetch();
+        $partes = explode('/', (string) ($fila['archivo'] ?? ''));
+        $ruta = __DIR__ . '/../../storage/documentos/' . ($fila['archivo'] ?? '');
+        return esperar($respuesta, 200) === true && $fila['estado'] === 'pendiente' && count($partes) === 4
+            && str_starts_with($partes[2], $educandoId . '-') && is_file($ruta) ?: json_encode($fila ?: $respuesta['texto']);
+    });
+    prueba('DOC-08', 'El tutor no entrega documentos de otro educando → 403', fn() => esperar($entregar($tutor, $educandoAjenoId), 403));
+    prueba('DOC-09', 'Un archivo con formato no admitido → 415', fn() => esperar($entregar($tutor, $educandoId, $falsa), 415));
+    prueba('DOC-10', 'El tutor no puede revisar → 403', function () use ($documentosApi, $tutor, $entregaPrueba, $educandoId) {
+        $entrega = $entregaPrueba($tutor, $educandoId);
+        return esperar($documentosApi($tutor, 'revisar', ['id' => (string) $entrega['id'], 'estado' => 'revisado']), 403);
+    });
+    prueba('DOC-11', 'Un monitor pide corrección (con observaciones obligatorias)', function () use ($documentosApi, $scouter, $entregaPrueba, $educandoId) {
+        $id = (string) $entregaPrueba($scouter, $educandoId)['id'];
+        $sinTexto = $documentosApi($scouter, 'revisar', ['id' => $id, 'estado' => 'corregir'])['codigo'];
+        $conTexto = $documentosApi($scouter, 'revisar', ['id' => $id, 'estado' => 'corregir', 'observaciones' => 'Falta la firma'])['codigo'];
+        $entrega = $entregaPrueba($scouter, $educandoId);
+        return $sinTexto === 400 && $conTexto === 200 && $entrega['estado'] === 'corregir' && $entrega['observaciones'] === 'Falta la firma'
+            ?: "sin texto {$sinTexto}, con texto {$conTexto}, " . json_encode($entrega);
+    });
+    prueba('DOC-12', 'Volver a entregar deja el documento pendiente y borra el archivo anterior', function () use ($entregar, $tutor, $educandoId, $db, $entregaPrueba) {
+        $anterior = (string) $db->query("SELECT archivo FROM documentos_educando WHERE id_educando = {$educandoId} AND codigo_documento = 'prueba_doc'")->fetchColumn();
+        $respuesta = $entregar($tutor, $educandoId);
+        $entrega = $entregaPrueba($tutor, $educandoId);
+        $borrado = !is_file(__DIR__ . '/../../storage/documentos/' . $anterior);
+        return esperar($respuesta, 200) === true && $entrega['estado'] === 'pendiente' && $entrega['observaciones'] === null && $borrado
+            ?: json_encode($entrega) . ($borrado ? '' : ' (el anterior sigue)');
+    });
+    prueba('DOC-13', 'Un monitor ve el documento y el acceso queda registrado', function () use ($scouter, $entregaPrueba, $educandoId, $registros) {
+        $antes = $registros('documento_inscripcion', 'scouter');
+        $respuesta = $scouter->get('/api/documentos.php?accion=ver&id=' . $entregaPrueba($scouter, $educandoId)['id']);
+        return esperar($respuesta, 200) === true && $registros('documento_inscripcion', 'scouter') === $antes + 1 ?: 'sin registro';
+    });
+    prueba('DOC-14', 'La circular de participación de los eventos sale del catálogo', function () use ($tutor, $db, $eventoTropa) {
+        $db->prepare('UPDATE eventos SET circular = 1 WHERE id = ?')->execute([$eventoTropa]);
+        $respuesta = $tutor->get('/api/archivo.php?tipo=circular&evento=' . $eventoTropa);
+        return esperar($respuesta, 200) === true && ($respuesta['cabeceras']['content-type'] ?? '') === 'application/pdf'
+            ?: $respuesta['codigo'] . ' ' . ($respuesta['cabeceras']['content-type'] ?? '');
+    });
 } finally {
     limpiarDatosPrueba($db);
     unlink($imagen);
