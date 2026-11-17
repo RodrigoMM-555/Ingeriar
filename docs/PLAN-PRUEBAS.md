@@ -87,8 +87,8 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | ROL-01 | Un monitor solo ve sus facturas | RF-05, RNF-03 | Superada | 2026-11-17 |
 | ROL-02 | Un monitor con tesorería ve todas las facturas | RF-01, RF-05 | Superada | 2026-11-17 |
 | ROL-03 | Un monitor no puede editar la factura de otro → 403 | RF-05, RNF-03 | Superada | 2026-11-17 |
-| ROL-04 | Un monitor no cambia el estado de su propia factura | RF-05, RNF-03 | Superada | 2026-11-17 |
-| ROL-05 | Tesorería cambia el estado de una factura ajena (y nada más) | RF-05 | Superada | 2026-11-17 |
+| ROL-04 | Un monitor edita su factura pendiente pero no cambia estados (403) | RF-05, RNF-03 | Superada | 2026-11-17 |
+| ROL-05 | Tesorería cambia el estado de una factura ajena y queda registrado quién | RF-05 | Superada | 2026-11-17 |
 | ROL-06 | La factura nueva de un monitor es suya y queda pendiente | RF-05 | Superada | 2026-11-17 |
 | ROL-07 | Unión de permisos: tutor con tesorería ve todas las facturas pero no sube fotos | RF-01 | Superada | 2026-11-17 |
 | ROL-08 | Un usuario no puede tener dos cargos básicos → 400 | RF-01 | Superada | 2026-11-17 |
@@ -105,7 +105,23 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | ROL-19 | Un monitor no edita la tabla de asistencias → 403 | RF-03, RNF-03 | Superada | 2026-11-17 |
 | ROL-20 | La cabecera recibe los nombres de los cargos | RF-01 | Superada | 2026-11-17 |
 
-Resultado: 69 de 69 superadas el 2026-11-17 en tres bases: con el esquema anterior más `2026-11-roles.sql`
+| FAC-01 | Crear una factura sin imagen → 400 | RF-05 | Superada | 2026-11-17 |
+| FAC-02 | Crear una factura con un archivo que no es imagen → 415 | RF-05, RNF-03 | Superada | 2026-11-17 |
+| FAC-03 | Datos incompletos → 400 | RF-05 | Superada | 2026-11-17 |
+| FAC-04 | El monitor solo lista las suyas y no puede cambiar estados | RF-05, RNF-03 | Superada | 2026-11-17 |
+| FAC-05 | El monitor ve la imagen de su factura; sin sesión 401; tesorería la ve | RF-05, RNF-03 | Superada | 2026-11-17 |
+| FAC-06 | Otro monitor no ve la imagen de una factura ajena → 403 | RNF-03 | Superada | 2026-11-17 |
+| FAC-07 | El monitor no edita su factura cuando ya está revisada → 403 | RF-05 | Superada | 2026-11-17 |
+| FAC-08 | Una factura pagada no la edita ni la borra nadie, ni el administrador (409) | RF-05 | Superada | 2026-11-17 |
+| FAC-09 | Tesorería puede devolver una factura pagada a revisada | RF-05 | Superada | 2026-11-17 |
+| FAC-10 | Las rutas genéricas ya no escriben facturas → 400 | RF-05, RNF-03 | Superada | 2026-11-17 |
+| FAC-11 | El monitor borra su factura pendiente y su imagen | RF-05 | Superada | 2026-11-17 |
+| FAC-12 | Un tutor no accede a las facturas → 403 | RNF-03 | Superada | 2026-11-17 |
+
+Resultado: 79 de 79 superadas el 2026-11-17 con `schema.sql` y `demo.sql` nuevos, y en una copia de la base del usuario
+tras aplicar todas las migraciones.
+
+Resultado anterior: 69 de 69 superadas el 2026-11-17 en tres bases: con el esquema anterior más `2026-11-roles.sql`
 (columna `rol` aún presente), después de `2026-11-roles-retirar-columna.sql` y con `schema.sql` y `demo.sql` nuevos.
 
 ## Pruebas manuales (interfaz)
@@ -144,3 +160,7 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-26 | Administrador | En una base con un único administrador, quitarle el cargo o borrarlo | «No se puede: nadie podría gestionar los cargos» | RNF-03 | Pendiente | |
 | MAN-27 | Monitor | Tabla de educandos | Ve Nuevo y Editar, no Borrar; puede rellenar `fecha_baja` | RF-02 | Pendiente | |
 | MAN-28 | Monitor con tesorería | Cabecera, dashboard y facturas | Cabecera «Monitor · Tesorería»; ve el gasto total y todas las facturas | RF-01, RF-07 | Pendiente | |
+| MAN-29 | Monitor | Facturas → «+ Nueva factura» con imagen | Aparece en Pendientes con su miniatura | RF-05 | Pendiente | |
+| MAN-30 | Tesorería | Mover una factura con los botones y arrastrándola | Cambia de columna; el detalle muestra quién y cuándo | RF-05, RNF-06 | Pendiente | |
+| MAN-31 | Cualquiera | Abrir una factura pagada | Sin botones de editar ni borrar; aviso de bloqueo | RF-05 | Pendiente | |
+| MAN-32 | Monitor | Tablero en pantalla estrecha | Las columnas se apilan | RNF-02, RNF-06 | Pendiente | |

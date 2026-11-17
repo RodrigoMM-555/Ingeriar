@@ -6,6 +6,67 @@ class IngeriarUtilidades {
             Boolean(usuarioActual?.permisos?.includes(codigo));
     }
 
+    // Miniaturas de imágenes (galería y facturas). Se generan con el Web Worker de
+    // vistas previas para no bloquear la interfaz, con un máximo de trabajadores a la vez.
+    vaciarColaMiniaturas() {
+        this.colaMiniaturas = [];
+    }
+
+    encolarMiniatura(url, contenedor, nombre) {
+        this.colaMiniaturas ??= [];
+        this.trabajadoresActivos ??= 0;
+        this.colaMiniaturas.push({url, contenedor, nombre});
+        this.procesarCola();
+    }
+
+    procesarCola() {
+        while (this.trabajadoresActivos < 4 &&
+            this.colaMiniaturas.length > 0) {
+            const tarea = this.colaMiniaturas.shift();
+            if (!tarea.contenedor.isConnected) {
+                continue;
+            }
+            this.trabajadoresActivos++;
+            this.crearMiniatura(tarea).finally(() => {
+                this.trabajadoresActivos--;
+                this.procesarCola();
+            });
+        }
+    }
+
+    crearMiniatura({url, contenedor, nombre}) {
+        return new Promise((resolver) => {
+            const mostrarImagen = (origen) => {
+                const imagen = document.createElement("img");
+                imagen.src = origen;
+                imagen.alt = nombre;
+                imagen.loading = "lazy";
+                contenedor.replaceChildren(imagen);
+            };
+            if (!window.Worker) {
+                mostrarImagen(url);
+                resolver();
+                return;
+            }
+            const trabajador = new Worker("nucleo/documento-preview-worker.js");
+            trabajador.onmessage = (evento) => {
+                trabajador.terminate();
+                if (evento.data.kind === "image") {
+                    mostrarImagen(URL.createObjectURL(evento.data.blob));
+                } else {
+                    contenedor.textContent = "Sin vista previa";
+                }
+                resolver();
+            };
+            trabajador.onerror = () => {
+                trabajador.terminate();
+                contenedor.textContent = "Sin vista previa";
+                resolver();
+            };
+            trabajador.postMessage({url});
+        });
+    }
+
     // Nombres de los cargos del usuario actual, por ejemplo «Monitor · Tesorería».
     nombreCargos(usuario) {
         return (usuario?.roles || []).map((rol) => rol.nombre).join(" · ");

@@ -35,6 +35,7 @@ ingeriar v3/
 │   │   ├── tabla.js                Tablas, filtros y acciones
 │   │   ├── calendario.js           Calendario y asistencias
 │   │   ├── galeria.js              Galería de fotos por ronda y tipo de evento
+│   │   ├── facturas.js             Facturas en tablero (pendientes, revisadas, pagadas)
 │   │   ├── dashboard.js            Indicadores y gráficas por rol
 │   │   ├── graficas.js             Gráficas SVG sin librerías externas
 │   │   ├── exportacion.js          Exportación de tablas y dashboard
@@ -47,6 +48,7 @@ ingeriar v3/
 │   │   ├── superapi.php            API principal de datos y permisos
 │   │   ├── archivo.php             Subida y descarga de documentos
 │   │   ├── galeria.php             Fotos de la galería (listar, ver, subir, borrar)
+│   │   ├── facturas.php            Facturas: listar, imagen, crear, editar, borrar, estado
 │   │   └── instalar.php            Creación de la base de datos
 │   ├── auth/sesion.php              Sesión y autenticación
 │   ├── data/
@@ -57,6 +59,7 @@ ingeriar v3/
 │   │   ├── config.php               Configuración del grupo
 │   │   └── secciones.php            Cálculo de secciones por edad
 │   ├── pruebas/pruebas.php         Pruebas automáticas por HTTP (solo terminal)
+│   ├── pruebas/fotos-ejemplo.php   Fotos de ejemplo para la galería y las facturas
 │   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
 ├── storage/
 │   ├── documentos/                  Circulares y entregas
@@ -306,24 +309,28 @@ Las facturas tienen un campo especial de imagen. El archivo se envía junto con
 el resto del formulario mediante `FormData`; los campos normales siguen viajando
 como JSON dentro de ese formulario.
 
-## 9. Facturas e imágenes
+## 9. Facturas en tablero (E-05)
 
-Las facturas contienen `imagen_factura`, una ruta relativa opcional. Al guardar:
+La vista «Facturas» (`facturas.js` y `api/facturas.php`) muestra tres columnas:
+Pendientes, Revisadas y Pagadas. Cada factura es una tarjeta con la miniatura de su
+imagen (Web Worker), el concepto, el importe, la fecha de compra, la categoría y, para
+quien ve todas, el responsable. Al pulsarla se abre el detalle con la imagen grande.
 
-1. PHP comprueba que la petición corresponde a una factura.
-2. Comprueba tamaño máximo de 10 MB.
-3. Comprueba el MIME real con `finfo`.
-4. Acepta JPEG, PNG y WebP.
-5. Genera un nombre aleatorio para evitar colisiones y nombres peligrosos.
-6. Guarda la imagen en `storage/facturas/`.
-7. Guarda el nombre generado en la factura.
+- Estados: `pendiente` → `revisada` → `pagada` (se eliminó `rechazada`). Solo
+  `facturas.cambiar_estado` (tesorería y administrador) los cambia, con botones en la
+  tarjeta o arrastrando entre columnas, también en sus propias facturas. Se guarda quién
+  hizo el último cambio y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
+- La imagen es obligatoria al crear: tipo real con `finfo` (JPEG, PNG o WebP), tamaño de
+  la configuración y nombre aleatorio en `storage/facturas/`. Se sirve solo por PHP.
+- El monitor ve solo sus facturas y las edita o borra mientras están pendientes. Una
+  factura pagada no la edita ni la borra nadie (409); tesorería puede devolverla a revisada.
+- Las rutas genéricas de `superapi.php` ya no escriben facturas: la tabla queda de solo
+  lectura para el dashboard y la exportación.
+- Bases existentes: `2026-11-facturas-tablero.sql` (las rechazadas pasan a pendiente).
 
-Para una base instalada antes de esta funcionalidad:
-
-```sql
-ALTER TABLE facturas
-    ADD COLUMN imagen_factura VARCHAR(255) NULL;
-```
+Fotos de ejemplo para probar: `php server/pruebas/fotos-ejemplo.php --confirmar`
+dibuja paisajes para la galería y tiques para las facturas sin imagen (PNG generado en
+PHP, sin la extensión gd; imágenes ficticias).
 
 ## 10. Eventos, circulares y asistencias
 
@@ -521,7 +528,9 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
 8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
    `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
 9. En bases ya creadas, ejecutar en este orden `server/data/migraciones/2026-11-galeria.sql`,
-   `2026-11-bajas-accesos.sql` y `2026-11-roles.sql`. Cuando las pruebas pasen,
+   `2026-11-bajas-accesos.sql`, `2026-11-roles.sql`, `2026-11-facturas-tablero.sql` y
+   `2026-11-claves-foraneas.sql` (esta última crea las claves foráneas que faltan en
+   bases hechas con el instalador antiguo). Cuando las pruebas pasen,
    `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
    código funciona antes y después de este último paso.
 
@@ -589,6 +598,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (E-05)
+
+- E-05: facturas en tablero (pendiente, revisada, pagada) con miniaturas, imagen
+  obligatoria, facturas pagadas bloqueadas y registro de quién cambia el estado.
+  Migración de claves foráneas para bases antiguas y script de fotos de ejemplo.
 
 ### 2026-11-17 (E-13)
 

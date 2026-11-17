@@ -15,6 +15,48 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · E-05 · Facturas en tablero
+- Rama / commit: `feat/E-05-facturas` (sale de `feat/E-13-roles-permisos`)
+- Qué se ha hecho: nueva vista «Facturas» con tres columnas (Pendientes, Revisadas, Pagadas), tarjetas con miniatura,
+  detalle con la imagen grande, formulario para subir y editar, y cambio de estado con botones o arrastrando. Nueva API
+  `api/facturas.php` con todas las reglas en el servidor. Estados nuevos y registro de quién cambia el estado.
+- Archivos creados o modificados:
+  - Nuevos: `server/api/facturas.php`, `public/api/facturas.php`, `public/nucleo/facturas.js`,
+    `server/data/migraciones/2026-11-facturas-tablero.sql`, `server/data/migraciones/2026-11-claves-foraneas.sql`,
+    `server/pruebas/fotos-ejemplo.php`.
+  - `server/api/superapi.php`: la tabla de facturas pasa a solo lectura; se quitan `guardarImagenFactura` y las reglas
+    de facturas de las rutas genéricas; el borrado de datos vencidos borra asistencias y vínculos explícitamente.
+  - `public/nucleo/utilidades.js`: la cola de miniaturas de la galería se mueve aquí para reutilizarla
+    (`encolarMiniatura`); `galeria.js` la usa. `formulario.js` y `tabla.js`: se quita el código de facturas que ya no se usa.
+  - `codigo.js`, `index.html`, `estilo.css` (sección «FACTURAS»); `schema.sql`, `demo.sql`, `modeloDeDatos.txt`;
+    `server/pruebas/pruebas.php`; `noteas.md`, `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`.
+- Decisiones técnicas y motivo:
+  - Confirmado por el usuario: imagen obligatoria; una factura pagada no se edita ni se borra (409), ni siquiera el
+    administrador; tesorería puede devolverla a revisada.
+  - Monitor: edita o borra sus facturas solo en pendiente. `facturas.gestionar_todas` (administrador) edita las de
+    cualquiera salvo pagadas y puede elegir el responsable.
+  - API propia en lugar de las rutas genéricas: la imagen viaja en el mismo formulario y las reglas por estado no
+    encajaban en la tabla genérica. Las rutas genéricas responden 400 para escribir facturas.
+  - Migración de estados en tres pasos (ampliar ENUM, convertir, reducir) para que MySQL no rechace los valores.
+    **En la base del usuario había 26 facturas `rechazada`** (datos de `demo.sql`), que pasan a `pendiente`.
+  - `demo.sql`: las facturas se reparten entre monitores (antes había facturas de tutores) y usan categorías del catálogo.
+  - **Fallo encontrado al probar con una copia de la base del usuario**: creada con el instalador antiguo, no tiene
+    claves foráneas en las tablas originales, así que borrar no actúa en cascada. Se corrige de dos formas: el borrado de
+    datos vencidos borra explícitamente lo dependiente, y `2026-11-claves-foraneas.sql` limpia huérfanos y crea las claves
+    que falten (no cambia nada en una base creada con `schema.sql`).
+- Requisitos que cubre (RF/RNF): RF-05, RF-01, RNF-03, RNF-06.
+- Cómo probarlo (pasos):
+  1. Ejecutar `2026-11-facturas-tablero.sql` y `2026-11-claves-foraneas.sql`; opcionalmente `php server/pruebas/fotos-ejemplo.php --confirmar`.
+  2. Como monitor: Facturas → «+ Nueva factura» (sin imagen no deja guardar). Solo aparecen sus facturas.
+  3. Como monitor con tesorería o administrador: mover facturas entre columnas; abrir una pagada: no se puede editar.
+  4. `php server/pruebas/pruebas.php <url> --confirmar` → 79 de 79.
+  Probado: 79 de 79 con `schema.sql` nuevo y en una copia de la base del usuario con todas las migraciones aplicadas.
+- Impacto en la memoria (apartados que habría que revisar): 2.5, 2.6 (RF-05), 3.1, 3.4, 3.9 (indicados en el encargo);
+  modelo de datos (estados de `facturas`, `estado_cambiado_por`, `estado_cambiado_en`); integridad referencial en bases antiguas.
+- Pendiente o problemas:
+  - El tablero no se ha visto en un navegador desde aquí (pruebas manuales MAN-29 a MAN-32).
+  - Las fechas de la factura se guardan como fecha (la hora queda a 00:00).
+
 ## 2026-11-17 · E-13 · Roles y permisos (RBAC)
 - Rama / commit: `feat/E-13-roles-permisos` (sale de `main` en `ae37f8f` más el commit de los encargos nuevos)
 - Qué se ha hecho: los permisos pasan de estar escritos por rol en cada ruta a una tabla de permisos.

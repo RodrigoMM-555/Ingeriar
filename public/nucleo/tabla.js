@@ -18,11 +18,8 @@ class IngeriarTabla {
             educandos: {escritura: ["educandos.gestionar"], borrado: ["educandos.borrar"]},
             eventos: {escritura: ["eventos.gestionar"]},
             educandos_asistencias: {escritura: ["asistencia.gestionar"]},
-            facturas: {
-                creacion: ["facturas.subir_propias", "facturas.gestionar_todas"],
-                escritura: ["facturas.subir_propias", "facturas.gestionar_todas",
-                    "facturas.cambiar_estado"]
-            },
+            // Las facturas se gestionan en su propia vista (E-05): aquí solo lectura.
+            facturas: {escritura: []},
             registro_accesos: {escritura: []}
         };
         const definicion = mapa[this.tabla];

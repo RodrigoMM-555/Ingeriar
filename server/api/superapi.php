@@ -42,41 +42,6 @@ function comprobarTabla(PDO $db, string $tabla): void
         responder(['error' => 'Nombre de tabla no válido']);
     }
 
-    function guardarImagenFactura(PDO $db, int $facturaId): void
-    {
-        $imagen = $_FILES['imagen_factura'] ?? null;
-        if (!$imagen || $imagen['error'] === UPLOAD_ERR_NO_FILE) {
-            return;
-        }
-        if ($imagen['error'] !== UPLOAD_ERR_OK || $imagen['size'] > 10 * 1024 * 1024) {
-            responder(['error' => 'La imagen de la factura no es válida o supera los 10 MB'], 400);
-        }
-
-        $permitidos = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-        ];
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($imagen['tmp_name']);
-        if (!isset($permitidos[$mime])) {
-            responder(['error' => 'Solo se aceptan imágenes JPEG, PNG o WebP'], 415);
-        }
-
-        $directorio = __DIR__ . '/../../storage/facturas';
-        if (!is_dir($directorio) && !mkdir($directorio, 0750, true)) {
-            responder(['error' => 'No se pudo preparar la carpeta de facturas'], 500);
-        }
-        $nombre = 'factura-' . $facturaId . '-' . bin2hex(random_bytes(12))
-            . '.' . $permitidos[$mime];
-        if (!move_uploaded_file($imagen['tmp_name'], $directorio . '/' . $nombre)) {
-            responder(['error' => 'No se pudo guardar la imagen de la factura'], 500);
-        }
-
-        $db->prepare(
-            'UPDATE facturas SET imagen_factura = ? WHERE id = ?'
-        )->execute([$nombre, $facturaId]);
-    }
-
     $stmt = $db->prepare(
         'SELECT 1 FROM information_schema.TABLES
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
@@ -162,7 +127,7 @@ function obtenerColumnas(PDO $db, string $tabla): array
             )->fetchAll(PDO::FETCH_COLUMN);
         }
         if ($tabla === 'facturas' && $fila['COLUMN_NAME'] === 'estado') {
-            $opciones = ['pendiente', 'pagada', 'rechazada'];
+            $opciones = ['pendiente', 'revisada', 'pagada'];
         }
 
         $relacion = null;
@@ -255,9 +220,11 @@ const PERMISOS_TABLAS = [
         'lectura' => ['asistencia.ver_todas'],
         'escritura' => ['asistencia.gestionar'],
     ],
+    // Las facturas se escriben solo desde api/facturas.php (E-05); aquí, solo lectura.
     'facturas' => [
         'lectura' => ['facturas.ver_todas', 'facturas.subir_propias'],
-        'escritura' => ['facturas.subir_propias', 'facturas.gestionar_todas'],
+        'escritura' => [],
+        'menu' => [],
     ],
     // El registro de accesos solo lo escribe el servidor: nadie lo edita ni lo borra.
     'registro_accesos' => [
@@ -282,19 +249,6 @@ function exigirPermisoTabla(array $usuario, string $tabla, string $operacion): v
         responder(['error' => $tabla === 'registro_accesos' && $operacion !== 'lectura'
             ? 'El registro de accesos no se puede modificar'
             : 'No tienes permisos para esta operación'], 403);
-    }
-}
-
-// Sin facturas.gestionar_todas solo se pueden editar o borrar las facturas propias.
-function exigirFacturaPropia(PDO $db, array $usuario, $facturaId): void
-{
-    if (tienePermiso('facturas.gestionar_todas')) {
-        return;
-    }
-    $stmt = $db->prepare('SELECT responsable_id FROM facturas WHERE id = ?');
-    $stmt->execute([$facturaId]);
-    if ((int) $stmt->fetchColumn() !== (int) $usuario['id']) {
-        responder(['error' => 'Solo puedes modificar tus propias facturas'], 403);
     }
 }
 
@@ -1025,9 +979,14 @@ switch ($ruta) {
         }
         $db->beginTransaction();
         try {
+            // Se borran explícitamente asistencias y vínculos: en bases creadas con el
+            // instalador antiguo no hay claves foráneas que lo hagan en cascada.
+            $borrarAsistencias = $db->prepare('DELETE FROM educandos_asistencias WHERE id_educando = ?');
+            $borrarVinculos = $db->prepare('DELETE FROM usuarios_educandos WHERE id_educando = ?');
             $borrarEducando = $db->prepare('DELETE FROM educandos WHERE id = ?');
             foreach ($borrarEducandos as $educandoId) {
-                // Las asistencias y los vínculos con tutores se borran en cascada.
+                $borrarAsistencias->execute([$educandoId]);
+                $borrarVinculos->execute([$educandoId]);
                 $borrarEducando->execute([$educandoId]);
             }
             $borrarTutor = $db->prepare(
@@ -1294,13 +1253,6 @@ switch ($ruta) {
             // Los cargos se eligen con un control propio, no con la columna antigua.
             $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'rol'));
         }
-        if ($tabla === 'facturas' && !tienePermiso('facturas.gestionar_todas')) {
-            // El responsable es siempre quien sube la factura.
-            $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'responsable_id'));
-        }
-        if ($tabla === 'facturas' && !tienePermiso('facturas.cambiar_estado')) {
-            $columnas = array_values(array_filter($columnas, fn($columna) => $columna['name'] !== 'estado'));
-        }
         responder($columnas);
 
     case 'educandos_usuario':
@@ -1324,16 +1276,9 @@ switch ($ruta) {
             responder(['error' => 'Datos incorrectos']);
         }
         if ($tabla === 'facturas') {
-            // Crear exige poder tener facturas; para editar basta con poder cambiar el
-            // estado (tesorería), y entonces solo se guarda el estado.
-            if ($ruta === 'crear') {
-                exigirPermiso('facturas.subir_propias', 'facturas.gestionar_todas');
-            } else {
-                exigirPermiso('facturas.subir_propias', 'facturas.gestionar_todas', 'facturas.cambiar_estado');
-            }
-        } else {
-            exigirPermisoTabla($usuario, $tabla, 'escritura');
+            responder(['error' => 'Las facturas se gestionan desde la vista Facturas'], 400);
         }
+        exigirPermisoTabla($usuario, $tabla, 'escritura');
         if ($tabla === 'eventos' && !tablaExiste($db, 'eventos_secciones')) {
             responder([
                 'error' => 'Falta crear la tabla eventos_secciones. Ejecuta la migración de noteas.md'
@@ -1425,43 +1370,8 @@ switch ($ruta) {
                 }
             }
         }
-        if ($tabla === 'facturas') {
-            $puedeTodas = tienePermiso('facturas.gestionar_todas');
-            if ($ruta === 'editar' && !$puedeTodas) {
-                $responsableActual = $db->prepare('SELECT responsable_id FROM facturas WHERE id = ?');
-                $responsableActual->execute([$_POST['id'] ?? 0]);
-                $esPropia = (int) $responsableActual->fetchColumn() === (int) $usuario['id'];
-                if (!$esPropia || !tienePermiso('facturas.subir_propias')) {
-                    // Factura de otro: solo quien puede cambiar estados, y solo el estado.
-                    if (!tienePermiso('facturas.cambiar_estado') || !array_key_exists('estado', $datosValidos)) {
-                        responder(['error' => 'Solo puedes modificar tus propias facturas'], 403);
-                    }
-                    $datosValidos = ['estado' => $datosValidos['estado']];
-                }
-            }
-            // Nadie cambia el estado sin facturas.cambiar_estado, ni en sus propias facturas.
-            if (!tienePermiso('facturas.cambiar_estado')) {
-                unset($datosValidos['estado']);
-                if ($ruta === 'crear') {
-                    $datosValidos['estado'] = 'pendiente';
-                }
-            }
-            if (!$puedeTodas) {
-                // El responsable es siempre quien sube la factura y no se puede cambiar.
-                unset($datosValidos['responsable_id']);
-                if ($ruta === 'crear') {
-                    $datosValidos['responsable_id'] = $usuario['id'];
-                }
-            } elseif (array_key_exists('responsable_id', $datosValidos)
-                && !usuarioTienePermiso($db, (int) $datosValidos['responsable_id'], 'facturas.subir_propias')) {
-                responder([
-                    'error' => 'El responsable de una factura debe poder tener facturas (monitor)'
-                ], 400);
-            }
-        }
-
-        // Todo el guardado va en una transacción: si algo falla (imagen no válida,
-        // cargos que dejarían el sistema sin administrador…), no queda a medias.
+        // Todo el guardado va en una transacción: si algo falla (cargos que dejarían
+        // el sistema sin administrador…), no queda a medias.
         $db->beginTransaction();
 
         if ($ruta === 'crear') {
@@ -1505,9 +1415,6 @@ switch ($ruta) {
                 responder(['error' => 'No se puede: nadie podría gestionar los cargos'], 400);
             }
         }
-        if ($tabla === 'facturas') {
-            guardarImagenFactura($db, $registroId);
-        }
         if ($tabla === 'eventos') {
             $seccionesValidas = $db->query(
                 'SELECT codigo FROM secciones'
@@ -1532,10 +1439,10 @@ switch ($ruta) {
     case 'borrar':
         $tabla = $_POST['tabla'] ?? '';
         $id = $_POST['id'] ?? '';
-        exigirPermisoTabla($usuario, $tabla, 'borrado');
         if ($tabla === 'facturas') {
-            exigirFacturaPropia($db, $usuario, $id);
+            responder(['error' => 'Las facturas se gestionan desde la vista Facturas'], 400);
         }
+        exigirPermisoTabla($usuario, $tabla, 'borrado');
         $columnas = obtenerColumnas($db, $tabla);
         $pk = array_values(array_filter($columnas, fn($columna) => $columna['pk']))[0]['name'] ?? 'id';
         // Al borrar un evento, sus fotos se borran en cascada en la base de datos;

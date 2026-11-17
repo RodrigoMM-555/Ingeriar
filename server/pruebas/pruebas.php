@@ -176,6 +176,15 @@ function limpiarDatosPrueba(PDO $db): void
     }
     $db->prepare("DELETE FROM educandos WHERE DNI LIKE '9999999_Z'")->execute();
     $db->prepare('DELETE FROM registro_accesos WHERE usuario_email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
+    $imagenes = $db->prepare('SELECT f.imagen_factura FROM facturas f JOIN usuarios u ON u.id = f.responsable_id
+                              WHERE u.email LIKE ? AND f.imagen_factura IS NOT NULL');
+    $imagenes->execute(['%' . DOMINIO_PRUEBAS]);
+    foreach ($imagenes->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
+        $ruta = __DIR__ . '/../../storage/facturas/' . basename($archivo);
+        if (is_file($ruta)) {
+            unlink($ruta);
+        }
+    }
     $db->prepare('DELETE f FROM facturas f JOIN usuarios u ON u.id = f.responsable_id WHERE u.email LIKE ?')
         ->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare('DELETE FROM usuarios WHERE email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
@@ -536,41 +545,39 @@ try {
     $estadoFactura = function (int $id) use ($db): array {
         return $db->query('SELECT estado, concepto, responsable_id FROM facturas WHERE id = ' . $id)->fetch();
     };
-    $editarFactura = fn(ClienteHttp $cliente, int $id, array $cambios) => $cliente->post('/api/superapi.php?ruta=editar', [
-        'tabla' => 'facturas', 'id' => (string) $id, 'datos' => json_encode($cambios),
-    ]);
-    prueba('ROL-01', 'Un monitor solo ve sus facturas', function () use ($idsFacturas, $scouter, $facturaScouter, $facturaMonitor2) {
-        $ids = $idsFacturas($scouter);
-        return in_array($facturaScouter, $ids, true) && !in_array($facturaMonitor2, $ids, true)
-            ?: 've ' . count($ids) . ' facturas';
-    });
-    prueba('ROL-02', 'Un monitor con tesorería ve todas las facturas', function () use ($idsFacturas, $tesorero, $facturaScouter, $facturaMonitor2) {
-        $ids = $idsFacturas($tesorero);
-        return in_array($facturaScouter, $ids, true) && in_array($facturaMonitor2, $ids, true) ?: 'no las ve todas';
-    });
-    prueba('ROL-03', 'Un monitor no puede editar la factura de otro → 403', fn() => esperar(
-        $editarFactura($scouter, $facturaMonitor2, ['concepto' => 'Cambiado']), 403));
-    prueba('ROL-04', 'Un monitor no cambia el estado de su propia factura', function () use ($editarFactura, $scouter, $facturaScouter, $estadoFactura) {
-        $respuesta = $editarFactura($scouter, $facturaScouter, ['concepto' => 'Editada por su monitor', 'estado' => 'pagada']);
+    // E-05: las facturas se escriben con api/facturas.php (formulario con imagen).
+    $camposFactura = fn(string $concepto, array $extra = []) => $extra + [
+        'numero_fact' => '98', 'CIF_prov' => 'B11111111', 'fecha_emision' => '2026-11-02',
+        'fecha_compra' => '2026-11-02', 'concepto' => $concepto, 'precio' => '5.50', 'categoria' => 'material',
+    ];
+    $apiFacturas = fn(ClienteHttp $cliente, string $accion, array $campos) =>
+        $cliente->post('/api/facturas.php?accion=' . $accion, $campos);
+    $conImagen = fn(array $campos, string $archivo = '') => $campos + [
+        'imagen' => new CURLFile($archivo ?: $imagen, 'image/png', 'ticket.png'),
+    ];
+    prueba('ROL-03', 'Un monitor no puede editar la factura de otro → 403', fn() => esperar($apiFacturas(
+        $scouter, 'editar', $camposFactura('Cambiado', ['id' => (string) $facturaMonitor2])), 403));
+    prueba('ROL-04', 'Un monitor edita su factura pendiente pero no cambia estados (403)', function () use ($apiFacturas, $scouter, $facturaScouter, $camposFactura, $estadoFactura) {
+        $editar = $apiFacturas($scouter, 'editar', $camposFactura('Editada por su monitor', ['id' => (string) $facturaScouter]));
+        $estado = $apiFacturas($scouter, 'estado', ['id' => (string) $facturaScouter, 'estado' => 'pagada']);
         $factura = $estadoFactura($facturaScouter);
-        return esperar($respuesta, 200) === true && $factura['estado'] === 'pendiente'
-            && $factura['concepto'] === 'Editada por su monitor' ?: 'estado ' . $factura['estado'];
+        return esperar($editar, 200) === true && $estado['codigo'] === 403 && $factura['estado'] === 'pendiente'
+            && $factura['concepto'] === 'Editada por su monitor' ?: "editar {$editar['codigo']}, estado {$estado['codigo']}, " . json_encode($factura);
     });
-    prueba('ROL-05', 'Tesorería cambia el estado de una factura ajena (y nada más)', function () use ($editarFactura, $tutorTesorero, $facturaMonitor2, $estadoFactura) {
-        $respuesta = $editarFactura($tutorTesorero, $facturaMonitor2, ['estado' => 'pagada', 'concepto' => 'No debe cambiar']);
-        $factura = $estadoFactura($facturaMonitor2);
-        return esperar($respuesta, 200) === true && $factura['estado'] === 'pagada'
-            && $factura['concepto'] !== 'No debe cambiar' ?: json_encode($factura);
+    prueba('ROL-05', 'Tesorería cambia el estado de una factura ajena y queda registrado quién', function () use ($apiFacturas, $tutorTesorero, $facturaMonitor2, $db) {
+        $respuesta = $apiFacturas($tutorTesorero, 'estado', ['id' => (string) $facturaMonitor2, 'estado' => 'revisada']);
+        $factura = $db->query('SELECT f.estado, u.email, f.estado_cambiado_en FROM facturas f
+            LEFT JOIN usuarios u ON u.id = f.estado_cambiado_por WHERE f.id = ' . $facturaMonitor2)->fetch();
+        return esperar($respuesta, 200) === true && $factura['estado'] === 'revisada'
+            && $factura['email'] === 'tutortesorero' . DOMINIO_PRUEBAS && $factura['estado_cambiado_en'] !== null
+            ?: json_encode($factura);
     });
-    prueba('ROL-06', 'La factura nueva de un monitor es suya y queda pendiente', function () use ($scouter, $db, $scouterId, $monitor2Id) {
-        $respuesta = $scouter->post('/api/superapi.php?ruta=crear', ['tabla' => 'facturas', 'datos' => json_encode([
-            'responsable_id' => $monitor2Id, 'numero_fact' => 98, 'CIF_prov' => 'B11111111',
-            'fecha_emision' => '2026-11-02 10:00:00', 'fecha_compra' => '2026-11-02 10:00:00',
-            'concepto' => 'Factura nueva de prueba', 'precio' => '5.00', 'categoria' => 'material', 'estado' => 'pagada',
-        ])]);
-        $factura = $db->query("SELECT responsable_id, estado FROM facturas WHERE concepto = 'Factura nueva de prueba'")->fetch();
+    prueba('ROL-06', 'La factura nueva de un monitor es suya y queda pendiente', function () use ($apiFacturas, $scouter, $db, $scouterId, $monitor2Id, $camposFactura, $conImagen) {
+        $respuesta = $apiFacturas($scouter, 'crear', $conImagen($camposFactura('Factura nueva de prueba', ['responsable_id' => (string) $monitor2Id])));
+        $factura = $db->query("SELECT responsable_id, estado, imagen_factura FROM facturas WHERE concepto = 'Factura nueva de prueba'")->fetch();
         return esperar($respuesta, 200) === true && (int) $factura['responsable_id'] === $scouterId
-            && $factura['estado'] === 'pendiente' ?: json_encode($factura ?: $respuesta['texto']);
+            && $factura['estado'] === 'pendiente' && $factura['imagen_factura'] !== null
+            ?: json_encode($factura ?: $respuesta['texto']);
     });
     prueba('ROL-07', 'Unión de permisos: tutor con tesorería ve todas las facturas pero no sube fotos', function () use ($idsFacturas, $tutorTesorero, $facturaMonitor2, $subir, $eventoTropa, $imagen) {
         $ve = in_array($facturaMonitor2, $idsFacturas($tutorTesorero), true);
@@ -645,6 +652,58 @@ try {
         $roles = array_column($tesorero->get('/api/superapi.php?ruta=usuario_actual')['json']['usuario']['roles'] ?? [], 'nombre');
         return $roles === ['Monitor', 'Tesorería'] ?: implode(', ', $roles);
     });
+
+    echo "\nFacturas en tablero (E-05)\n";
+    $facturaNueva = (int) $db->query("SELECT id FROM facturas WHERE concepto = 'Factura nueva de prueba'")->fetchColumn();
+    prueba('FAC-01', 'Crear una factura sin imagen → 400', fn() => esperar($apiFacturas($scouter, 'crear', $camposFactura('Sin imagen')), 400));
+    prueba('FAC-02', 'Crear una factura con un archivo que no es imagen → 415', fn() => esperar(
+        $apiFacturas($scouter, 'crear', $conImagen($camposFactura('Imagen falsa'), $falsa)), 415));
+    prueba('FAC-03', 'Datos incompletos → 400', fn() => esperar($apiFacturas($scouter, 'crear', $conImagen(['concepto' => 'Incompleta'])), 400));
+    prueba('FAC-04', 'El monitor solo lista las suyas y no puede cambiar estados', function () use ($scouter, $scouterId) {
+        $datos = $scouter->get('/api/facturas.php?accion=listar')['json'] ?? [];
+        $ajenas = array_filter($datos['facturas'] ?? [], fn($factura) => (int) $factura['responsable_id'] !== $scouterId);
+        return !$ajenas && ($datos['permisos']['cambiar_estado'] ?? true) === false && count($datos['facturas'] ?? []) >= 2
+            ?: count($ajenas) . ' ajenas';
+    });
+    prueba('FAC-05', 'El monitor ve la imagen de su factura y no la de otra (403)', function () use ($scouter, $tesorero, $facturaNueva) {
+        $propia = $scouter->get('/api/facturas.php?accion=imagen&id=' . $facturaNueva);
+        $ajena = (new ClienteHttp($GLOBALS['base']))->get('/api/facturas.php?accion=imagen&id=' . $facturaNueva)['codigo'];
+        $tesoreria = $tesorero->get('/api/facturas.php?accion=imagen&id=' . $facturaNueva)['codigo'];
+        return $propia['codigo'] === 200 && ($propia['cabeceras']['content-type'] ?? '') === 'image/png'
+            && $ajena === 401 && $tesoreria === 200 ?: "propia {$propia['codigo']}, sin sesión {$ajena}, tesorería {$tesoreria}";
+    });
+    prueba('FAC-06', 'Otro monitor no ve la imagen de una factura ajena → 403', function () use ($base, $facturaNueva) {
+        $otro = new ClienteHttp($base);
+        $otro->iniciarSesion('monitor2' . DOMINIO_PRUEBAS);
+        return esperar($otro->get('/api/facturas.php?accion=imagen&id=' . $facturaNueva), 403);
+    });
+    prueba('FAC-07', 'El monitor no edita su factura cuando ya está revisada → 403', function () use ($apiFacturas, $scouter, $tesorero, $facturaNueva, $camposFactura) {
+        $apiFacturas($tesorero, 'estado', ['id' => (string) $facturaNueva, 'estado' => 'revisada']);
+        return esperar($apiFacturas($scouter, 'editar', $camposFactura('Tarde', ['id' => (string) $facturaNueva])), 403);
+    });
+    prueba('FAC-08', 'Una factura pagada no la edita ni la borra nadie, ni el administrador (409)', function () use ($apiFacturas, $admin, $tesorero, $facturaNueva, $camposFactura) {
+        $apiFacturas($tesorero, 'estado', ['id' => (string) $facturaNueva, 'estado' => 'pagada']);
+        $editar = $apiFacturas($admin, 'editar', $camposFactura('Cambio', ['id' => (string) $facturaNueva]))['codigo'];
+        $borrar = $apiFacturas($admin, 'borrar', ['id' => (string) $facturaNueva])['codigo'];
+        return $editar === 409 && $borrar === 409 ?: "editar {$editar}, borrar {$borrar}";
+    });
+    prueba('FAC-09', 'Tesorería puede devolver una factura pagada a revisada', function () use ($apiFacturas, $tesorero, $facturaNueva, $estadoFactura) {
+        $respuesta = $apiFacturas($tesorero, 'estado', ['id' => (string) $facturaNueva, 'estado' => 'revisada']);
+        return esperar($respuesta, 200) === true && $estadoFactura($facturaNueva)['estado'] === 'revisada' ?: $respuesta['texto'];
+    });
+    prueba('FAC-10', 'Las rutas genéricas ya no escriben facturas → 400', function () use ($admin, $facturaScouter) {
+        $editar = $admin->post('/api/superapi.php?ruta=editar', ['tabla' => 'facturas', 'id' => (string) $facturaScouter, 'datos' => '{}'])['codigo'];
+        $borrar = $admin->post('/api/superapi.php?ruta=borrar', ['tabla' => 'facturas', 'id' => (string) $facturaScouter])['codigo'];
+        return $editar === 400 && $borrar === 400 ?: "editar {$editar}, borrar {$borrar}";
+    });
+    prueba('FAC-11', 'El monitor borra su factura pendiente y su imagen', function () use ($apiFacturas, $scouter, $db, $camposFactura, $conImagen) {
+        $apiFacturas($scouter, 'crear', $conImagen($camposFactura('Para borrar')));
+        $factura = $db->query("SELECT id, imagen_factura FROM facturas WHERE concepto = 'Para borrar'")->fetch();
+        $respuesta = $apiFacturas($scouter, 'borrar', ['id' => (string) $factura['id']]);
+        $archivo = __DIR__ . '/../../storage/facturas/' . $factura['imagen_factura'];
+        return esperar($respuesta, 200) === true && !is_file($archivo) ?: 'código ' . $respuesta['codigo'] . ', archivo ' . (is_file($archivo) ? 'sigue' : 'borrado');
+    });
+    prueba('FAC-12', 'Un tutor no accede a las facturas → 403', fn() => esperar($tutor->get('/api/facturas.php?accion=listar'), 403));
 } finally {
     limpiarDatosPrueba($db);
     unlink($imagen);

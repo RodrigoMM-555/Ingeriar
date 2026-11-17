@@ -8,9 +8,6 @@ class IngeriarGaleria {
         this.contenedor = contenedor;
         this.datos = {puede_editar: false, rondas: []};
         this.ruta = {ronda: null, tipo: null, evento: null};
-        this.colaMiniaturas = [];
-        this.trabajadoresActivos = 0;
-        this.maximoTrabajadores = 4;
         this.visor = null;
     }
 
@@ -59,7 +56,7 @@ class IngeriarGaleria {
     }
 
     render() {
-        this.colaMiniaturas = [];
+        this.utilidades.vaciarColaMiniaturas();
         const seccion = document.querySelector(this.contenedor);
         seccion.className = "vista vista-galeria";
         seccion.replaceChildren();
@@ -199,7 +196,7 @@ class IngeriarGaleria {
             boton.textContent = "Cargando…";
             boton.onclick = () => this.abrirVisor(evento, indice);
             rejilla.appendChild(boton);
-            this.encolarMiniatura(this.urlFoto(foto.id), boton, foto.nombre);
+            this.utilidades.encolarMiniatura(this.urlFoto(foto.id), boton, foto.nombre);
         });
         contenido.appendChild(rejilla);
     }
@@ -207,61 +204,6 @@ class IngeriarGaleria {
     urlFoto(id, descargar = false) {
         return "api/galeria.php?accion=ver&id=" + encodeURIComponent(id) +
             (descargar ? "&descargar=1" : "");
-    }
-
-    // Las miniaturas se generan con el Web Worker de vistas previas para no
-    // bloquear la interfaz. Se limitan los trabajadores simultáneos.
-    encolarMiniatura(url, contenedor, nombre) {
-        this.colaMiniaturas.push({url, contenedor, nombre});
-        this.procesarCola();
-    }
-
-    procesarCola() {
-        while (this.trabajadoresActivos < this.maximoTrabajadores &&
-            this.colaMiniaturas.length > 0) {
-            const tarea = this.colaMiniaturas.shift();
-            if (!tarea.contenedor.isConnected) {
-                continue;
-            }
-            this.trabajadoresActivos++;
-            this.crearMiniatura(tarea).finally(() => {
-                this.trabajadoresActivos--;
-                this.procesarCola();
-            });
-        }
-    }
-
-    crearMiniatura({url, contenedor, nombre}) {
-        return new Promise((resolver) => {
-            const mostrarImagen = (origen) => {
-                const imagen = document.createElement("img");
-                imagen.src = origen;
-                imagen.alt = nombre;
-                imagen.loading = "lazy";
-                contenedor.replaceChildren(imagen);
-            };
-            if (!window.Worker) {
-                mostrarImagen(url);
-                resolver();
-                return;
-            }
-            const trabajador = new Worker("nucleo/documento-preview-worker.js");
-            trabajador.onmessage = (evento) => {
-                trabajador.terminate();
-                if (evento.data.kind === "image") {
-                    mostrarImagen(URL.createObjectURL(evento.data.blob));
-                } else {
-                    contenedor.textContent = "Sin vista previa";
-                }
-                resolver();
-            };
-            trabajador.onerror = () => {
-                trabajador.terminate();
-                contenedor.textContent = "Sin vista previa";
-                resolver();
-            };
-            trabajador.postMessage({url});
-        });
     }
 
     abrirVisor(evento, indice) {

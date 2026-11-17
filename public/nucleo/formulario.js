@@ -42,8 +42,6 @@ class IngeriarFormulario {
         return this.obtenerColumnas().then((columnas) => {
             const columnasEditables = columnas.filter(
                 (columna) => columna.pk === 0 &&
-                    !(this.tabla === "facturas" &&
-                        columna.name === "imagen_factura") &&
                     !(this.tabla === "eventos" &&
                         columna.name === "seccion")
             );
@@ -63,9 +61,6 @@ class IngeriarFormulario {
                 : Promise.resolve(null);
             const controlRoles = this.tabla === "usuarios"
                 ? this.crearControlRoles(registro)
-                : Promise.resolve(null);
-            const controlImagenFactura = this.tabla === "facturas"
-                ? this.crearControlImagenFactura()
                 : Promise.resolve(null);
             const controlSecciones = this.tabla === "eventos"
                 ? this.crearControlSecciones(registro)
@@ -89,7 +84,6 @@ class IngeriarFormulario {
                 ),
                 controlRoles,
                 controlEducandos,
-                controlImagenFactura,
                 controlSecciones
             ]).then((controles) => {
                 controles.forEach((control) =>
@@ -237,19 +231,6 @@ class IngeriarFormulario {
             control.value = valorInicial;
             return instancia;
         });
-    }
-
-    crearControlImagenFactura() {
-        const grupo = document.createElement("div");
-        grupo.className = "campo";
-        const etiqueta = document.createElement("label");
-        etiqueta.textContent = "Imagen de la factura";
-        const control = document.createElement("input");
-        control.type = "file";
-        control.name = "imagen_factura";
-        control.accept = "image/jpeg,image/png,image/webp";
-        grupo.append(etiqueta, control);
-        return Promise.resolve(grupo);
     }
 
     etiquetaOpcion(columna, valor) {
@@ -534,12 +515,6 @@ class IngeriarFormulario {
         let formData = new FormData();
         formData.append("tabla", this.tabla);
         formData.append("datos", JSON.stringify(datos));
-        if (this.tabla === "facturas") {
-            const imagen = this.formulario.elements.imagen_factura.files[0];
-            if (imagen) {
-                formData.append("imagen_factura", imagen);
-            }
-        }
         let ruta = "crear";
         if (registro !== null) {
             ruta = "editar";

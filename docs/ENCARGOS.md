@@ -71,13 +71,14 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   para que se pueda usar con teclado). Nadie más puede cambiar un estado, ni siquiera sobre sus propias facturas.
 - Registrar quién cambió el estado y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
 - La comprobación es en el servidor (permisos del E-13), no solo en la interfaz.
-- Propuestas a confirmar con el usuario: imagen obligatoria al subir; una factura pagada no se puede editar.
+- Confirmado por el usuario (2026-11-17): imagen obligatoria al subir; una factura pagada no se puede editar ni borrar
+  (tesorería puede devolverla a revisada).
 - Adelantado en E-13 (decisión del usuario): el servidor ya aplica que el monitor ve, edita y borra solo sus facturas,
   que el responsable es quien la sube y que solo `facturas.cambiar_estado` cambia estados. Falta el tablero, los estados
   nuevos y `estado_cambiado_por` / `estado_cambiado_en`.
 - Aceptación: monitor ve solo las suyas y no puede cambiar estados; tesorería y administrador las ven todas y pueden cambiarlos;
   un monitor que intenta cambiar un estado por la API recibe 403; las miniaturas cargan; pruebas automáticas nuevas.
-- Estado: pendiente
+- Estado: hecho (rama `feat/E-05-facturas`, pendiente de fusionar)
 
 ## E-06 · Bajas, conservación y registro de accesos
 - Requisitos: RF-02, RF-04, RNF-03.

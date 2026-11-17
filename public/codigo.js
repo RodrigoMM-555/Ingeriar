@@ -37,6 +37,10 @@ const galeria = new IngeriarGaleria({
     utilidades,
     contenedor: "main > section"
 });
+const facturas = new IngeriarFacturas({
+    utilidades,
+    contenedor: "main > section"
+});
 
 window.addEventListener("configuracion-actualizada", () => {
     if (vistaActual === "tabla" && tablaActual) {
@@ -92,6 +96,26 @@ function crearEnlaceGaleria() {
         marcarEnlaceActivo(enlace);
         vistaActual = "galeria";
         galeria.cargar().catch((error) => {
+            document.querySelector("main > section").textContent = error.message;
+        });
+    };
+    document.querySelector("#entidades").prepend(enlace);
+}
+
+// Vista de facturas en tablero (E-05), para quien puede subir o ver facturas.
+function crearEnlaceFacturas() {
+    if (!utilidades.tienePermiso("facturas.subir_propias") &&
+        !utilidades.tienePermiso("facturas.ver_todas")) {
+        return;
+    }
+    let enlace = document.createElement("a");
+    enlace.href = "#";
+    enlace.textContent = "Facturas";
+    enlace.onclick = function (evento) {
+        evento.preventDefault();
+        marcarEnlaceActivo(enlace);
+        vistaActual = "facturas";
+        facturas.cargar().catch((error) => {
             document.querySelector("main > section").textContent = error.message;
         });
     };
@@ -157,6 +181,7 @@ function cargarEntidades() {
             });
 
             if (datos.length > 0) {
+                crearEnlaceFacturas();
                 crearEnlaceGaleria();
                 crearEnlaceCalendario();
                 const enlaceDashboard = crearEnlaceDashboard();

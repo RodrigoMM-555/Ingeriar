@@ -125,7 +125,8 @@ SELECT
     MOD(numero, 2) = 0
 FROM numeros;
 
--- 80 facturas asociadas a responsables existentes.
+-- 80 facturas repartidas entre los 10 monitores (usuarios 2, 5, 8… 29): solo los
+-- usuarios con facturas.subir_propias pueden ser responsables.
 INSERT INTO facturas
     (responsable_id, numero_fact, CIF_prov, fecha_emision, fecha_compra,
      concepto, precio, categoria, estado)
@@ -135,7 +136,7 @@ WITH RECURSIVE numeros AS (
     SELECT numero + 1 FROM numeros WHERE numero < 80
 )
 SELECT
-    1 + MOD(numero - 1, 30),
+    2 + 3 * MOD(numero - 1, 10),
     20260000 + numero,
     CONCAT('B', LPAD(numero, 8, '0')),
     DATE_ADD('2026-01-01 10:00:00', INTERVAL numero * 3 DAY),
@@ -143,15 +144,15 @@ SELECT
     CONCAT('Material para actividad ', numero),
     ROUND(15 + (numero * 13.75), 2),
     CASE MOD(numero, 4)
-        WHEN 1 THEN 'Material'
-        WHEN 2 THEN 'Transporte'
-        WHEN 3 THEN 'Alimentación'
-        ELSE 'Alojamiento'
+        WHEN 1 THEN 'material'
+        WHEN 2 THEN 'gasolina'
+        WHEN 3 THEN 'comida'
+        ELSE 'otros'
     END,
     CASE MOD(numero, 3)
         WHEN 1 THEN 'pendiente'
         WHEN 2 THEN 'pagada'
-        ELSE 'rechazada'
+        ELSE 'revisada'
     END
 FROM numeros;
 

@@ -176,12 +176,18 @@ CREATE TABLE IF NOT EXISTS facturas (
     concepto TEXT NOT NULL,
     precio DECIMAL(10, 2) NOT NULL,
     categoria VARCHAR(50) NOT NULL,
-    estado ENUM('pendiente', 'pagada', 'rechazada') NOT NULL
+    -- E-05: pendiente → revisada → pagada. Solo facturas.cambiar_estado lo cambia.
+    estado ENUM('pendiente', 'revisada', 'pagada') NOT NULL
         DEFAULT 'pendiente',
     imagen_factura VARCHAR(255) NULL,
+    estado_cambiado_por INT UNSIGNED NULL,
+    estado_cambiado_en DATETIME NULL,
     CONSTRAINT fk_facturas_responsable
         FOREIGN KEY (responsable_id) REFERENCES usuarios(id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_facturas_estado_cambiado_por
+        FOREIGN KEY (estado_cambiado_por) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS usuarios_educandos (
