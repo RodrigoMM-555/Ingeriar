@@ -1,6 +1,11 @@
 # Encargos de desarrollo
 
 Estados: `pendiente`, `en curso`, `hecho` (rama sin fusionar), `fusionado`.
+
+Orden de ejecución recomendado por el chat del documento (2026-11-17): E-10 → E-13 → E-05 → E-02 → E-04 → E-12 → E-11.
+E-13 va antes que E-05 porque las facturas dependen de los permisos nuevos; E-11 al final porque el instalador debe
+construirse sobre el esquema ya estable. Nota: E-10 está revertido provisionalmente por decisión del usuario
+(ver su apartado), así que el orden empieza en la práctica por E-13.
 Requisitos: RF-01 usuarios y roles · RF-02 educandos · RF-03 eventos y asistencia · RF-04 documentación y galería ·
 RF-05 justificantes de gasto · RF-06 inventario · RF-07 dashboard, exportación y configuración ·
 RNF-01 disponibilidad · RNF-02 compatibilidad · RNF-03 seguridad y datos · RNF-04 copias · RNF-05 mantenimiento ·
@@ -50,8 +55,25 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   las plantillas se guardan y se reutilizan; el JSON no queda accesible desde la web.
 - Estado: pendiente
 
-## E-05 · Mejora del módulo de facturas
-- Requisitos: RF-05. Pendiente de definir con el usuario qué mejoras concretas (preguntar antes de empezar).
+## E-05 · Facturas en tablero (sustituye al E-05 anterior, 2026-11-17)
+- Requisitos: RF-05, RF-01, RNF-06. Depende de E-13. Apartados afectados: 2.5, 2.6 (RF-05), 3.1, 3.4, 3.9.
+- Cambio de estados (decisión del usuario): tres estados, `pendiente`, `revisada` y `pagada`. Se elimina `rechazada`.
+  Migración: las facturas `rechazada` pasan a `pendiente` (avisar de cuántas hay antes de migrar). Actualizar `schema.sql` y el modelo.
+- Nueva vista «Facturas» en forma de tablero, similar a la de circulares y a la galería:
+  - Tres columnas: Pendientes, Revisadas y Pagadas.
+  - Cada factura es una tarjeta con la miniatura de la imagen (reutilizar el Web Worker) y la información relevante:
+    concepto, importe, fecha de compra, categoría y, para tesorería, el responsable.
+  - Al pulsar una tarjeta se abre el detalle con la imagen grande y todos los campos.
+- Monitor (`facturas.subir_propias`): ve solo sus facturas, sube nuevas con un formulario (número, CIF del proveedor, fechas,
+  concepto, importe, categoría e imagen) y puede editarlas o borrarlas únicamente mientras están `pendiente`.
+- Tesorería y administrador (`facturas.ver_todas` y `facturas.cambiar_estado`): ven las facturas de todos, suben las suyas y
+  cambian el estado de cualquiera (botones en la tarjeta; se puede añadir arrastrar entre columnas, pero siempre con botones
+  para que se pueda usar con teclado). Nadie más puede cambiar un estado, ni siquiera sobre sus propias facturas.
+- Registrar quién cambió el estado y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
+- La comprobación es en el servidor (permisos del E-13), no solo en la interfaz.
+- Propuestas a confirmar con el usuario: imagen obligatoria al subir; una factura pagada no se puede editar.
+- Aceptación: monitor ve solo las suyas y no puede cambiar estados; tesorería y administrador las ven todas y pueden cambiarlos;
+  un monitor que intenta cambiar un estado por la API recibe 403; las miniaturas cargan; pruebas automáticas nuevas.
 - Estado: pendiente
 
 ## E-06 · Bajas, conservación y registro de accesos
@@ -99,3 +121,72 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   cuando Apache no define `INGERIAR_DB_PASSWORD`, para seguir accediendo a la instalación local. Se retomará más adelante.
   Contradice la regla de `CLAUDE.md` de no subir credenciales; la contraseña ya estaba en el historial público.
 - Estado: pendiente (revertido)
+
+## E-11 · Instalador interactivo
+- Requisitos: RNF-05, RNF-06, RNF-03. Apartados afectados: 3.1, 3.5, 4.4. Depende de que el esquema esté estable
+  (después de E-13, E-05 y E-04).
+- Sustituir el formato de texto `modeloDeDatos.txt` por un asistente interactivo en `instalador.html`:
+  - Paso de base de datos y conexión (nombre de la base; la contraseña sigue viniendo de variable de entorno).
+  - Creador de tablas: añadir tablas y columnas, elegir tipo (VARCHAR con longitud, INT, DECIMAL, DATE, DATETIME, BOOLEAN,
+    TEXT, ENUM con sus valores), NULL o NOT NULL, valor por defecto, clave primaria, AUTO_INCREMENT y UNIQUE.
+  - Claves foráneas: elegir columna, tabla y columna destino, y ON DELETE / ON UPDATE.
+  - Datos iniciales (catálogos, roles y permisos) y primer administrador.
+  - Vista previa del SQL generado y confirmación antes de ejecutar.
+- Modo alternativo: subir un `schema.sql` y construir la base desde él. Validar el archivo: solo sentencias CREATE DATABASE,
+  CREATE TABLE, INSERT y ALTER TABLE ... ADD; rechazar DROP, GRANT, LOAD, INTO OUTFILE y similares; límite de tamaño;
+  ejecución en transacción cuando sea posible.
+- Poder descargar el modelo creado en el asistente (como JSON y como `schema.sql`) y volver a cargarlo.
+- Corregir lo detectado en E-09: crear de verdad las claves foráneas, insertar los catálogos iniciales y que
+  `facturas.categoria` coincida con `schema.sql`.
+- Mantener el bloqueo de E-09 (403 si la aplicación ya está en uso). Valorar un token de instalación en variable de entorno
+  para que no baste con llegar a la URL en una instalación nueva.
+- Aceptación: instalar solo con el asistente deja un esquema equivalente a `schema.sql` (incluidas las claves foráneas y los
+  roles); instalar subiendo `schema.sql` funciona; un archivo con DROP se rechaza; en una instalación en uso responde 403; pruebas nuevas.
+- Estado: pendiente
+
+## E-12 · Copia de seguridad de la base de datos y de storage
+- Requisitos: RNF-04, RNF-03. Apartados afectados: 2.6 (RNF-04), 3.5, 3.6, 4.4, 4.5.
+- Script de línea de comandos `server/copias/copia.php`, pensado para programarlo con cron en el servidor del grupo:
+  - Genera un único archivo .zip con fecha en el nombre que contiene el volcado de la base de datos (mysqldump, lanzado como
+    proceso externo) y la carpeta `storage/` (documentos, facturas, galería, configuración, inventario).
+  - La contraseña de MySQL no se pasa por la línea de comandos (usar variable de entorno o archivo de opciones).
+  - Destino configurable por variable de entorno, fuera de `public/`; archivo con permisos 0600.
+  - Cifrado opcional del zip (AES) con clave en variable de entorno; avisar en el registro si no está activado, porque la
+    copia contiene datos de menores.
+  - Retención configurable (por ejemplo, conservar las últimas N copias), bloqueo para que no se ejecuten dos a la vez y
+    registro de cada ejecución (correcta o con error, tamaño y fecha).
+- Botón en Configuración (`copia.descargar`): lista las copias existentes y descarga la última; la descarga se anota en `registro_accesos`.
+- Script de restauración y procedimiento documentado en `noteas.md`. Probar una restauración completa en una base vacía.
+- La copia externa (por ejemplo, a Google Drive) queda como paso manual documentado, no como código de la aplicación.
+- `servicios/salida.php` se mantiene como exportación en JSON; la copia de seguridad real es la nueva.
+- Aceptación: el script genera el zip con base de datos y archivos; restaurarlo en una base vacía reproduce los datos y los
+  archivos; la retención elimina las copias antiguas; el botón solo funciona con permiso; el zip no queda accesible desde la web.
+- Estado: pendiente
+
+## E-13 · Roles y permisos (RBAC)
+- Requisitos: RF-01, RNF-03, RNF-05. Apartados de la memoria afectados: 2.5, 2.6 (RF-01), 3.1, 3.4, 3.9.
+- Hoy `usuarios.rol` es un `ENUM('administrador','scouter','tutor')` y los permisos están escritos en el código de cada ruta.
+- Modelo nuevo (decisión del usuario): usuarios ← usuarios_roles → roles ← roles_permisos → permisos. Un usuario puede tener
+  varios roles (por ejemplo monitor y tesorería) y se pueden añadir roles y permisos sin tocar las rutas.
+  - `roles` (codigo PK, nombre, activo, orden).
+  - `permisos` (codigo PK, descripcion).
+  - `usuarios_roles` (id_usuario, codigo_rol), clave primaria compuesta, claves foráneas con ON DELETE CASCADE.
+  - `roles_permisos` (codigo_rol, codigo_permiso), clave primaria compuesta.
+- Roles iniciales: administrador (todos los permisos), scouter (nombre visible «Monitor»), tutor y tesoreria.
+- Permisos iniciales (revisar contra el código y ajustar): usuarios.gestionar, educandos.gestionar, educandos.ver_propios,
+  eventos.gestionar, eventos.ver, asistencia.responder_propios, asistencia.ver_todas, documentos.ver_todos, galeria.ver,
+  galeria.subir, facturas.subir_propias, facturas.ver_todas, facturas.cambiar_estado, configuracion.gestionar,
+  roles.gestionar, copia.descargar, conservacion.gestionar.
+- Una única función `tienePermiso(codigo)` en `server/auth/` que lee los permisos guardados en la sesión (unión de los de
+  todos sus roles). Sustituir las comprobaciones de rol por permisos en `superapi.php`, `archivo.php`, `galeria.php`,
+  `salida.php`, la conservación y el instalador. Los datos que dependen de «ser tutor de» un educando siguen comprobándose con la relación.
+- Migración: crear tablas, insertar roles y permisos, copiar cada `usuarios.rol` a `usuarios_roles` y retirar la columna
+  `rol` al final, cuando las pruebas pasen. Los nombres visibles de rol de `config.php` pasan a la tabla `roles`.
+- Interfaz: el formulario de usuario permite elegir varios roles. En Configuración, una pantalla para ver y editar los
+  permisos de cada rol y crear roles nuevos (solo con `roles.gestionar`). Evitar el bloqueo: no se puede quitar
+  `roles.gestionar` al rol administrador ni dejar el sistema sin ningún usuario que lo tenga.
+- Dashboard con varios roles: proponer una regla (por ejemplo, combinar los indicadores de todos sus roles) y confirmarla con el usuario.
+- Aceptación: un usuario con dos roles obtiene la unión de sus permisos; las 49 pruebas automáticas siguen superadas
+  (actualizando las que dependen de rol) y hay pruebas nuevas de varios roles y de no bloqueo; ya no existe `usuarios.rol`.
+- Riesgo: toca todas las comprobaciones de permisos. Hacerlo en una rama propia, con las pruebas automáticas como red de seguridad.
+- Estado: pendiente
