@@ -1163,6 +1163,14 @@
                     "longitud": 20
                 },
                 {
+                    "nombre": "fecha_nacimiento",
+                    "tipo": "DATE",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
                     "nombre": "contraseña",
                     "tipo": "VARCHAR",
                     "nulo": false,

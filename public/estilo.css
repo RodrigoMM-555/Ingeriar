@@ -31,7 +31,7 @@
 
 .dashboard-resumen{
     display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
     gap:14px;
 }
 
@@ -80,26 +80,132 @@
     margin-bottom:18px;
 }
 
-.mini-calendario{
+.lista-dashboard{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-    gap:10px;
+    gap:6px;
+    margin:0;
+    padding:0;
+    list-style:none;
+    font-size:14px;
 }
 
-.mini-calendario div{
+.lista-dashboard b{
+    color:var(--color_texto);
+    font-size:14px;
+}
+
+.lista-dashboard li.pasado{
+    opacity:.55;
+}
+
+.etiqueta-circular,
+.etiqueta-entregada,
+.etiqueta-falta{
+    display:inline-block;
+    margin-left:4px;
+    padding:1px 8px;
+    border-radius:999px;
+    color:#fff;
+    background:var(--color_corporativo);
+    font-size:11px;
+    font-weight:700;
+}
+
+.etiqueta-entregada{
+    background:var(--color_exito);
+}
+
+.etiqueta-falta{
+    background:var(--color_peligro);
+}
+
+.resumen-sabado{
+    margin:0 0 10px;
+    color:var(--color_secundario);
+}
+
+.tabla-sabado summary{
+    font-weight:700;
+    cursor:pointer;
+}
+
+.tabla-sabado details[open] summary{
+    margin-bottom:6px;
+}
+
+.dashboard-cumpleanos,
+.dashboard-facturas{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+.dashboard-cumpleanos h3,
+.dashboard-facturas h3{
+    grid-column:1 / -1;
+    margin-bottom:0;
+}
+
+/* Calendario por trimestres del tutor: un mes pequeño por columna */
+.navegacion-trimestre{
     display:flex;
-    flex-direction:column;
-    gap:4px;
-    padding:12px;
+    align-items:center;
+    gap:12px;
+    margin-bottom:10px;
+}
+
+.meses-trimestre{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+    gap:14px;
+}
+
+.mes-mini{
+    padding:10px;
     border:1px solid var(--color_borde);
     border-radius:var(--radio);
     background:var(--color_fondo);
 }
 
-.mini-calendario span{
+.mes-mini > b{
+    display:block;
+    margin-bottom:6px;
+    text-transform:capitalize;
+}
+
+.rejilla-mes{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:2px;
+    text-align:center;
+    font-size:12px;
+}
+
+.cabecera-dia{
     color:var(--color_secundario);
-    font-size:13px;
-    text-align:left;
+    font-weight:700;
+}
+
+.dia-mini{
+    padding:3px 0;
+    border-radius:4px;
+    color:var(--color_secundario);
+}
+
+.dia-mini.con-evento{
+    color:#fff;
+    background:var(--color_corporativo);
+    font-weight:700;
+    cursor:help;
+}
+
+.dia-mini.hoy{
+    outline:2px solid var(--color_texto);
+}
+
+.eventos-mes{
+    margin-top:8px;
+    font-size:12px;
 }
 
 
@@ -1597,80 +1703,6 @@ body.modal-abierto{
 }
 
 
-.dashboard-indicadores{
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:18px;
-    margin-bottom:25px;
-}
-
-
-.indicador{
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-    min-width:0;
-    padding:20px;
-    background:var(--color_superficie);
-    border:1px solid var(--color_borde);
-    border-radius:var(--radio);
-    box-shadow:var(--sombra);
-    transition:
-        box-shadow 0.2s ease,
-        border-color 0.2s ease;
-}
-
-.indicador:nth-child(1){
-    border-top:4px solid #2563eb;
-}
-
-.indicador:nth-child(2){
-    border-top:4px solid #059669;
-}
-
-.indicador:nth-child(3){
-    border-top:4px solid #d97706;
-}
-
-.indicador:nth-child(4){
-    border-top:4px solid #7c3aed;
-}
-
-.indicador:hover{
-    border-color:color-mix(
-        in srgb,
-        var(--color_corporativo),
-        var(--color_borde) 65%
-    );
-    box-shadow:0 7px 20px rgba(0,0,0,0.12);
-
-}
-
-.indicador small{
-    color:var(--color_secundario);
-    font-size:13px;
-}
-
-
-.indicador strong{
-    overflow:hidden;
-    color:var(--color_corporativo);
-    font-size:26px;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-
-
-.indicador span{
-    color:var(--color_secundario);
-    font-size:12px;
-}
-
-span{
-    justify-content: center;
-}
-
-
 .dashboard-graficas{
     display:grid;
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1750,8 +1782,9 @@ span{
 
 
 @media(max-width:1000px){
-    .dashboard-indicadores{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+    .dashboard-resumen,
+    .dashboard-pendientes{
+        grid-template-columns:1fr;
     }
 }
 
@@ -2788,7 +2821,6 @@ tr.fila-baja td{
     }
 
     .grafica-card,
-    .indicador,
     table{
         box-shadow:none;
         break-inside:avoid;

@@ -970,6 +970,40 @@ try {
         return $creadas === 10 && array_unique($codigos) === [200] ?: "creadas {$creadas} de 10, códigos " . implode(',', $codigos);
     });
 
+    echo "\nDashboard\n";
+    $eventoColoniaFuturo = crearEvento($db, 'Prueba automática colonia futura', 'colonia', '2099-02-04');
+    $eventoTropaPendiente = crearEvento($db, 'Prueba automática tropa pendiente', 'tropa', '2099-03-04');
+    crearEducando($db, '99999993Z', null, null);
+    $db->prepare("UPDATE educandos SET naz = ? WHERE DNI = '99999993Z'")->execute([date('Y-m-d', strtotime('-10 years'))]);
+    $panel = fn(ClienteHttp $cliente) => $cliente->get('/api/dashboard.php')['json'] ?? [];
+    $idsProximos = fn(array $datos) => array_map('intval', array_column(array_merge(...array_values($datos['proximas'] ?? [[]])), 'id'));
+    prueba('DSH-01', 'El tutor no ve cumpleaños, facturas ni el bloque del sábado', function () use ($panel, $tutor) {
+        $datos = $panel($tutor);
+        return isset($datos['tutor']) && !isset($datos['cumpleanos']) && !isset($datos['facturas']) && !isset($datos['sabado'])
+            ?: implode(',', array_keys($datos));
+    });
+    prueba('DSH-02', 'El tutor solo ve los eventos de las secciones de sus educandos', function () use ($panel, $tutor, $scouter, $idsProximos, $eventoColoniaFuturo, $eventoTropaPendiente) {
+        $tutorVe = $idsProximos($panel($tutor));
+        $monitorVe = $idsProximos($panel($scouter));
+        return !in_array($eventoColoniaFuturo, $tutorVe, true) && in_array($eventoColoniaFuturo, $monitorVe, true)
+            ?: 'tutor ' . implode(',', $tutorVe) . ' / monitor ' . implode(',', $monitorVe);
+    });
+    prueba('DSH-03', 'Al tutor le aparece la asistencia pendiente de su educando', function () use ($panel, $tutor, $eventoTropaPendiente, $eventoColoniaFuturo) {
+        $pendientes = array_column($panel($tutor)['tutor']['asistencias_pendientes'] ?? [], 'evento_id');
+        return in_array($eventoTropaPendiente, $pendientes, true) && !in_array($eventoColoniaFuturo, $pendientes, true)
+            ?: 'pendientes: ' . implode(',', $pendientes);
+    });
+    prueba('DSH-04', 'El monitor ve el sábado y los cumpleaños de la semana (incluido el de hoy)', function () use ($panel, $scouter) {
+        $datos = $panel($scouter);
+        $hoy = array_filter($datos['cumpleanos']['educandos'] ?? [], fn($cumple) => $cumple['fecha'] === date('Y-m-d') && $cumple['edad'] === 10);
+        return isset($datos['sabado']) && !isset($datos['tutor']) && !isset($datos['facturas']) && $hoy
+            ?: json_encode(array_keys($datos));
+    });
+    prueba('DSH-05', 'Tesorería ve las facturas pendientes de revisar y de pagar', function () use ($panel, $tesorero) {
+        $facturas = $panel($tesorero)['facturas'] ?? null;
+        return isset($facturas['por_revisar']['cantidad'], $facturas['por_pagar']['total']) ?: json_encode($facturas);
+    });
+
     echo "\nCopias de seguridad desde la web (E-12)\n";
     require_once __DIR__ . '/../copias/comun-copias.php';
     $copiaFalsa = carpetaCopias() . '/ingeriar-copia-1999-01-01-000000.zip';

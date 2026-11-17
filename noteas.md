@@ -530,30 +530,26 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
 
 ## 11. Dashboard, gráficas y exportación
 
-El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
-y datos ya agrupados para las gráficas. Esto evita cargar todas las tablas cuando
-solo se necesitan resúmenes.
+El dashboard (`api/dashboard.php` y `dashboard.js`) se revisó con el usuario el
+2026-11-17. Cada bloque aparece según los permisos (con varios cargos se suman):
 
-También muestra un resumen común con el próximo evento, los sábados del mes,
-la próxima acampada y los cumpleaños de educandos de los próximos siete días.
-En tutores, el próximo evento y el mini calendario solo incluyen actividades
-compatibles con las secciones de sus educandos. Los monitores disponen de un
-desglose por sección de las respuestas del próximo sábado. Los tutores ven
-además circulares pendientes y asistencias sin confirmar. Los cumpleaños se
-calculan exclusivamente desde `educandos`; los usuarios no tienen fecha de
-nacimiento para este propósito.
+| Bloque | Quién | Contenido |
+|---|---|---|
+| Próximas actividades | Todos | Próximos sábados, próximas acampadas (con cuánto falta) y otros eventos, tres de cada |
+| Próximo sábado | `asistencia.ver_todas` | Por sección, quién ha dicho sí, no o está pendiente (nombres al desplegar) y si ha entregado la circular; gráfica de respuestas |
+| Cumpleaños de la semana | `educandos.ver_todos` | Educandos y monitores que cumplen años de lunes a domingo |
+| Facturas | `facturas.cambiar_estado` | Pendientes de revisar y de pagar: número, importe y las más antiguas |
+| Mis educandos | `asistencia.responder_propios` | Asistencias por responder, circulares de actividades por entregar, fichas básicas por entregar y calendario por trimestres escolares |
 
-La información depende del rol:
+- El tutor solo ve lo que afecta a sus educandos: eventos que convocan a sus
+  secciones y nada de cumpleaños ni facturas.
+- Trimestres: septiembre-diciembre, enero-marzo, abril-junio y verano (julio-agosto).
+  El calendario marca los días con eventos y los lista debajo de cada mes.
+- Los usuarios tienen `fecha_nacimiento` (opcional) para los cumpleaños de los monitores.
+  Bases existentes: `2026-11-cumpleanos-usuarios.sql`.
 
-- administrador: usuarios, educandos, eventos, gasto total y usuarios por rol;
-- scouter: educandos, eventos próximos, facturas propias y gasto propio;
-- tutor: educandos vinculados y estados de asistencia.
-
-`graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. Los tooltips
-indican valor y porcentaje.
-
-`exportacion.js` permite exportar los datos visibles a impresión, HTML, JSON o
-CSV. Se reutiliza desde tablas y dashboard para no duplicar controles.
+`graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. `exportacion.js`
+permite exportar las tablas a impresión, HTML, JSON o CSV.
 
 ## 12. Estilos y vistas
 
@@ -753,6 +749,13 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (dashboard)
+
+- Dashboard revisado con el usuario: próximas actividades por categorías, sábado por
+  sección con nombres y circular, cumpleaños de la semana, facturas para tesorería y
+  bloque del tutor con calendario por trimestres. Se quitan los indicadores y las
+  gráficas que no aportaban. Corregidos los tipos de evento de `demo.sql`.
 
 ### 2026-11-17 (E-11)
 

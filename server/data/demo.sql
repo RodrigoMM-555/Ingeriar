@@ -37,6 +37,9 @@ VALUES
     ('Usuario 29', 'Apellido 29', 'usuario29@ingeriar.test', '600000029', '$2y$12$7dGuvp40ZipEM4OI8oBgWuixPtTbBxhIsBReNDf1alspb5u1vPe6.'),
     ('Usuario 30', 'Apellido 30', 'usuario30@ingeriar.test', '600000030', '$2y$12$LmyPpc/pf1N8ss9FDwhWIeRTfohwbnjVNixozIxRjhVlwMGqTXW3C');
 
+-- Fechas de nacimiento ficticias (cumpleaños de los monitores en el dashboard).
+UPDATE usuarios SET fecha_nacimiento = DATE_ADD('1985-01-03', INTERVAL id * 131 DAY);
+
 -- Cargo básico de cada usuario (E-13): 1, 4, 7… administradores; 2, 5, 8… monitores;
 -- 3, 6, 9… tutores. Los ids coinciden porque la tabla se acaba de crear.
 INSERT INTO usuarios_roles (id_usuario, codigo_rol) VALUES
@@ -115,12 +118,12 @@ SELECT
     CONCAT('Centro scout ', MOD(numero - 1, 8) + 1),
     CONCAT('Municipio ', MOD(numero - 1, 12) + 1),
     CONCAT('Comunidad ', MOD(numero - 1, 5) + 1),
+    -- Tipos del catálogo tipos_evento (las fechas caen en sábado: 10-01-2026 + 14 días).
     CASE MOD(numero, 5)
-        WHEN 1 THEN 'Campamento'
-        WHEN 2 THEN 'Taller'
-        WHEN 3 THEN 'Excursión'
-        WHEN 4 THEN 'Convivencia'
-        ELSE 'Actividad'
+        WHEN 1 THEN 'acampada'
+        WHEN 3 THEN 'excursion'
+        WHEN 4 THEN 'reunión de familias'
+        ELSE 'sabado'
     END,
     MOD(numero, 2) = 0
 FROM numeros;

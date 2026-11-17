@@ -15,6 +15,33 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Revisión del dashboard
+- Rama / commit: `feat/dashboard` (sale de `feat/E-11-instalador`)
+- Qué se ha hecho: el usuario revisó qué muestra el dashboard. Nuevo contenido por permisos: próximas actividades en tres
+  categorías (sábados, acampadas con cuánto falta, otros eventos), el próximo sábado por sección con nombres y circular
+  (monitores), cumpleaños de educandos y monitores de la semana (monitores), facturas pendientes de revisar y de pagar
+  (tesorería) y, para tutores, asistencias por responder, circulares de actividades y fichas básicas por entregar y un
+  calendario por trimestres escolares. Se quitan los indicadores (`article.indicador`), «Documentos por revisar», todas
+  las gráficas anteriores y el botón Exportar del dashboard.
+- Archivos creados o modificados: nuevo `server/api/dashboard.php` (y `public/api/dashboard.php`); se quita el dashboard de
+  `superapi.php` (de 1415 a 1125 líneas); `public/nucleo/dashboard.js` reescrito; `public/codigo.js`; `public/estilo.css`
+  (fuera `.indicador`, `.dashboard-indicadores` y el minicalendario antiguo); `schema.sql`, `demo.sql`, `modelo.json`
+  y `migraciones/2026-11-cumpleanos-usuarios.sql` (`usuarios.fecha_nacimiento`); `server/pruebas/pruebas.php` (5 pruebas);
+  `noteas.md`, `docs/PLAN-PRUEBAS.md`.
+- Decisiones técnicas y motivo:
+  - Decisiones del usuario: lo que no pidió se quita; el tutor solo ve lo de sus educandos.
+  - Corregidos fallos del dashboard anterior: el tutor veía los cumpleaños de todos los educandos; los eventos próximos y la
+    gráfica por tipo no se filtraban para el tutor; sus asistencias pendientes contaban eventos que no convocan a sus secciones.
+  - Para los cumpleaños de los monitores hace falta su fecha de nacimiento: campo opcional `usuarios.fecha_nacimiento`.
+  - Circular del sábado: se indica entregada o falta solo para quien ha dicho que sí.
+  - El administrador ve los bloques de monitor y de tesorería porque tiene esos permisos.
+  - `demo.sql`: los eventos usan tipos del catálogo (antes «Campamento», «Taller»… no existían) para que haya sábados y acampadas.
+- Requisitos que cubre (RF/RNF): RF-07, RNF-03, RNF-06.
+- Cómo probarlo (pasos): ejecutar `2026-11-cumpleanos-usuarios.sql`; entrar como monitor, tesorero y tutor y comparar con la
+  tabla de `noteas.md` (apartado 11). `pruebas.php` → 116 de 116; instalador → 7 de 7 con `modelo.json` regenerado.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard por cargo), modelo de datos (`fecha_nacimiento`).
+- Pendiente o problemas: revisión visual por el usuario; se pueden ajustar los bloques y el número de elementos mostrados.
+
 ## 2026-11-17 · E-11 · Instalador interactivo
 - Rama / commit: `feat/E-11-instalador` (sale de `feat/E-12-copias`)
 - Qué se ha hecho: `instalador.html` pasa a ser un asistente en cuatro pasos (base de datos, tablas, datos iniciales y
