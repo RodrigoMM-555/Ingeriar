@@ -543,11 +543,9 @@ además circulares pendientes y asistencias sin confirmar. Los cumpleaños se
 calculan exclusivamente desde `educandos`; los usuarios no tienen fecha de
 nacimiento para este propósito.
 
-La información depende del rol:
-
-- administrador: usuarios, educandos, eventos, gasto total y usuarios por rol;
-- scouter: educandos, eventos próximos, facturas propias y gasto propio;
-- tutor: educandos vinculados y estados de asistencia.
+El dashboard ya no muestra la fila de indicadores numéricos (`article.indicador`),
+quitada a petición del usuario el 2026-11-17. Según los permisos muestra la tabla de
+asistencias del próximo sábado, el panel de pendientes del tutor y las gráficas.
 
 `graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. Los tooltips
 indican valor y porcentaje.
@@ -758,6 +756,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-17 (indicadores)
+
+- Se quitan del dashboard los indicadores (`article.indicador`) y las consultas que
+  solo servían para ellos. El resto del dashboard no cambia.
 
 ### 2026-11-17 (dashboard revertido)
 

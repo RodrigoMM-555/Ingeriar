@@ -29,7 +29,6 @@ class IngeriarDashboard {
             this.contenedor.className = "vista vista-dashboard";
             this.contenedor.innerHTML = "";
             this.renderCabecera(datos.rol);
-            this.contenedor.appendChild(this.renderIndicadores(datos.indicadores));
             this.contenedor.appendChild(this.renderResumen(datos.resumen));
             // Los bloques dependen de los permisos (E-13): aparecen si el servidor los envía.
             if (datos.asistencias_sabado) {
@@ -100,30 +99,6 @@ class IngeriarDashboard {
         textos.append(titulo, descripcion);
         cabecera.append(textos, exportacion);
         this.contenedor.appendChild(cabecera);
-    }
-
-    renderIndicadores(indicadores) {
-        const zona = document.createElement("div");
-        zona.className = "dashboard-indicadores";
-
-        indicadores.forEach((indicador) => {
-            const tarjeta = document.createElement("article");
-            tarjeta.className = "indicador";
-
-            const nombre = document.createElement("small");
-            nombre.textContent = indicador.nombre;
-
-            const valor = document.createElement("strong");
-            valor.textContent = indicador.valor;
-
-            const detalle = document.createElement("span");
-            detalle.textContent = indicador.detalle;
-
-            tarjeta.append(nombre, valor, detalle);
-            zona.appendChild(tarjeta);
-        });
-
-        return zona;
     }
 
     renderGraficas(graficas) {

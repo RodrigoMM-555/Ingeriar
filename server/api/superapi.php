@@ -253,7 +253,6 @@ switch ($ruta) {
 
         $datos = [
             'rol' => $usuario['rol_basico'],
-            'indicadores' => [],
             'graficas' => [],
         ];
         $eventosDashboard = $consultarTodos(
@@ -343,9 +342,6 @@ switch ($ruta) {
             ],
             $eventosVisibles
         );
-        $eventosPendientes = (int) ($consultar(
-            'SELECT COUNT(*) AS cantidad FROM eventos WHERE fecha_fin >= NOW()'
-        )['cantidad'] ?? 0);
         $eventosProximos = $consultarTodos(
             "SELECT tipo, COUNT(*) AS cantidad
              FROM eventos
@@ -370,15 +366,13 @@ switch ($ruta) {
         ];
 
         // Bloques del dashboard según los permisos (E-13). Con varios cargos se suman los
-        // bloques de cada uno; los indicadores comunes aparecen una sola vez.
-        $indicadores = [];
+        // bloques de cada uno.
         if (tienePermiso('usuarios.gestionar')) {
             $usuariosPorCargo = $consultarTodos(
                 'SELECT r.nombre AS cargo, COUNT(*) AS cantidad
                  FROM usuarios_roles ur JOIN roles r ON r.codigo = ur.codigo_rol
                  GROUP BY r.codigo, r.nombre, r.orden ORDER BY r.orden'
             );
-            $indicadores[] = ['nombre' => 'Usuarios', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM usuarios')['cantidad'] ?? 0, 'detalle' => 'Cuentas registradas'];
             $datos['graficas'][] = [
                 'tipo' => 'barras',
                 'titulo' => 'Usuarios por cargo',
@@ -386,61 +380,6 @@ switch ($ruta) {
                 'valores' => array_map('intval', array_column($usuariosPorCargo, 'cantidad')),
             ];
         }
-        if (tienePermiso('educandos.ver_todos')) {
-            $indicadores[] = ['nombre' => 'Educandos', 'valor' => $consultar('SELECT COUNT(*) AS cantidad FROM educandos WHERE fecha_baja IS NULL')['cantidad'] ?? 0, 'detalle' => 'Personas inscritas'];
-        }
-        if (tienePermiso('asistencia.responder_propios')) {
-            $educandosPropios = $consultar(
-                'SELECT COUNT(*) AS cantidad FROM usuarios_educandos ue
-                 JOIN educandos educ ON educ.id = ue.id_educando
-                 WHERE ue.id_usuario = ? AND educ.fecha_baja IS NULL',
-                [$usuario['id']]
-            );
-            $indicadores[] = ['nombre' => 'Mis educandos', 'valor' => $educandosPropios['cantidad'] ?? 0, 'detalle' => 'Personas vinculadas'];
-        }
-        $indicadores[] = ['nombre' => 'Eventos próximos', 'valor' => $eventosPendientes, 'detalle' => 'Actividades pendientes'];
-
-        // Documentación de inscripción (E-14).
-        if (tablaExiste($db, 'documentos_educando')) {
-            if (tienePermiso('documentos.revisar')) {
-                $porRevisar = $consultar(
-                    "SELECT COUNT(*) AS cantidad FROM documentos_educando d
-                     JOIN educandos e ON e.id = d.id_educando
-                     WHERE d.estado = 'pendiente' AND e.fecha_baja IS NULL"
-                );
-                $indicadores[] = ['nombre' => 'Documentos por revisar', 'valor' => $porRevisar['cantidad'] ?? 0, 'detalle' => 'Documentación de inscripción'];
-            }
-            if (tienePermiso('documentos.subir_propios')) {
-                // Obligatorios que faltan o que hay que corregir, de sus educandos activos.
-                $pendientes = $consultar(
-                    "SELECT COUNT(*) AS cantidad
-                     FROM usuarios_educandos ue
-                     JOIN educandos e ON e.id = ue.id_educando AND e.fecha_baja IS NULL
-                     JOIN documentos_base b ON b.tipo = 'inscripcion' AND b.activo = 1 AND b.obligatorio = 1
-                     LEFT JOIN documentos_educando d
-                        ON d.id_educando = e.id AND d.codigo_documento = b.codigo
-                     WHERE ue.id_usuario = ? AND (d.id IS NULL OR d.estado = 'corregir')",
-                    [$usuario['id']]
-                );
-                $indicadores[] = ['nombre' => 'Documentos pendientes', 'valor' => $pendientes['cantidad'] ?? 0, 'detalle' => 'Fichas de inscripción por entregar'];
-            }
-        }
-
-        if (tienePermiso('facturas.ver_todas')) {
-            $facturas = $consultar(
-                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total FROM facturas'
-            );
-            $indicadores[] = ['nombre' => 'Gasto registrado', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => $facturas['cantidad'] . ' facturas'];
-        } elseif (tienePermiso('facturas.subir_propias')) {
-            $facturas = $consultar(
-                'SELECT COUNT(*) AS cantidad, COALESCE(SUM(precio), 0) AS total
-                 FROM facturas WHERE responsable_id = ?',
-                [$usuario['id']]
-            );
-            $indicadores[] = ['nombre' => 'Mis facturas', 'valor' => $facturas['cantidad'], 'detalle' => 'Facturas registradas'];
-            $indicadores[] = ['nombre' => 'Mi gasto', 'valor' => number_format((float) $facturas['total'], 2, ',', '.') . ' €', 'detalle' => 'Total de mis facturas'];
-        }
-
         if (tienePermiso('asistencia.ver_todas')) {
             $sabado = $sabadosProximos[0] ?? null;
             $asistenciaSabado = [];
@@ -488,8 +427,6 @@ switch ($ruta) {
                    AND educ.fecha_baja IS NULL",
                 [$usuario['id']]
             );
-            $indicadores[] = ['nombre' => 'Asistencias pendientes', 'valor' => $asistencias['pendientes'] ?? 0, 'detalle' => 'Requieren respuesta'];
-            $indicadores[] = ['nombre' => 'Confirmadas', 'valor' => $asistencias['confirmadas'] ?? 0, 'detalle' => 'Asistencias registradas'];
             $datos['graficas'][] = [
                 'tipo' => 'tarta',
                 'titulo' => 'Estado de próximas asistencias',
@@ -527,7 +464,6 @@ switch ($ruta) {
                 'asistencias_pendientes' => (int) ($asistencias['pendientes'] ?? 0),
             ];
         }
-        $datos['indicadores'] = $indicadores;
 
         responder($datos);
 

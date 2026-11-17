@@ -15,6 +15,19 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-17 · Dashboard sin indicadores
+- Rama / commit: `feat/dashboard`
+- Qué se ha hecho: a petición del usuario, se quita la fila de indicadores del dashboard (`article.indicador`: usuarios,
+  educandos, eventos próximos, documentos, gasto, mis facturas, asistencias…). El resto del dashboard (próximas actividades,
+  tabla del sábado, panel del tutor y gráficas) queda como estaba.
+- Archivos creados o modificados: `server/api/superapi.php` (ya no calcula ni envía `indicadores`; se quitan las consultas
+  que solo servían para ellos), `public/nucleo/dashboard.js` (sin `renderIndicadores`), `public/estilo.css` (sin
+  `.indicador` ni `.dashboard-indicadores`), versión de los scripts en las páginas, `noteas.md`.
+- Requisitos que cubre (RF/RNF): RF-07.
+- Cómo probarlo (pasos): entrar con cualquier cargo: el dashboard empieza por «Próximas actividades».
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (contenido del dashboard).
+- Pendiente o problemas: el usuario seguirá revisando el dashboard.
+
 ## 2026-11-17 · Revisión del dashboard (deshecha) y versión en los scripts
 - Rama / commit: `feat/dashboard`
 - Qué se ha hecho: se implementó una revisión del dashboard propuesta por el usuario (próximas actividades por categorías,
