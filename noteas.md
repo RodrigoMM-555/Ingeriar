@@ -1,843 +1,731 @@
-# Ingeriar v3
+# Ingeriar · Documentación técnica
 
-## 1. Descripción general
+Documento de referencia para quien vaya a trabajar en el código: qué hace la aplicación,
+cómo está construida, por qué se tomó cada decisión y dónde está cada cosa. Al final está
+el diario de cambios (§21). El detalle de cada encargo está en `docs/ENCARGOS.md` y el de
+cada cambio en `docs/REGISTRO-CAMBIOS.md`; las pruebas, en `docs/PLAN-PRUEBAS.md`.
 
-Ingeriar es una aplicación web para gestionar la actividad de un grupo scout:
+Índice:
 
-- usuarios y roles;
-- educandos y sus relaciones con tutores;
-- eventos del calendario;
-- asistencias y entregas de documentos;
-- facturas;
-- configuración visual del grupo;
-- indicadores y gráficas.
+1. Qué es Ingeriar
+2. Conceptos del dominio
+3. Arquitectura
+4. Tecnologías y motivos
+5. Estructura de carpetas
+6. Apache, despliegue y configuración del servidor
+7. Flujo de una petición y arranque del cliente
+8. Seguridad
+9. Cargos y permisos
+10. Base de datos
+11. Almacenamiento de archivos (`storage/`)
+12. Referencia de la API del servidor
+13. Capa de dominio y funciones comunes del servidor
+14. Cliente: módulos JavaScript
+15. Funcionalidades
+16. Estilos y criterios de interfaz
+17. Instalación y migraciones
+18. Copias de seguridad
+19. Pruebas y datos de ejemplo
+20. Forma de trabajar y temas pendientes
+21. Diario de cambios
 
-La aplicación está separada en cliente, servidor, base de datos y almacenamiento
-privado. Esta separación evita publicar directamente credenciales o archivos
-subidos y permite controlar los permisos en el servidor.
+---
 
-## 2. Estructura del proyecto
+## 1. Qué es Ingeriar
 
-```text
-ingeriar v3/
-├── public/                         Cliente y puntos de entrada web
-│   ├── index.html                  Aplicación principal
-│   ├── login.html                  Pantalla de acceso
-│   ├── login.js                    Envío del inicio de sesión
-│   ├── instalador.html             Instalador interactivo (con instalador.js)
-│   ├── codigo.js                   Inicialización y navegación
-│   ├── estilo.css                  Estilos comunes de toda la aplicación
-│   ├── api/                        Entradas públicas que delegan en server/api
-│   ├── nucleo/
-│   │   ├── utilidades.js           Peticiones HTTP y funciones comunes
-│   │   ├── configuracion.js        Configuración del grupo
-│   │   ├── formulario.js           Formularios automáticos
-│   │   ├── tabla.js                Tablas, filtros y acciones
-│   │   ├── calendario.js           Calendario y asistencias
-│   │   ├── galeria.js              Galería de fotos por ronda y tipo de evento
-│   │   ├── facturas.js             Facturas en tablero (pendientes, revisadas, pagadas)
-│   │   ├── documentos.js           Documentación de inscripción y plantillas
-│   │   ├── inventario.js           Inventario y listas de material
-│   │   ├── dashboard.js            Indicadores y gráficas por rol
-│   │   ├── graficas.js             Gráficas SVG sin librerías externas
-│   │   ├── exportacion.js          Exportación de tablas y dashboard
-│   │   └── documento-preview-worker.js
-│   └── servicios/salida.php        Entrada pública de la copia de seguridad
-├── server/
-│   ├── dominio/                    Clases Modelo, Educando, Evento, Factura, Usuario (E-02)
-│   │                               y AlmacenJson (inventario en JSON, E-04)
-│   ├── api/
-│   │   ├── login.php               Inicio de sesión
-│   │   ├── logout.php              Cierre de sesión
-│   │   ├── superapi.php            API principal de datos y permisos
-│   │   ├── archivo.php             Subida y descarga de documentos
-│   │   ├── galeria.php             Fotos de la galería (listar, ver, subir, borrar)
-│   │   ├── facturas.php            Facturas: listar, imagen, crear, editar, borrar, estado
-│   │   ├── documentos.php          Documentación de inscripción y plantillas
-│   │   ├── inventario.php          Inventario y listas de material (JSON)
-│   │   └── instalar.php            Creación de la base de datos
-│   ├── auth/sesion.php              Sesión y autenticación
-│   ├── data/
-│   │   ├── database.php             Conexión PDO
-│   │   ├── schema.sql               Esquema MySQL completo
-│   │   ├── demo.sql                 Datos de prueba
-│   │   ├── modelo.json              Modelo del instalador (generado desde schema.sql)
-│   │   ├── semillas/                Datos iniciales: catálogos, cargos, documentos base
-│   │   ├── config.php               Configuración del grupo
-│   │   └── secciones.php            Cálculo de secciones por edad
-│   ├── pruebas/pruebas.php         Pruebas automáticas por HTTP (solo terminal)
-│   ├── pruebas/fotos-ejemplo.php   Fotos de ejemplo para la galería y las facturas
-│   ├── pruebas/pruebas-copias.php  Pruebas de copia, cifrado y restauración (E-12)
-│   ├── copias/                     copia.php (cron) y restaurar.php (E-12)
-│   ├── instalacion/ModeloDatos.php Modelo y generación de SQL del instalador (E-11)
-│   ├── herramientas/generar-modelo.php  Genera modelo.json desde una base
-│   ├── pruebas/pruebas-instalador.php   Pruebas del instalador (E-11)
-│   └── servicios/salida.php        Copia de seguridad JSON (solo administrador)
-├── storage/
-│   ├── documentos/                  Circulares y entregas
-│   ├── facturas/                    Imágenes de facturas
-│   └── galeria/                     Imágenes de galería
-└── noteas.md                       Documentación y diario del proyecto
-```
+Aplicación web de gestión interna del Grupo Scout Seeonee (proyecto intermodular de DAM,
+2.º curso). Sustituye hojas de cálculo y papeles sueltos por una sola herramienta:
 
-`public/` debe ser el `DocumentRoot` de Apache. `server/` y `storage/` no deben
-ser accesibles como carpetas públicas. Los accesos a archivos se realizan a
-través de PHP, después de comprobar autenticación y permisos.
+- usuarios con cargos (administración, monitores, familias, tesorería) y permisos;
+- educandos (los niños y jóvenes), sus familias y su sección por edad;
+- calendario de eventos, asistencias y circulares de autorización;
+- documentación de inscripción (fichas) con su revisión;
+- galería de fotos por ronda y evento;
+- facturas de los monitores con su flujo de revisión y pago;
+- inventario de material y listas de material para las salidas;
+- conservación y borrado de datos personales según plazos;
+- copias de seguridad, registro de accesos e instalador.
 
-La configuración general se guarda en `server/data/config.php` en formato JSON.
-Desde la pantalla de administración se pueden cambiar:
+Cada persona ve un **dashboard** distinto según sus permisos.
 
-- nombre y URL del logo del grupo;
-- logo subido al almacenamiento privado;
-- color principal, color secundario y modo oscuro;
-- datos de contacto y del coordinador;
-- nombres visibles de los roles;
-- formato de nombres y educandos sin sección;
-- asistencia en eventos pasados;
-- tamaño máximo y formatos de archivos;
-- categorías de facturas, tipos de evento y secciones.
+## 2. Conceptos del dominio
 
-Los tipos de evento se gestionan separando el identificador interno del nombre
-visible. Por ejemplo, `sabado` puede mostrarse como `Sábado` y seguir siendo
-el mismo valor para colores, filtros y gráficas. La configuración permite
-Los nombres visibles se editan desde los catálogos `tipos_evento`,
-`secciones` y `categorias_factura`. Los formatos de entrega son una preferencia
-de archivos, mientras que las categorías de factura son un catálogo dinámico
-independiente. El estado de una factura no es un catálogo: es un `ENUM` cerrado
-con los valores `pendiente`, `pagada` y `rechazada`.
-No se deben borrar identificadores internos usados por eventos antiguos: si se
-quiere dejar de ofrecer uno nuevo, se puede ocultar en una futura mejora, pero
-los registros existentes deben seguir siendo editables.
+| Concepto | Significado en la aplicación |
+|---|---|
+| **Ronda** | Curso scout, de septiembre a agosto. Se escribe `26-27`. La calcula `rondaActual($fecha)` (`server/data/secciones.php`). |
+| **Sección** | Grupo por edades: colonia (5-6), manada (7-9), tropa (10-12), posta (13-15), rutas (16-19). Es un catálogo editable (`secciones`). |
+| **Sección de un educando** | No se guarda: se calcula con su fecha de nacimiento (`naz`) y su edad **al empezar la ronda** de la fecha que interese (`seccionDeEducandoConCatalogo`). Así cambia sola cada septiembre y una foto antigua sigue siendo de la sección de entonces. |
+| **Educando** | Niño o joven del grupo (`educandos`). Activo si `fecha_baja` es NULL. |
+| **Tutor** | Familiar con cuenta de cargo `tutor`, vinculado a sus educandos en `usuarios_educandos`. |
+| **Monitor (scouter)** | Educador del grupo. En el código el cargo se llama `scouter` y se muestra como «Monitor». |
+| **Evento** | Actividad del calendario (sábado, acampada, excursión, festival, reunión…). Convoca a unas secciones (`eventos_secciones`); sin filas, convoca a todas. |
+| **Circular** | Autorización de participación que las familias entregan para un evento con `circular = 1`. La plantilla en blanco es el documento base de tipo `participacion`. |
+| **Ficha (documentación de inscripción)** | Documento permanente del educando (ficha sanitaria, inscripción, autorizaciones…). Catálogo `documentos_base` de tipo `inscripcion`; entregas en `documentos_educando`. |
+| **Baja** | Fecha en que el educando deja el grupo. Sus datos se conservan un plazo (5 años por defecto) y luego se borran. |
+| **Ronda vencida** | Ronda que terminó hace más que el plazo: se borran sus circulares y asistencias. |
 
-Los tipos de evento y las secciones son catálogos administrables. Cada uno
-conserva un código interno estable y tiene nombre visible, orden y estado
-activo. Las secciones también guardan un intervalo de edades para calcular
-automáticamente la sección de cada educando. Para bases ya existentes hay que
-ejecutar `server/data/migraciones/2025-02-catalogos-eventos-secciones.sql`.
-Retirar un elemento lo archiva (`activo = false`) para conservar históricos.
-
-El servidor conserva los valores existentes y valida los booleanos, el tamaño
-máximo y las opciones de archivo antes de escribir el archivo. Las listas se
-guardan como texto separado por comas para que sean fáciles de editar; su
-aplicación sobre los `ENUM` de la base de datos requerirá una migración
-posterior si se desea que cambien las opciones reales de esos formularios.
-
-## 3. Tecnologías y motivos
-
-### HTML, CSS y JavaScript sin frameworks
-
-La interfaz usa HTML, CSS y JavaScript estándar. Se eligió esta opción porque:
-
-- el proyecto es educativo y permite ver claramente el funcionamiento;
-- no requiere instalar ni actualizar dependencias;
-- facilita entender el DOM, los eventos y las peticiones `fetch`;
-- la aplicación es suficientemente pequeña para no necesitar un framework.
-
-No se usa React, Vue ni otra librería de interfaz porque añadirían complejidad,
-compilación y conceptos que no son necesarios para las pantallas actuales.
-
-### PHP y MySQL
-
-El servidor usa PHP y MySQL:
-
-- PHP encaja con el entorno Apache del proyecto;
-- MySQL permite relaciones, claves foráneas y consultas agregadas;
-- PDO permite consultas preparadas y evita construir valores directamente en SQL;
-- `information_schema` permite descubrir columnas, tipos y relaciones para crear
-  formularios reutilizables.
-
-### SVG para gráficas
-
-Las gráficas se dibujan con SVG desde `graficas.js`. Así se evitan dependencias
-externas, se mantienen ligeras y se pueden añadir tooltips y etiquetas con el
-DOM estándar.
-
-### Web Worker para previsualizaciones
-
-La generación de vistas previas de imágenes se ejecuta en
-`documento-preview-worker.js` para no bloquear la interfaz principal. Los PDF
-se convierten en el servidor mediante `pdftoppm` para mostrar su primera página.
-
-## 4. Flujo de inicio de la aplicación
-
-1. El usuario abre `public/login.html`.
-2. `login.js` envía el correo y la contraseña a `api/login.php`.
-3. El servidor consulta el usuario con PDO y verifica la contraseña con
-   `password_verify` (ver «Contraseñas» más abajo).
-4. Se crea una sesión PHP con el identificador, nombre, apellidos y rol.
-5. El navegador redirige a `index.html`.
-6. `codigo.js` consulta `usuario_actual`.
-7. Se cargan la configuración, los módulos y las entidades permitidas.
-8. Se crean los objetos de tablas, formularios, calendario, dashboard y gráficas.
-9. Se muestra inicialmente el dashboard.
-
-Si una petición devuelve un error HTTP o un objeto con `error`, las utilidades
-lo convierten en un error visible para el código que hizo la petición.
-
-### Contraseñas
-
-Las contraseñas se guardan con `password_hash` (bcrypt con sal) y se comprueban
-con `password_verify`. Las funciones comunes están en `server/auth/contrasenas.php`
-y las usan el login, el alta y edición de usuarios de `superapi.php` y el instalador.
-
-- Reglas para una contraseña nueva: mínimo 8 caracteres y al menos un número o
-  un carácter especial. Se comprueban en el servidor; el formulario solo orienta.
-- Migración transparente: las versiones anteriores guardaban sha256 sin sal. Si
-  el valor guardado tiene ese formato y coincide, el usuario entra y su
-  contraseña se reescribe con `password_hash` en ese momento.
-- El hash nunca sale del servidor: la ruta `tabla` de `usuarios` no lo devuelve
-  y el formulario muestra un campo de contraseña vacío. Al editar, dejarlo vacío
-  conserva la contraseña actual.
-- Si el email no existe, el login calcula igualmente un hash para que el tiempo
-  de respuesta no revele qué emails están registrados.
-
-La migración solo mejora cómo se guarda la contraseña, no la contraseña en sí:
-una contraseña antigua que no cumpla las reglas sigue siendo válida hasta que se
-cambie. El código que acepta sha256 es temporal. Mientras queden hashes sha256,
-una copia robada de la base de datos permitiría descifrarlos con facilidad porque
-no llevan sal. Para comprobar cuántos quedan:
-
-```sql
-SELECT COUNT(*) FROM usuarios WHERE `contraseña` NOT LIKE '$2%';
-```
-
-Cuando el resultado sea 0, o tras un plazo razonable, se puede eliminar la rama
-sha256 de `verificarContrasena`; a quien no haya entrado, un administrador le
-asigna una contraseña nueva. Los usuarios creados con versiones anteriores cuya
-contraseña quedó guardada en claro no pueden entrar y también necesitan una nueva.
-
-## 5. Flujo de datos
-
-El cliente no accede directamente a MySQL:
+## 3. Arquitectura
 
 ```text
-Navegador
-   ↓ fetch
-public/api/*.php
-   ↓ require
-server/api/*.php
-   ↓ PDO
-MySQL
+Navegador (HTML + CSS + JavaScript sin frameworks)
+   │  fetch (JSON o FormData), cookie de sesión PHP
+   ▼
+Apache ── DocumentRoot: public/
+   │  public/api/*.php  → solo hacen require del archivo real
+   ▼
+server/api/*.php  (PHP 8, sin frameworks)
+   │  sesión → exigirUsuario() → permisos → validación
+   ├── PDO (consultas preparadas) ──► MySQL / MariaDB (base relacional)
+   ├── AlmacenJson (flock) ─────────► storage/inventario/*.json (base documental)
+   └── almacenamiento.php / finfo ──► storage/ (archivos privados, nunca servidos directamente)
 ```
 
-Para datos normales, `superapi.php` recibe una ruta como `tabla`, `columnas`,
-`crear`, `editar` o `borrar`. Comprueba la sesión y el permiso antes de consultar
-o modificar la base de datos.
+Principios que se repiten en todo el código:
 
-La copia de seguridad (`servicios/salida.php`) descarga todas las tablas en
-JSON. Solo la puede usar un administrador (401 sin sesión, 403 con otro rol) y
-no incluye la columna `contraseña`. Se descarga desde la pantalla de
-configuración, en el bloque «Copia de seguridad».
+- **El servidor decide**: los permisos, qué está vencido, de quién es cada cosa. El cliente
+  solo oculta botones para que la interfaz sea clara (`utilidades.tienePermiso`).
+- **Nada se sirve directamente de `storage/`**: todo archivo pasa por un PHP que comprueba
+  sesión, permiso y que la ruta real (`realpath`) está dentro de la carpeta esperada.
+- **Sin dependencias externas** (ni Composer ni npm): se ve cómo funciona todo y solo se usa
+  lo que se estudia en DAM2.
+- **Datos derivados, no duplicados**: la sección, la ronda o el árbol de la galería se
+  calculan; no se guardan copias que puedan desincronizarse.
 
-Para archivos, `archivo.php` comprueba el usuario, el evento, el educando y la
-ruta física antes de devolver el archivo. Los archivos no se sirven directamente
-desde `storage`.
+## 4. Tecnologías y motivos
 
-## 5 bis. Capa de dominio: mapeo objeto-relacional (E-02)
-
-`server/dominio/` contiene clases PHP que representan las entidades principales y
-convierten filas de MySQL en objetos y objetos en filas:
-
-```text
-Modelo (abstracta)            tabla, columnas ↔ propiedades, ocultas
-├── Educando                  sección, activo, carpeta, tutor, vencidos, borrado completo
-├── Evento                    convocatorias por sección, terminado, fotos
-├── Factura                   quién la ve, quién la edita, cambio de estado
-└── Usuario                   cargos, educandos vinculados (sin contraseña en el JSON)
-```
-
-`Modelo` hace a mano lo que un ORM como Doctrine (PHP) o Hibernate (Java) hace con
-anotaciones: cada subclase declara su tabla y el mapa columna → propiedad, y con eso
-`desdeFila`, `buscar`, `donde`, `rellenar`, `guardar` (INSERT o UPDATE), `borrar` y
-`jsonSerialize` funcionan para todas. Las consultas son preparadas y los nombres de
-tabla y columna salen de constantes de la clase, nunca de datos del usuario.
-
-No se usa una librería ORM porque el proyecto no usa dependencias externas y así se
-ve el funcionamiento completo. Las rutas genéricas de `superapi.php` (tablas y
-formularios automáticos) siguen trabajando con filas, porque se adaptan a cualquier
-tabla; las reglas de negocio de estas cuatro entidades están en sus clases.
-
-`server/api/comun.php` reúne `responder()` y `tamanoMaximoArchivos()`, que antes
-estaban copiadas en cada API.
-
-## 6. Roles y permisos
-
-Desde E-13 los permisos no dependen del nombre del rol, sino de una tabla de
-permisos (control de acceso basado en roles):
-
-```text
-usuarios ── usuarios_roles ── roles ── roles_permisos ── permisos
-```
-
-- **Cargo básico**: administrador, monitor (`scouter`) o tutor. Todo usuario tiene
-  exactamente uno; el servidor rechaza cero o dos.
-- **Cargos adicionales**: tesorería y los que se creen. Se suman al básico (también
-  a un tutor: el comité lo forman familias) y solo añaden permisos que el básico no tiene.
-- Los permisos de un usuario son la **unión** de los de todos sus cargos activos.
-- `server/auth/permisos.php`: `exigirUsuario()` recarga en cada petición los cargos y
-  permisos (una consulta) y los guarda en la sesión; `tienePermiso()` y
-  `exigirPermiso()` son las únicas comprobaciones. Quitar un permiso o borrar un usuario
-  tiene efecto en su siguiente acción.
-- Lo que depende de «ser tutor de» un educando se sigue comprobando con
-  `usuarios_educandos`.
-- `superapi.php` tiene un mapa `PERMISOS_TABLAS` (tabla → permisos de lectura,
-  escritura, borrado y menú). Una tabla que no esté en el mapa exige
-  `configuracion.gestionar`.
-
-| Cargo | Tipo | Permisos |
+| Tecnología | Uso | Motivo |
 |---|---|---|
-| Administrador | básico | todos menos los de tutor (`educandos.ver_propios`, `asistencia.responder_propios`) |
-| Monitor | básico | usuarios.ver, educandos.ver_todos, educandos.gestionar, eventos.ver, eventos.gestionar, asistencia.ver_todas, documentos.ver_todos, galeria.ver, galeria.subir, facturas.subir_propias |
-| Tutor | básico | educandos.ver_propios, eventos.ver, asistencia.responder_propios, galeria.ver |
-| Tesorería | adicional | facturas.ver_todas, facturas.cambiar_estado |
+| HTML, CSS, JavaScript (ES2022) | Toda la interfaz, en una sola página (`index.html`) con clases por vista | Proyecto educativo: se ve el DOM, los eventos y `fetch` sin capas intermedias; no hay compilación ni dependencias. |
+| PHP 8 | API, sesiones, validación, archivos | Encaja con Apache y con el temario. Se usan tipos declarados, `match` y `never`. |
+| PDO + MySQL 8 / MariaDB | Datos relacionales | Claves foráneas, transacciones, consultas preparadas (`ATTR_EMULATE_PREPARES = false`). |
+| `information_schema` | Formularios y tablas genéricas | Descubre columnas, tipos, ENUM y claves foráneas para generar formularios automáticos. |
+| JSON en ficheros + `flock` | Inventario y listas de material | Requisito del proyecto: una parte en base documental. Lectura con bloqueo compartido, escritura con exclusivo y `rename` atómico. |
+| SVG | Gráficas del dashboard (`graficas.js`) | Sin librerías; tooltips y colores con el DOM. |
+| Web Worker | Miniaturas de imágenes y PDF (`documento-preview-worker.js`) | No bloquea la interfaz. Máximo cuatro a la vez. |
+| `pdftoppm` (poppler) | Primera página de un PDF como imagen | Previsualizar circulares y fichas en PDF. |
+| `finfo` | Tipo real de cada archivo subido | No fiarse de la extensión ni del tipo que dice el navegador. |
+| `mysqldump`, `PharData`, OpenSSL | Copias de seguridad | Zip sin la extensión zip; cifrado AES-256-CBC + HMAC con clave por PBKDF2. |
+| Apache + `.htaccess` | Servidor web | Entorno habitual; `.htaccess` deniega `server/`, `storage/` y `copias/`. |
 
-Reglas destacadas:
+Extensiones PHP necesarias: `pdo_mysql`, `fileinfo`, `curl` (solo scripts de prueba),
+`openssl`, `phar`, `iconv`. No se usa `mbstring` ni `gd` (las longitudes se cuentan con
+expresiones regulares UTF-8 y las imágenes de ejemplo se dibujan en PHP puro).
 
-- El monitor crea y edita educandos y los da de baja; solo el administrador los
-  borra (`educandos.borrar`). El monitor ya no edita la tabla de asistencias.
-- Facturas: cada uno ve, edita y borra solo las suyas; el responsable es siempre quien
-  la sube. Solo `facturas.cambiar_estado` (tesorería, administrador) cambia estados,
-  también en las propias. `facturas.ver_todas` muestra las de todos.
-- Evitar el bloqueo: los permisos del administrador no se pueden cambiar, los cargos
-  básicos no se pueden desactivar y se rechaza cualquier cambio de usuarios o cargos que
-  deje a nadie con `roles.gestionar`.
-- Configuración → «Cargos y permisos» (`roles.gestionar`): tabla de cargos por permisos,
-  alta de cargos adicionales y desactivación.
-- Dashboard: cada bloque aparece si el usuario tiene su permiso; con varios cargos se
-  suman los bloques y los indicadores comunes salen una vez.
-
-Los permisos se comprueban siempre en el servidor. Ocultar un botón en el cliente
-(`utilidades.tienePermiso`) solo mejora la interfaz.
-
-## 7. Base de datos
-
-La base de datos estable se llama `ingeriar`. Las tablas principales son:
-
-- `usuarios`: cuentas, credenciales y roles;
-- `educandos`: datos de los menores;
-- `usuarios_educandos`: relación entre tutores y educandos;
-- `eventos`: actividades del calendario;
-- `educandos_asistencias`: asistencia y archivo de entrega;
-- `facturas`: gastos, responsable e imagen opcional;
-- `roles`, `permisos`, `usuarios_roles` y `roles_permisos`: cargos y permisos (E-13).
-
-Las claves foráneas mantienen la integridad de las relaciones. La relación entre
-usuario y educando se guarda en una tabla intermedia porque un tutor puede tener
-varios educandos y un educando puede estar relacionado con más de un usuario.
-
-El esquema principal está en `server/data/schema.sql` y los datos de prueba en
-`server/data/demo.sql`. El demo genera 30 usuarios, 100 educandos, 100 relaciones,
-40 eventos, 80 facturas y 160 asistencias.
-
-## 8. Formularios automáticos
-
-`formulario.js` solicita las columnas de la tabla y crea controles según el tipo:
-
-- `DATE` crea un selector de fecha;
-- `DATETIME` crea fecha y hora;
-- números crean campos numéricos;
-- `ENUM` crea un `select`;
-- booleanos crean `Sí`/`No`;
-- relaciones crean selectores con nombres legibles.
-
-Las relaciones se detectan con `information_schema`. También existen relaciones
-convencionales de respaldo para bases antiguas. Los identificadores se mantienen
-para guardar datos, pero el usuario ve nombres y apellidos.
-
-Las facturas tienen un campo especial de imagen. El archivo se envía junto con
-el resto del formulario mediante `FormData`; los campos normales siguen viajando
-como JSON dentro de ese formulario.
-
-## 9. Facturas en tablero (E-05)
-
-La vista «Facturas» (`facturas.js` y `api/facturas.php`) muestra tres columnas:
-Pendientes, Revisadas y Pagadas. Cada factura es una tarjeta con la miniatura de su
-imagen (Web Worker), el concepto, el importe, la fecha de compra y la categoría. Al
-pulsarla se abre el detalle con la imagen grande. Quien ve todas las facturas
-(`facturas.ver_todas`: tesorería y administrador) las tiene agrupadas en cada columna por
-responsable, por orden alfabético, con un separador que indica su nombre, el número de
-facturas y el importe.
-
-- Estados: `pendiente` → `revisada` → `pagada` (se eliminó `rechazada`). Solo
-  `facturas.cambiar_estado` (tesorería y administrador) los cambia, con botones en la
-  tarjeta o arrastrando entre columnas, también en sus propias facturas. Se guarda quién
-  hizo el último cambio y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
-- La imagen es obligatoria al crear: tipo real con `finfo` (JPEG, PNG o WebP), tamaño de
-  la configuración y nombre aleatorio en `storage/facturas/<ronda>/` (E-17: ronda de la
-  fecha de compra; si se cambia la fecha a otra ronda, la imagen se mueve). Se sirve solo
-  por PHP.
-- El monitor ve solo sus facturas y las edita o borra mientras están pendientes. Una
-  factura pagada no la edita ni la borra nadie (409); tesorería puede devolverla a revisada.
-- Las rutas genéricas de `superapi.php` ya no escriben facturas: la tabla queda de solo
-  lectura para el dashboard y la exportación.
-- Bases existentes: `2026-11-facturas-tablero.sql` (las rechazadas pasan a pendiente).
-
-Fotos de ejemplo para probar: `php server/pruebas/fotos-ejemplo.php --confirmar`
-dibuja paisajes para la galería y tiques para las facturas sin imagen (PNG generado en
-PHP, sin la extensión gd; imágenes ficticias).
-
-## 10. Eventos, circulares y asistencias
-
-El calendario carga eventos desde `superapi.php`, los agrupa por día y permite
-crear, editar o borrar según el rol. Cada tipo de evento recibe una clase CSS y
-un color diferente.
-
-Los tipos de evento definidos son `reunión de familias`, `sabado`, `festival`,
-`excursion` y `otro`. La normalización de clases también admite datos antiguos
-como `campamento`, `taller`, `convivencia` y `actividad`.
-
-Cada evento se relaciona con una o varias secciones mediante `eventos_secciones`.
-Las secciones disponibles son `colonia`, `manada`, `tropa`, `posta` y `rutas`.
-Si no hay filas relacionadas, el evento se considera dirigido a todas. El
-formulario ofrece casillas independientes y una opción “Todas las secciones”.
-La tabla intermedia permite seleccionar varias secciones sin guardar JSON.
-
-Aunque el campo `seccion` es un `ENUM`, cada fila solo representa una sección.
-Un mismo evento puede tener varias filas relacionadas, por ejemplo:
+## 5. Estructura de carpetas
 
 ```text
-id_evento | seccion
-----------|--------
-12        | colonia
-12        | manada
-12        | tropa
+Ingeriar/
+├── CLAUDE.md                     Reglas del proyecto (stack, seguridad, forma de trabajar)
+├── noteas.md                     Este documento
+├── docs/                         ENCARGOS.md, REGISTRO-CAMBIOS.md, PLAN-PRUEBAS.md
+├── public/                       ÚNICA carpeta accesible desde Apache (DocumentRoot)
+│   ├── .htaccess                 Sin listados; deniega .env, .ini, .log, .sql, .db, .bak
+│   ├── index.html                Aplicación (carga todos los scripts con ?v=<versión>)
+│   ├── login.html, login.js      Acceso
+│   ├── instalador.html, instalador.js   Instalador en cuatro pasos (E-11)
+│   ├── codigo.js                 Arranque: crea los objetos de cada vista y el menú
+│   ├── estilo.css                Todos los estilos, por secciones
+│   ├── api/*.php                 Puntos de entrada: require de server/api/<mismo>.php
+│   ├── servicios/salida.php      Entrada de la exportación JSON
+│   └── nucleo/                   Clases del cliente (ver §14)
+├── server/                       Código del servidor (denegado por .htaccess)
+│   ├── api/                      Una API por área (ver §12) + comun.php
+│   ├── auth/                     sesion.php, permisos.php, contrasenas.php, registro.php
+│   ├── dominio/                  Modelo, Educando, Evento, Factura, Usuario, AlmacenJson
+│   ├── data/
+│   │   ├── database.php          obtenerConexion() con variables de entorno
+│   │   ├── config.php            Configuración del grupo (JSON, aunque termine en .php)
+│   │   ├── secciones.php         Ronda, sección por edad, nombre de carpeta del educando
+│   │   ├── almacenamiento.php    Rutas de galería y facturas en storage/ (E-17)
+│   │   ├── schema.sql            Esquema completo + datos iniciales
+│   │   ├── demo.sql              Datos de prueba sencillos (usuarioN, educandoN…)
+│   │   ├── modelo.json           Modelo del instalador (generado desde schema.sql)
+│   │   ├── semillas/             catalogos.sql, roles-permisos.sql, documentos-base.sql
+│   │   └── migraciones/          Scripts para bases antiguas (SQL y PHP)
+│   ├── instalacion/ModeloDatos.php   Valida el modelo y genera el SQL del instalador
+│   ├── herramientas/generar-modelo.php
+│   ├── copias/                   copia.php (cron), restaurar.php, comun-copias.php
+│   ├── servicios/salida.php      Exportación JSON de todas las tablas (sin contraseñas)
+│   └── pruebas/                  Pruebas automáticas y scripts de datos de ejemplo (§19)
+├── storage/                      Archivos privados (denegado; contenido fuera de git)
+└── copias/                       Copias de seguridad (denegado; fuera de git)
 ```
 
-En este caso, el evento `12` está convocando a colonia, manada y tropa. La
-clave primaria compuesta `(id_evento, seccion)` evita repetir una misma sección
-en el mismo evento, mientras que permite añadir todas las secciones necesarias.
-Se utiliza `ENUM` para limitar los valores a las secciones válidas y evitar
-errores de escritura. Esta estructura es preferible a guardar una lista
-separada por comas o un JSON porque mantiene los datos normalizados y facilita
-las consultas y los filtros de asistencia.
+## 6. Apache, despliegue y configuración del servidor
 
-La circular que se adjunta a los eventos es la plantilla «Autorización de
-participación en actividades» del catálogo `documentos_base` (E-14). El
-administrador la sube en Configuración → «Documentos base y plantillas» y se guarda
-en `storage/documentos/biblioteca/`. Mientras no se suba, la descarga responde 404
-con un aviso.
+**DocumentRoot**: debe ser `public/`. Si por comodidad se publica la carpeta del proyecto
+entera (como en la instalación local `http://localhost/Ingeriar/public`), los `.htaccess`
+de `server/`, `storage/` y `copias/` (`Require all denied`) impiden el acceso; para eso
+Apache necesita `AllowOverride All` en esa carpeta.
 
-Las entregas se guardan en:
-
-```text
-storage/documentos/<ronda>/<seccion>/<educando>/
-```
-
-Las secciones se calculan a partir de `naz` al inicio de cada ronda:
-
-- 5-6 años: `colonia`;
-- 7-9 años: `manada`;
-- 10-12 años: `tropa`;
-- 13-15 años: `posta`;
-- 16-19 años: `rutas`.
-
-No se guarda la sección en la base de datos porque depende de la edad y cambiaría
-al comenzar una nueva ronda. Las filas de educandos muestran un color según la
-sección.
-
-La asistencia y las entregas no se pueden registrar después de la fecha de fin
-del evento. El visor de documentación muestra tarjetas con previsualización y
-permite descargar el archivo original.
-
-## 10 bis. Galería de fotografías
-
-Cada foto pertenece a un evento (tabla `galeria_fotos`). El árbol que se ve en la
-aplicación (ronda › tipo › evento) se calcula a partir del evento, así que si cambia la
-fecha o el tipo de un evento, sus fotos se recolocan solas en la vista.
-
-```text
-Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
-├── Sábados                (una carpeta por tipo del catálogo tipos_evento)
-│   └── Actividad 12/09    (cada evento con fotos)
-├── Reuniones de familias
-└── <tipo nuevo>           (los tipos añadidos en configuración aparecen solos)
-```
-
-- Archivos (E-17): `storage/galeria/<ronda>/<id>-<nombre-del-evento>/` con nombre
-  aleatorio (`bin2hex(random_bytes(16))`); la ronda es la de la fecha de inicio del
-  evento y en `galeria_fotos.archivo` se guarda la ruta relativa. Al editar un evento
-  (fecha o nombre) sus fotos se mueven a la carpeta nueva (`recolocarFotosEvento` en
-  `server/data/almacenamiento.php`). Las fotos no se borran con las rondas vencidas.
-  Se comprueba el tipo real con `finfo` (JPEG, PNG o WebP), el tamaño con
-  `tamano_maximo_archivos_mb` de la configuración y un máximo de 20 fotos por
-  subida. Se validan todas antes de guardar ninguna.
-- Las fotos solo se sirven a través de `api/galeria.php?accion=ver`, después de
-  comprobar los permisos, con `X-Content-Type-Options: nosniff`.
-- Permisos (en el servidor): administrador y scouter ven, suben y borran todo.
-  Un tutor solo ve las fotos de eventos que convocan alguna sección de sus
-  educandos, calculada con la edad que tenían en la fecha del evento. Un evento
-  sin secciones convoca a todas.
-- Las miniaturas las genera el Web Worker `documento-preview-worker.js`, con un
-  máximo de cuatro trabajadores a la vez. El visor permite pasar fotos con las
-  flechas del teclado y cerrar con Escape.
-- Al borrar un evento se borran en cascada sus filas de `galeria_fotos` y
-  `superapi.php` borra también los archivos.
-
-## 10 ter. Bajas, conservación y registro de accesos
-
-- **Baja**: un educando con `fecha_baja` deja de aparecer en el dashboard, los
-  cumpleaños, las asistencias y la vista del tutor, y el tutor ya no puede operar
-  con él (`tutorTieneEducando` solo admite educandos activos). El administrador lo
-  sigue viendo en la tabla, en cursiva y al final; quitar la fecha deshace la baja.
-  En la galería cuenta solo para los eventos anteriores a su baja.
-- **Conservación** (E-06, ampliada en E-16): `plazo_conservacion_anos` (5 por defecto)
-  en la configuración se aplica de dos formas:
-  - **Educandos dados de baja**: Configuración → «Datos vencidos» (ruta `conservacion`,
-    solo administrador) lista los educandos con baja anterior al plazo y los tutores que
-    se quedarían sin educandos. Al confirmar se borran el educando (asistencias y
-    vínculos en cascada), sus fichas permanentes, los tutores marcados y los archivos de
-    entregas con sus carpetas vacías.
-  - **Rondas** (E-16): Configuración → «Rondas vencidas» (ruta `conservacion_rondas`)
-    lista las rondas cuyo final (31 de agosto) es anterior al plazo. Al confirmar se
-    borran la carpeta `storage/documentos/<ronda>/` entera (circulares de todos los
-    educandos) y las respuestas de asistencia de los eventos de esa ronda (los eventos
-    se quedan). Las fichas permanentes no se tocan.
-  En los dos casos el servidor vuelve a comprobar qué está vencido: no borra nada que
-  no lo esté aunque se le pida, y el borrado queda en `registro_accesos`.
-- **Carpetas de documentos** (E-16):
-  - `storage/documentos/permanente/<educando>/`: fichas de inscripción (permanentes).
-  - `storage/documentos/<ronda>/<sección>/<educando>/`: circulares de actividades. La
-    ronda y la sección son las **del evento** (antes, las del día en que se subía).
-- **Registro de accesos** (`registro_accesos`): quién, acción, recurso, educando,
-  fecha e IP. Se registran ver, previsualizar y subir entregas, la descarga de la copia
-  completa y el borrado de datos vencidos. No se registran las fotos de la galería (cada
-  miniatura sería un acceso). El detalle no guarda nombres, solo identificadores. El
-  administrador lo consulta como una tabla, pero nadie puede editarlo ni borrarlo.
-- Bases existentes: ejecutar `server/data/migraciones/2026-11-bajas-accesos.sql`.
-
-## 10 cuater. Documentación de inscripción (E-14)
-
-Las fichas básicas del grupo (ficha sanitaria, hoja de inscripción, exclusión de
-responsabilidad y autorización para ausentarse) están en el catálogo `documentos_base`
-junto con la circular de participación que se adjunta a los eventos.
-
-- El administrador sube y cambia las plantillas en blanco en Configuración →
-  «Documentos base y plantillas» (cada grupo usa las suyas) y puede añadir documentos.
-  Se guardan en `storage/documentos/biblioteca/` con nombre aleatorio.
-- En la ficha de cada educando («Ver documentación») el tutor descarga cada plantilla y
-  sube el documento relleno. Se entrega una vez; volver a subirlo sustituye al anterior y
-  lo deja pendiente de revisión. Un monitor también puede entregarlo (copia en papel).
-- Un monitor lo marca como revisado o pide corrección con observaciones
-  (`documentos.revisar`). Estados: pendiente, revisado, corregir.
-- Los archivos van a la carpeta permanente del educando, fuera de las rondas (E-16):
-  `storage/documentos/permanente/<educando>/inscripcion-<documento>-<aleatorio>`. Así se
-  puede borrar una ronda entera sin perderlos; se borran con el educando, 5 años después
-  de su baja. Ver y subir queda en `registro_accesos`.
-- Dashboard: «Documentos pendientes» (tutor) y «Documentos por revisar» (monitor).
-- Bases existentes: `2026-11-documentacion.sql`.
-
-## 10 quinquies. Inventario y listas de material (E-04)
-
-El inventario usa una base documental en ficheros JSON (no MySQL), según `CLAUDE.md`:
-
-```text
-storage/inventario/inventario.json   ubicaciones (árbol con «padre») y materiales con existencias
-storage/inventario/listas.json       listas y plantillas: líneas {material, necesarios, tomas} y compras
-```
-
-- `server/dominio/AlmacenJson.php` lee con bloqueo compartido y modifica con bloqueo
-  exclusivo (`flock` sobre `.bloqueo`). La escritura es atómica (temporal + `rename`).
-  La validación se hace dentro del bloqueo. Una prueba lanza diez escrituras simultáneas
-  y comprueba que no se pierde ninguna.
-- Ubicaciones en árbol libre (Trastero › Zona A › Estantería 1). No se puede borrar una
-  ubicación con otras dentro o con material, ni mover una dentro de sí misma.
-- Plano (E-15): la pestaña «Material y ubicaciones» muestra cada ubicación como una caja
-  con sus sububicaciones dentro y una ficha por material con su cantidad (selector
-  «Plano / Tabla»; la tabla es la vista anterior). Arrastrar una ficha a otra caja abre
-  un cuadro con la cantidad (número y deslizador, por defecto todo) y llama a
-  `mover_material`, que comprueba dentro del bloqueo que haya bastante en el origen (409
-  si no) y suma en el destino. Arrastrar el título de una caja a otra la mete dentro
-  (`guardar_ubicacion`); al fondo del plano, pasa a principal. El botón «⇄» de cada ficha
-  hace lo mismo sin ratón. Arrastrar y soltar es el nativo de HTML: lo arrastrado se
-  guarda en `this.arrastre` y la caja más interior que lo acepta recoge el evento.
-  Una caja ocupa tantas columnas como sububicaciones directas tiene (dos, dos; tres,
-  tres), sin pasar de las que caben en su rejilla. Como las columnas dependen del ancho,
-  `ajustarAnchos` lo calcula en JavaScript con la página pintada (`grid-column: span N`,
-  de fuera hacia dentro) y al cambiar el tamaño de la ventana. Las cajas pequeñas
-  rellenan los huecos (`grid-auto-flow: dense`), así el plano crece menos hacia abajo.
-- Listas (reparto automático desde 2026-11-18; antes el monitor elegía a mano de qué
-  ubicación cogía cada cantidad): a la izquierda el mismo plano, con lo que queda tras lo
-  que coge la lista. A la derecha, «Lo que necesitamos»: se añade arrastrando una ficha,
-  con «→» o escribiendo el nombre (con sugerencias del inventario) y solo se indica
-  cuántos. `repartir` coge primero de las ubicaciones elegidas arrastrando (`preferidas`,
-  la última delante) y después de donde más hay. «Material que tenemos y dónde está» y
-  «Hay que comprar» se calculan solos y se repintan al cambiar una cantidad. A comprar =
-  necesarios − lo que se coge, más lo que no está en el inventario (`compras`). El
-  reparto se recalcula al abrir la lista con las existencias actuales. La lista no
-  descuenta del inventario. El documento para imprimir agrupa por ubicación.
-- Plantillas: una lista se guarda como plantilla; de una plantilla sale una lista nueva o
-  una versión nueva (se guarda de cuál viene).
-- Datos de ejemplo (ficticios) para probar el plano y las listas:
-  `php server/pruebas/inventario-ejemplo.php <url> <correo> <contraseña> --confirmar`.
-  Usa la API con un usuario que gestione el inventario (no necesita permiso de escritura
-  en `storage/`) y no duplica lo que ya existe: 18 ubicaciones en cuatro niveles, 33
-  materiales (dos sin existencias), cuatro listas y una plantilla, con faltas para
-  comprar y ubicaciones preferidas.
-- Permiso `inventario.gestionar` (administrador y monitor). Bases existentes:
-  `2026-11-inventario.sql`. Los JSON se incluyen en la copia de seguridad de `storage/`.
-
-## 11. Dashboard, gráficas y exportación
-
-El dashboard usa la ruta `superapi.php?ruta=dashboard`, que devuelve indicadores
-y datos ya agrupados para las gráficas. Esto evita cargar todas las tablas cuando
-solo se necesitan resúmenes.
-
-También muestra un resumen común («Próximas actividades») con el próximo sábado,
-la próxima acampada (con cuánto falta), el próximo evento que no es ni sábado ni
-acampada y los cumpleaños de educandos de la semana, contada de domingo a sábado.
-Los tutores no ven los cumpleaños.
-
-Para el tutor hay además dos bloques (2026-11-17):
-
-- «Pendientes de este mes»: una ficha por educando y evento de este mes que aún no ha
-  terminado y convoca a la sección de ese educando, si falta confirmar la asistencia
-  (con el aviso «Necesita circular» si el evento la lleva) o si va y falta entregar la
-  circular («Falta documentación»). La ficha tiene el color de la sección del educando.
-- (Tesorería) «Facturas»: ver más abajo.
-- «Calendario del trimestre»: próximos eventos de las secciones de sus educandos que
-  empiezan antes de que acabe el trimestre natural en curso (ene–mar, abr–jun, jul–sep,
-  oct–dic).
-Quien puede cambiar el estado de las facturas (`facturas.cambiar_estado`: tesorería y
-administración) ve el bloque «Facturas» con dos columnas, «Pendientes de revisar»
-(estado `pendiente`) y «Pendientes de pagar» (estado `revisada`), cada una con el número
-de facturas y el importe total. Se muestran las 8 más antiguas de cada columna con
-concepto, importe, responsable y fecha de compra; el resto se consulta en Facturas.
-
-En tutores, el próximo evento y el mini calendario solo incluyen actividades
-compatibles con las secciones de sus educandos. Los monitores disponen de un
-desglose por sección de las respuestas del próximo sábado. Los tutores ven
-además circulares pendientes y asistencias sin confirmar. Los cumpleaños se
-calculan exclusivamente desde `educandos`; los usuarios no tienen fecha de
-nacimiento para este propósito.
-
-El dashboard ya no muestra la fila de indicadores numéricos (`article.indicador`),
-quitada a petición del usuario el 2026-11-17, ni otras gráficas (próximos eventos por
-tipo, usuarios por cargo, estado de asistencias del tutor). Según los permisos muestra
-las asistencias del próximo sábado y el panel de pendientes del tutor.
-
-Asistencias del próximo sábado (monitores): un único anillo doble. Por dentro, una
-porción por sección (proporcional a sus educandos convocados, con su color); por
-fuera, encima de cada sección, sus tramos con los tonos de su color, de claro a
-oscuro: asiste y ha entregado la circular, asiste sin entregarla, no ha respondido y no
-asiste. Al lado, una tabla con todas las cifras. Si el sábado no lleva circular, los
-dos primeros tramos se juntan en «Asiste». Solo cuenta el próximo evento de tipo
-sábado y las secciones que convoca. Lo dibuja `DarkorangeGraficas.crearAnilloAgrupado`.
-
-`graficas.js` dibuja gráficas de barras, tarta y anillo con SVG. Los tooltips
-indican valor y porcentaje.
-
-`exportacion.js` permite exportar los datos visibles a impresión, HTML, JSON o
-CSV. Se reutiliza desde tablas y dashboard para no duplicar controles.
-
-## 12. Estilos y vistas
-
-**Caché del navegador**: `index.html`, `login.html` e `instalador.html` cargan los
-scripts y `estilo.css` con un número de versión (`codigo.js?v=20261117b`). Al cambiar
-cualquier JS o CSS hay que cambiar ese número en las tres páginas; si no, el navegador
-puede mezclar archivos nuevos con antiguos guardados en caché.
-
-`estilo.css` está organizado por secciones:
-
-- cabecera;
-- acceso y asistencias;
-- estructura principal;
-- menús y navegación;
-- contenido y vistas;
-- tablas;
-- botones;
-- formularios y modales;
-- calendario;
-- dashboard;
-- responsive e impresión.
-
-Las vistas usan clases comunes:
-
-- `.vista`: identifica una pantalla;
-- `.vista-tabla`, `.vista-dashboard`, `.vista-calendario` y
-  `.vista-configuracion`: identifican pantallas concretas;
-- `.vista-superficie`: unifica fondo, borde, radio y sombra;
-- `.vista-formulario`: identifica formularios reutilizables.
-
-Esta organización permite crear futuras pantallas heredando la superficie y los
-controles comunes sin copiar reglas CSS.
-
-## 13. Instalación y configuración
-
-1. Crear la base de datos `ingeriar` y el usuario de aplicación.
-2. Configurar las variables de entorno de Apache:
+**Variables de entorno** (en el VirtualHost, con `mod_env`):
 
 ```apache
 SetEnv INGERIAR_DB_HOST localhost
 SetEnv INGERIAR_DB_PORT 3306
 SetEnv INGERIAR_DB_NAME ingeriar
 SetEnv INGERIAR_DB_USER ingeriar_app
-SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
+SetEnv INGERIAR_DB_PASSWORD <clave>
+# Opcionales
+SetEnv INGERIAR_TOKEN_INSTALACION <token>     # obliga a escribirlo en el instalador
+SetEnv INGERIAR_COPIAS_CLAVE <clave>          # cifra las copias de seguridad
+SetEnv INGERIAR_COPIAS_DESTINO /ruta/copias   # por defecto copias/ del proyecto
+SetEnv INGERIAR_COPIAS_RETENER 10
 ```
 
-3. Configurar `public/` como `DocumentRoot`.
-4. Crear las tablas con el instalador (`instalador.html`, ver «Instalador» más
-   abajo) o ejecutando `schema.sql`. El instalador puede crear además el primer
-   administrador si la tabla `usuarios` está vacía. Una vez que hay usuarios
-   responde 403 salvo a un administrador con la sesión iniciada.
-5. Cargar `demo.sql` si se necesitan datos de prueba. La contraseña de cada
-   usuario de prueba es `ingeriar-<numero>` (por ejemplo, `usuario1@ingeriar.test`
-   / `ingeriar-1`).
-6. Subir las plantillas en blanco (Configuración → «Documentos base y
-   plantillas»), incluida la circular de participación de los eventos.
-7. Dar permisos de escritura al servidor web sobre `storage/documentos/`,
-   `storage/facturas/`, `storage/galeria/` y `storage/configuracion/`.
-8. Para subir varias fotos a la vez, revisar en `php.ini` `upload_max_filesize`,
-   `post_max_size` y `max_file_uploads` (por defecto PHP limita a 2 MB por archivo).
-9. En bases ya creadas, ejecutar en este orden `server/data/migraciones/2026-11-galeria.sql`,
-   `2026-11-bajas-accesos.sql`, `2026-11-roles.sql`, `2026-11-facturas-tablero.sql` y
-   `2026-11-claves-foraneas.sql` (crea las claves foráneas que faltan en bases hechas
-   con el instalador antiguo), `2026-11-documentacion.sql` y `2026-11-inventario.sql`.
-   Cuando las pruebas pasen,
-   `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
-   código funciona antes y después de este último paso.
-10. Si ya había fichas de inscripción entregadas antes de E-16, moverlas a la carpeta
-    permanente con el usuario del servidor web, desde la copia que sirve Apache:
-    `sudo -u www-data php <ruta>/server/data/migraciones/2026-11-fichas-permanentes.php --confirmar`
-    (sin `--confirmar` solo muestra lo que haría; se puede repetir).
-11. Igual para las fotos y facturas subidas antes de E-17 (las pasa a sus carpetas):
-    `sudo -u www-data php <ruta>/server/data/migraciones/2026-11-carpetas-galeria-facturas.php --confirmar`.
+`obtenerConexion()` lee cada variable con `getenv()` o `$_SERVER`. **Provisional**: si falta
+`INGERIAR_DB_PASSWORD` usa la contraseña de desarrollo escrita en `database.php` (decisión
+del usuario, E-10 revertido); en un servidor real hay que definir la variable y usar otra
+contraseña, porque la del código es pública. Nunca se conecta como `root`.
 
-El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
-aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
+**Usuario de MySQL**: `ingeriar_app` con permisos solo sobre `ingeriar.*` (y
+`ingeriar_instalacion.*` si se usan las pruebas del instalador).
 
-Provisionalmente, si Apache no define `INGERIAR_DB_PASSWORD`, `database.php`
-usa la contraseña de desarrollo escrita en el código (decisión del 2026-11-17;
-E-10 queda pendiente). En un servidor real hay que definir la variable y usar
-otra contraseña: la del código es pública.
+**Permisos de archivos**: el usuario de Apache (`www-data`) debe poder escribir en
+`storage/` y sus subcarpetas (`chgrp -R www-data storage && chmod -R g+rwX storage`). Lo
+que crea Apache queda con su usuario; los scripts que mueven archivos (migraciones) se
+ejecutan con `sudo -u www-data`.
 
-No se debe usar `root` desde PHP. En Ubuntu puede fallar por autenticación
-`unix_socket`. Si aparece `using password: NO`, Apache no está transmitiendo
-`INGERIAR_DB_PASSWORD`; hay que revisar `mod_env`, el VirtualHost y reiniciar
-Apache.
+**PHP** (`php.ini`): `upload_max_filesize`, `post_max_size` y `max_file_uploads`
+suficientes para subir varias fotos (la aplicación limita a su vez con
+`tamano_maximo_archivos_mb`). `session.cookie_httponly` lo fuerza `sesion.php`.
 
-### Pruebas
-
-`docs/PLAN-PRUEBAS.md` recoge las pruebas funcionales y de permisos por rol con
-su resultado y fecha. Las automáticas se repiten con:
+**Despliegue local de desarrollo**: el repositorio se copia a Apache sin `storage/` ni
+`copias/` (que son de la instalación):
 
 ```bash
-INGERIAR_DB_PASSWORD=... php server/pruebas/pruebas.php http://localhost:8000 --confirmar
+rsync -a --exclude='.git' --exclude='/storage/' --exclude='/copias/' ./ /var/www/html/Ingeriar/
 ```
 
-Solo contra una base de datos de pruebas: el script crea y borra sus propios datos.
+**Caché del navegador**: `index.html`, `login.html` e `instalador.html` cargan scripts y
+`estilo.css` con `?v=<fecha+letra>`. Al cambiar cualquier JS o CSS hay que subir ese
+número en las tres páginas; si no, el navegador puede mezclar archivos nuevos y viejos.
 
-### Instalador (E-11)
+## 7. Flujo de una petición y arranque del cliente
 
-`instalador.html` es un asistente en cuatro pasos:
+**Inicio de sesión**
 
-1. Base de datos: se instala en la base configurada en el servidor
-   (`INGERIAR_DB_NAME`); la contraseña de MySQL nunca se escribe en el formulario.
-   Si existe `INGERIAR_TOKEN_INSTALACION`, hay que escribir ese token.
-2. Tablas, de dos formas:
-   - Asistente: carga el modelo de Ingeriar (`server/data/modelo.json`) y permite
-     cambiar tablas y columnas (tipo, longitud, valores de ENUM, nulo, valor por
-     defecto, clave primaria, AUTO_INCREMENT, único, sin signo), índices únicos de
-     varias columnas y claves foráneas con ON DELETE / ON UPDATE. El modelo se puede
-     descargar y volver a cargar en JSON.
-   - Subir un `schema.sql`: solo se admiten CREATE TABLE, INSERT y ALTER TABLE … ADD
-     (se rechazan DROP, GRANT, LOAD, INTO OUTFILE…); CREATE DATABASE y USE se ignoran.
-3. Datos iniciales (catálogos, cargos y permisos, documentos base; archivos de
-   `server/data/semillas/`) y primer administrador.
-4. Vista previa del SQL (se puede descargar como `schema.sql`) e instalación.
+1. `login.html` → `login.js` envía `{email, contrasena}` a `api/login.php`.
+2. `login.php` busca el usuario con PDO, comprueba con `verificarContrasena` (bcrypt; las
+   antiguas en sha256 se reescriben al entrar) y guarda en `$_SESSION` el id y los datos
+   básicos. Si el correo no existe calcula un hash igualmente (mismo tiempo de respuesta).
+3. Redirige a `index.html`.
 
-El SQL lo genera siempre el servidor (`server/instalacion/ModeloDatos.php`) a partir
-del modelo validado; los nombres van entre comillas invertidas y los valores
-escapados. Primero se crean las tablas y después las claves foráneas. MySQL confirma
-cada CREATE TABLE al momento, así que si una sentencia falla se indica cuál; los
-datos iniciales y el administrador sí van en una transacción.
+**Arranque de `index.html`** (`codigo.js`)
 
-`modelo.json` se genera desde una base creada con `schema.sql`:
-`INGERIAR_DB_NAME=<base> php server/herramientas/generar-modelo.php`. Hay que
-regenerarlo cuando cambie `schema.sql`. La prueba INI-05 comprueba que instalar con el
-asistente deja exactamente el mismo esquema y datos iniciales que `schema.sql`.
+1. Crea un objeto por vista: `IngeriarTabla`, `IngeriarFormulario`, `IngeriarCalendario`,
+   `IngeriarDashboard`, `IngeriarGaleria`, `IngeriarFacturas`, `IngeriarInventario`,
+   `IngeriarConfiguracion`, `IngeriarDocumentos`, `IngeriarExportacion`.
+2. Pide `superapi.php?ruta=usuario_actual` (usuario, cargos y permisos). Sin sesión → login.
+3. `configuracion.cargar()` aplica nombre, logo y colores del grupo (variables CSS).
+4. `cargarEntidades()` pide `ruta=entidades` (tablas que el usuario puede ver en el menú) y
+   añade los enlaces fijos: Dashboard, Calendario, Galería, Facturas e Inventario (estos
+   dos, solo con su permiso). El botón ⚙ de Configuración aparece con
+   `configuracion.gestionar`.
+5. Se muestra el dashboard.
 
-### Copias de seguridad (E-12)
+**Una petición cualquiera**
 
-`server/copias/copia.php` genera un único `ingeriar-copia-AAAA-MM-DD-HHMMSS.zip` con
-el volcado de la base de datos (`mysqldump`) y toda la carpeta `storage/`
-(documentos, facturas, galería, configuración e inventario).
+```text
+fetch("api/<area>.php?...")            utilidades.obtenerJson / enviarJson / enviarFormulario
+ → public/api/<area>.php                require del archivo real
+ → server/api/<area>.php
+     obtenerConexion()                  PDO
+     exigirUsuario($db)                 401 sin sesión; recarga cargos y permisos (una consulta)
+     exigirPermiso('…') / reglas        403 si no puede
+     validación de datos                400 / 404 / 409 / 413 / 415 con {"error": "…"}
+     consulta preparada / archivo
+     responder([...])                   JSON con el código HTTP
+ → utilidades convierte un error HTTP o {"error"} en una excepción con el mensaje
+```
 
-- La contraseña de MySQL va en un fichero de opciones temporal (0600), nunca en la
-  orden, donde la vería cualquiera con `ps`.
-- Destino: `INGERIAR_COPIAS_DESTINO` (por defecto `copias/` en la raíz del proyecto,
-  fuera de `public/`, con `Require all denied` y fuera del repositorio). Permisos 0600.
-- Cifrado: si existe `INGERIAR_COPIAS_CLAVE`, el zip se cifra con AES-256 (CBC por
-  bloques de 1 MB + HMAC-SHA256, claves con PBKDF2) y queda como `.zip.cifrado`. Sin
-  clave, el registro avisa de que la copia contiene datos de menores sin cifrar.
-- Retención: `INGERIAR_COPIAS_RETENER` (por defecto 10 copias). Bloqueo para que no se
-  ejecuten dos a la vez. Cada ejecución queda en `registro-copias.log`.
-- Configuración → «Copias de seguridad» (`copia.descargar`) lista las copias y las
-  descarga; cada descarga queda en `registro_accesos`. `servicios/salida.php` sigue
-  siendo una exportación en JSON, no una copia de seguridad.
+Los cambios de cargos o permisos de un usuario tienen efecto en su siguiente petición,
+porque `exigirUsuario()` los vuelve a cargar siempre.
 
-Programarla con cron **con el mismo usuario que Apache** (para que la web pueda leer
-las copias), por ejemplo cada noche a las 3:00:
+## 8. Seguridad
+
+- **Contraseñas**: `password_hash` (bcrypt con sal) y `password_verify`
+  (`server/auth/contrasenas.php`). Política: 8 caracteres o más y al menos un número o
+  símbolo, comprobada en el servidor. El hash nunca sale del servidor (la ruta `tabla` no
+  lo devuelve; al editar, vacío = se conserva). Las sha256 antiguas se migran al entrar;
+  para ver cuántas quedan: ``SELECT COUNT(*) FROM usuarios WHERE `contraseña` NOT LIKE '$2%'``.
+- **Sesión**: cookie `HttpOnly`, `SameSite=Lax` y `Secure` con HTTPS (`sesion.php`).
+- **Permisos siempre en el servidor** (§9). Ocultar botones en el cliente es solo comodidad.
+- **SQL**: consultas preparadas con PDO; los nombres de tabla o columna que no pueden ir
+  como parámetro salen del esquema (`information_schema`) o de constantes, nunca del
+  usuario, y se escriben entre comillas invertidas escapadas.
+- **Archivos subidos**: tipo real con `finfo`, tamaño máximo de la configuración, nombre
+  aleatorio (`random_bytes`), guardados en `storage/` y servidos solo por PHP con
+  `X-Content-Type-Options: nosniff`. Las rutas se comprueban con `realpath` dentro de la
+  carpeta base antes de leer, mover o borrar (evita `../`).
+- **Registro de accesos** (`registro_accesos`): quién, qué, sobre qué educando, cuándo y
+  desde qué IP; solo se inserta desde PHP y nadie lo puede editar ni borrar. Se registran
+  ver y previsualizar entregas, subirlas, descargar copias y borrados por conservación.
+- **Instalador**: con usuarios ya creados solo lo usa un administrador con sesión; con
+  `INGERIAR_TOKEN_INSTALACION` además pide el token. El SQL lo genera el servidor.
+- **Protección de datos**: plazos de conservación (§15.9) y copias cifradas (§18). El
+  repositorio es público: solo datos ficticios (dominios `.test`) y nada de `storage/`.
+- **Pendiente (E-10)**: quitar la contraseña de desarrollo de `database.php`.
+
+## 9. Cargos y permisos
+
+Control de acceso basado en roles (E-13):
+
+```text
+usuarios ─< usuarios_roles >─ roles ─< roles_permisos >─ permisos
+```
+
+- **Cargo básico** (`roles.basico = 1`): administrador, monitor (`scouter`) o tutor. Todo
+  usuario tiene exactamente uno (`validarRolesUsuario`).
+- **Cargos adicionales**: tesorería y los que cree el administrador. Se suman al básico.
+- **Permisos de un usuario** = unión de los permisos de sus cargos activos
+  (`cargarPermisosUsuario`). `tienePermiso()`, `tieneAlgunPermiso()` y `exigirPermiso()`
+  son las únicas comprobaciones; lo que depende de «ser tutor de» se comprueba además con
+  `usuarios_educandos` (`Educando::esTutorDe`, solo educandos activos).
+- **Tablas genéricas**: `superapi.php` tiene `PERMISOS_TABLAS` (tabla → permisos de
+  lectura, escritura, borrado y menú). Una tabla que no esté en el mapa exige
+  `configuracion.gestionar`.
+- **Para no bloquearse**: los permisos del administrador no se editan, los cargos básicos
+  no se desactivan y se rechaza cualquier cambio que deje a nadie con `roles.gestionar`
+  (`usuariosQueGestionanRoles`).
+
+| Permiso | Para qué sirve | Admin | Monitor | Tutor | Tesorería |
+|---|---|:-:|:-:|:-:|:-:|
+| `usuarios.ver` | Ver usuarios (elegir responsables) | ✓ | ✓ | | |
+| `usuarios.gestionar` | Crear, editar y borrar usuarios y asignar cargos | ✓ | | | |
+| `educandos.ver_propios` | Ver solo sus educandos | | | ✓ | |
+| `educandos.ver_todos` | Ver todos los educandos | ✓ | ✓ | | |
+| `educandos.gestionar` | Crear y editar educandos (también la baja) | ✓ | ✓ | | |
+| `educandos.borrar` | Borrar educandos | ✓ | | | |
+| `eventos.ver` / `eventos.gestionar` | Ver el calendario / crear, editar y borrar eventos | ✓ | ✓ / ✓ | ✓ / | |
+| `asistencia.responder_propios` | Responder asistencias y subir circulares de sus educandos | | | ✓ | |
+| `asistencia.ver_todas` | Ver todas las asistencias | ✓ | ✓ | | |
+| `asistencia.gestionar` | Editar la tabla de asistencias | ✓ | | | |
+| `documentos.ver_todos` | Ver la documentación de cualquier educando | ✓ | ✓ | | |
+| `documentos.subir_propios` | Entregar las fichas de sus educandos | | | ✓ | |
+| `documentos.revisar` | Revisar fichas y entregarlas por las familias | ✓ | ✓ | | |
+| `galeria.ver` / `galeria.subir` | Ver la galería / subir y borrar fotos | ✓ | ✓ / ✓ | ✓ / | |
+| `facturas.subir_propias` | Subir y gestionar sus facturas | ✓ | ✓ | | |
+| `facturas.ver_todas` | Ver las facturas de todos | ✓ | | | ✓ |
+| `facturas.cambiar_estado` | Revisar y pagar facturas | ✓ | | | ✓ |
+| `facturas.gestionar_todas` | Editar y borrar facturas de otros | ✓ | | | |
+| `inventario.gestionar` | Inventario y listas de material | ✓ | ✓ | | |
+| `configuracion.gestionar` | Configuración del grupo y catálogos | ✓ | | | |
+| `roles.gestionar` | Crear cargos y editar permisos | ✓ | | | |
+| `copia.descargar` | Copias de seguridad y exportación JSON | ✓ | | | |
+| `conservacion.gestionar` | Borrar datos vencidos y rondas vencidas | ✓ | | | |
+| `registro.ver` | Consultar el registro de accesos | ✓ | | | |
+
+El administrador tiene todos menos los «propios» (que describen una relación, no una
+capacidad). Los cargos y su tabla de permisos se editan en Configuración → «Cargos y
+permisos».
+
+## 10. Base de datos
+
+Base `ingeriar`, motor InnoDB, `utf8mb4`. Esquema completo en `server/data/schema.sql`.
+
+```text
+usuarios ─< usuarios_educandos >─ educandos ─< educandos_asistencias >─ eventos ─< eventos_secciones
+   │                                  │                                     │
+   ├─< usuarios_roles >─ roles ─< roles_permisos >─ permisos              └─< galeria_fotos
+   ├─< facturas (responsable_id, estado_cambiado_por)
+   ├─< documentos_educando (subido_por, revisado_por) >─ educandos
+   └─< registro_accesos                              documentos_base ─< documentos_educando
+Catálogos: tipos_evento, secciones, categorias_factura, documentos_base
+```
+
+| Tabla | Contenido y columnas clave |
+|---|---|
+| `usuarios` | Cuentas: nombre, apellidos, `email` y `telefono` únicos, `contraseña` (hash). |
+| `roles`, `permisos`, `usuarios_roles`, `roles_permisos` | Cargos (`basico`, `activo`, `orden`), permisos y sus asignaciones. |
+| `educandos` | nombre, apellidos, `DNI` (único), `naz` (nacimiento), `fecha_baja`. |
+| `usuarios_educandos` | Vínculo tutor–educando (un educando puede tener varios tutores). |
+| `eventos` | nombre, `fecha_inicio`, `fecha_fin`, `id_responsable`, lugar, municipio, comunidad, `tipo` (código de `tipos_evento`), `circular`. |
+| `eventos_secciones` | Secciones convocadas por evento (PK compuesta). Sin filas = todas. |
+| `educandos_asistencias` | Respuesta por educando y evento: `estado` (`pendiente`, `si`, `no`) y `archivo_entrega` (circular). Única por (educando, evento). |
+| `galeria_fotos` | Foto: `id_evento`, `archivo` (ruta relativa en `storage/galeria/`), nombre original, quién la subió. |
+| `facturas` | responsable, número, CIF, fechas de emisión y compra, concepto, precio, categoría, `estado` (`pendiente`, `revisada`, `pagada`), `imagen_factura`, quién y cuándo cambió el estado. |
+| `documentos_base` | Catálogo de documentos: `tipo` (`participacion` = circular de eventos, `inscripcion` = ficha), plantilla en blanco, obligatorio, activo, orden. |
+| `documentos_educando` | Ficha entregada: educando, documento, archivo, quién la subió, `estado` (`pendiente`, `revisado`, `corregir`), observaciones, quién y cuándo la revisó. Única por (educando, documento). |
+| `registro_accesos` | Registro inalterable de accesos a documentación sensible. |
+| `tipos_evento`, `secciones`, `categorias_factura` | Catálogos con `codigo` estable, nombre visible, `activo` y `orden` (las secciones, también edades). Retirar = `activo = 0`, para conservar el histórico. |
+
+Las claves foráneas usan `ON DELETE CASCADE` donde lo dependiente no tiene sentido solo
+(asistencias, fotos, vínculos) y `SET NULL` en referencias a usuarios que pueden borrarse
+(responsable de un evento, quién revisó). `Educando::borrarConDependencias()` borra a mano
+lo dependiente por si la base se creó con el instalador antiguo sin claves foráneas.
+
+**Configuración del grupo** (`server/data/config.php`, JSON): `nombre_grupo`,
+`logo_archivo`, `color`, `color_secundario`, `modo_oscuro`, datos de contacto (`cif`,
+`direccion`, `municipio`, `provincia`, `telefono`, `correo`, `coordinador`),
+`formato_nombre`, `mostrar_educandos_sin_seccion`, `permitir_asistencia_pasada`,
+`tamano_maximo_archivos_mb`, `formatos_entrega` y `plazo_conservacion_anos`.
+
+## 11. Almacenamiento de archivos (`storage/`)
+
+```text
+storage/
+├── .htaccess                         Require all denied
+├── configuracion/                    Logo del grupo
+├── documentos/
+│   ├── biblioteca/                   Plantillas en blanco de documentos_base (nombre aleatorio)
+│   ├── permanente/<id>-<educando>/   Fichas de inscripción (E-16): no dependen de la ronda
+│   └── <ronda>/<sección>/<id>-<educando>/   Circulares de eventos (ronda y sección del evento)
+├── galeria/<ronda>/<id>-<evento>/    Fotos (E-17): ronda de la fecha de inicio del evento
+├── facturas/<ronda>/                 Imágenes de facturas (E-17): ronda de la fecha de compra
+└── inventario/                       inventario.json, listas.json y .bloqueo (E-04)
+```
+
+- En la base de datos se guarda la **ruta relativa** a la carpeta de su tipo.
+- `server/data/almacenamiento.php` reúne las rutas de galería y facturas: `baseAlmacen`,
+  `rutaEnAlmacen` (ruta segura), `carpetaGaleriaEvento`, `carpetaFactura`,
+  `guardarSubidoEn`, `borrarDeAlmacen` (quita carpetas vacías), `recolocarEnAlmacen`,
+  `recolocarFotosEvento` y `recolocarImagenFactura`. Al cambiar la fecha o el nombre de un
+  evento, o la fecha de compra de una factura, el archivo se mueve a su carpeta nueva.
+- Los nombres de carpeta llevan el id delante (`45-acampada-de-otono`): no chocan aunque
+  dos elementos se llamen igual.
+- Las fotos no se borran con las rondas vencidas (decisión del usuario); las circulares sí.
+- Todo `storage/` (salvo los `.gitkeep`) está en `.gitignore`: puede contener datos reales.
+
+## 12. Referencia de la API del servidor
+
+Todas responden JSON (salvo las descargas) y exigen sesión salvo `login.php` y el
+instalador vacío. Entre paréntesis, el permiso necesario.
+
+**`login.php`** (POST `{email, contrasena}`) y **`logout.php`**.
+
+**`superapi.php?ruta=`** (API general):
+
+| Ruta | Método | Qué hace |
+|---|---|---|
+| `usuario_actual` | GET | Usuario, cargos y permisos de la sesión. |
+| `dashboard` | GET | Datos del dashboard según permisos (§15.1). |
+| `entidades` | GET | Tablas del menú que el usuario puede ver. |
+| `tabla&tabla=` | GET | Columnas y registros de una tabla (lectura de `PERMISOS_TABLAS`). Usuarios sin hash; educandos con su sección; eventos con sus convocatorias; tutores solo ven lo suyo. |
+| `columnas&tabla=` | GET | Columnas con tipo, ENUM y relaciones (formularios). |
+| `crear`, `editar` | POST `tabla`, `id`, `datos` (JSON) | Alta y edición genéricas (escritura). Reglas especiales: usuarios (contraseña, cargos, educandos vinculados), eventos (tipo válido, convocatorias, recolocar fotos). Las facturas no se escriben aquí. |
+| `borrar` | POST `tabla`, `id` | Borrado genérico (borrado). Al borrar un evento borra también sus fotos del disco. |
+| `catalogos` | GET / POST | Tipos de evento, secciones y categorías (POST: `configuracion.gestionar`). |
+| `configuracion`, `configuracion_logo` | GET / POST | Configuración del grupo y logo (POST: `configuracion.gestionar`). |
+| `roles` | GET / POST | Cargos y permisos (`roles.gestionar`). |
+| `asistencia_tutor` | GET `evento` / POST `{evento, educando, estado}` | Respuestas de un tutor para sus educandos (`asistencia.responder_propios`); no en eventos pasados. |
+| `educando_documentos&educando=` | GET | Circulares entregadas de un educando. |
+| `educandos_usuario&usuario=` | GET | Educandos vinculados a un usuario (`usuarios.gestionar`). |
+| `conservacion` | GET / POST | Educandos con baja vencida y tutores que se quedarían sin educandos; POST los borra (`conservacion.gestionar`). |
+| `conservacion_rondas` | GET / POST | Rondas vencidas; POST borra su carpeta y sus asistencias (`conservacion.gestionar`). |
+
+**`archivo.php`** (circulares de eventos):
+GET `tipo=circular&evento=` (plantilla en blanco), GET `tipo=entrega&evento=&educando=`
+(ver la entregada) y `tipo=preview` (miniatura; PDF con `pdftoppm`); POST `tipo=entrega`
+con `archivo` (tutor del educando, evento con circular y sin terminar).
+
+**`documentos.php?accion=`** (documentación de inscripción): `plantillas` (catálogo;
+`&todos=1` para configuración), `plantilla&codigo=` (descargar en blanco), `educando&id=`
+(estado de cada ficha), `ver&id=`, `subir` (POST `id_educando`, `codigo`, `archivo`),
+`revisar` (POST `id`, `estado`, `observaciones`; `documentos.revisar`) y
+`guardar_plantilla` (POST; `configuracion.gestionar`).
+
+**`galeria.php?accion=`**: `listar` (árbol ronda › tipo › evento con las fotos visibles),
+`ver&id=` (`&descargar=1`), `subir` (POST `evento`, `fotos[]`; `galeria.subir`) y
+`borrar` (POST `id`).
+
+**`facturas.php?accion=`**: `listar`, `imagen&id=`, `crear`, `editar`, `borrar` (POST con
+los campos y la `imagen`) y `estado` (POST `id`, `estado`; `facturas.cambiar_estado`).
+
+**`inventario.php?accion=`** (`inventario.gestionar`): `datos`, `guardar_ubicacion`,
+`borrar_ubicacion`, `guardar_material`, `borrar_material`, `mover_material`,
+`guardar_lista`, `copiar_lista`, `borrar_lista` (detalle en la cabecera del archivo).
+
+**`copias.php?accion=`** (`copia.descargar`): `listar` y `descargar&nombre=`.
+
+**`instalar.php?accion=`**: `estado`, `modelo`, `vista_previa`, `instalar`, `instalar_sql`.
+
+**`servicios/salida.php`** (`copia.descargar`): todas las tablas en JSON, sin contraseñas.
+
+## 13. Capa de dominio y funciones comunes del servidor
+
+**Modelo (Active Record hecho a mano, `server/dominio/`)**. Cada subclase declara su tabla
+y el mapa columna → propiedad; `Modelo` aporta `desdeFila`, `rellenar`, `buscar`, `donde`,
+`aFila`, `guardar` (INSERT o UPDATE), `borrar` y `jsonSerialize`. Es lo que hace un ORM
+(Doctrine, Hibernate) con anotaciones, sin dependencias.
+
+| Clase | Reglas que concentra |
+|---|---|
+| `Educando` | `estaActivo`, `estabaActivoEn(fecha)`, `seccion(catálogo, fecha)`, `carpeta()`, `esTutorDe`, `deTutor`, `vencidos(fechaLímite)`, `archivos()` (circulares y fichas), `borrarConDependencias()`. |
+| `Evento` | `convocatoriasDeTodos`, `convocaA(convocadas, secciones)`, `haTerminado`, `archivosGaleria`. |
+| `Factura` | `esDe`, `puedeVerla`, `motivoNoEditable` (pagada, de otro…), `cambiarEstado` (anota quién y cuándo), `listadoPara(usuario)`. |
+| `Usuario` | `nombreCompleto`, `cargosDeTodos`, `asignarCargos`, `asignarEducandos`; el JSON nunca incluye la contraseña. |
+| `AlmacenJson` | `leer` (bloqueo compartido), `modificar` (bloqueo exclusivo, valida dentro, escribe en temporal y `rename`), `nuevoId`. |
+
+Las rutas genéricas de `superapi.php` siguen trabajando con filas (se adaptan a cualquier
+tabla); las reglas de negocio están en estas clases.
+
+**Funciones comunes**:
+
+- `server/api/comun.php`: `responder($datos, $código)`, `tamanoMaximoArchivos()`,
+  `borrarCarpetaDentroDe($carpeta, $base)`.
+- `server/auth/sesion.php`: arranca la sesión con cookie segura; `usuarioActual()`.
+- `server/auth/permisos.php`: `cargarPermisosUsuario`, `exigirUsuario`, `tienePermiso`,
+  `tieneAlgunPermiso`, `exigirPermiso`, `usuarioTienePermiso`, `usuariosQueGestionanRoles`,
+  `validarRolesUsuario`.
+- `server/auth/contrasenas.php`: `validarContrasena`, `cifrarContrasena`,
+  `verificarContrasena`, `contrasenaNecesitaActualizarse`.
+- `server/auth/registro.php`: `registrarAcceso($db, $usuario, $acción, $recurso, $educando, $detalle)`.
+- `server/data/secciones.php`: `rondaActual(fecha)`, `seccionDeEducando`,
+  `seccionDeEducandoConCatalogo`, `nombreCarpetaEducando`.
+- `server/data/almacenamiento.php`: ver §11.
+
+## 14. Cliente: módulos JavaScript
+
+Todas las clases están en `public/nucleo/` y se cargan como scripts normales (sin
+módulos ES) desde `index.html`. Cada vista pinta dentro de `main > section`.
+
+| Archivo / clase | Responsabilidad |
+|---|---|
+| `codigo.js` | Arranque, menú lateral (`cargarEntidades`, enlaces fijos), cambio de vista. |
+| `utilidades.js` · `IngeriarUtilidades` | `obtenerJson`, `enviarJson`, `enviarFormulario` (convierte errores en excepciones), `tienePermiso`, cola de miniaturas con el Web Worker, textos comunes. |
+| `tabla.js` · `IngeriarTabla` | Tablas genéricas: buscador por columna, orden, colores por sección, bajas en cursiva, acciones (ver documentación, editar, borrar) según permisos. |
+| `formulario.js` · `IngeriarFormulario` | Formularios automáticos a partir de las columnas: fecha, número, ENUM, sí/no, relaciones con nombres legibles, secciones convocadas, educandos vinculados y cargos. |
+| `calendario.js` · `IngeriarCalendario` | Calendario mensual, eventos por día con color por tipo, alta y edición, y la ventana de asistencias (tutor: responder y subir circular; monitor: ver por sección). |
+| `dashboard.js` · `IngeriarDashboard` | Bloques por permiso (§15.1). |
+| `graficas.js` · `DarkorangeGraficas` | Gráficas SVG: barras, tarta, anillo y el anillo doble agrupado por sección. |
+| `galeria.js` · `IngeriarGaleria` | Carpetas ronda › tipo › evento con migas, visor con teclado, subida múltiple y borrado. |
+| `facturas.js` · `IngeriarFacturas` | Tablero de tres columnas con arrastrar entre estados, agrupado por responsable para tesorería, detalle e imagen. |
+| `documentos.js` · `IngeriarDocumentos` | Fichas de inscripción de un educando (descargar plantilla, entregar, revisar) y el bloque de plantillas de Configuración. |
+| `inventario.js` · `IngeriarInventario` | Plano y tabla del inventario, arrastrar y soltar, listas con reparto automático, documento para imprimir. |
+| `configuracion.js` · `IngeriarConfiguracion` | Configuración del grupo, catálogos, cargos y permisos, copias, datos vencidos y rondas vencidas. |
+| `exportacion.js` · `IngeriarExportacion` | Exportar lo visible a impresión, HTML, JSON o CSV. |
+| `documento-preview-worker.js` | Web Worker que genera miniaturas sin bloquear la página. |
+| `login.js`, `instalador.js` | Acceso e instalador. |
+
+Convenciones: nombres en español, clases con prefijo `Ingeriar`, sin `innerHTML` con datos
+del usuario (se usa `textContent`), los permisos del cliente solo deciden qué se enseña.
+
+## 15. Funcionalidades
+
+### 15.1 Dashboard
+
+`superapi.php?ruta=dashboard` devuelve solo los bloques que el usuario puede ver:
+
+- **Próximas actividades** (todos): próximo sábado, próxima acampada (cuánto falta),
+  próximo evento de otro tipo y, salvo para tutores, cumpleaños de la semana (domingo a
+  sábado). Para un tutor, solo eventos que convocan a las secciones de sus educandos.
+- **Asistencias del sábado** (`asistencia.ver_todas`): anillo doble. Dentro, una porción
+  por sección; fuera, sus tramos (asiste con circular, asiste sin ella, sin responder, no
+  asiste) en tonos del color de la sección, con una tabla de cifras.
+- **Pendientes de este mes** (tutor): una ficha por educando y evento de este mes sin
+  terminar en el que falta confirmar la asistencia o, si va, entregar la circular; con el
+  color de la sección. **Calendario del trimestre**: próximos eventos hasta fin de trimestre.
+- **Facturas** (`facturas.cambiar_estado`): pendientes de revisar y de pagar, con totales
+  (las 8 más antiguas de cada una).
+
+### 15.2 Eventos, asistencias y circulares
+
+- Un evento convoca a unas secciones; sin ninguna, a todas. El formulario tiene casillas y
+  «Todas las secciones».
+- El tutor responde sí o no por cada educando convocado mientras el evento no ha terminado.
+  Si el evento lleva circular, la descarga en blanco (plantilla `participacion`) y sube la
+  firmada; se guarda en la carpeta de la ronda y la sección **del evento**.
+- Los monitores ven las respuestas por sección y las circulares (cada vista queda en el
+  registro de accesos). La tabla de asistencias solo la edita quien tiene
+  `asistencia.gestionar`.
+
+### 15.3 Educandos y documentación de inscripción
+
+- Tabla de educandos con color por sección; las bajas, al final y en cursiva.
+- «Ver documentación» muestra las fichas del catálogo: plantilla en blanco, entregada o
+  no, estado de revisión y observaciones, y sus circulares.
+- El tutor (o un monitor, con copia en papel) entrega cada ficha una vez; volver a subirla
+  la sustituye y la deja pendiente. Un monitor la marca revisada o pide corrección.
+- Se guardan en `storage/documentos/permanente/<educando>/`.
+
+### 15.4 Galería
+
+Árbol calculado ronda › tipo de evento › evento. Administración y monitores ven, suben (20
+fotos por subida, validadas todas antes de guardar ninguna) y borran. Un tutor solo ve los
+eventos que convocaban a la sección que tenían sus educandos en esa fecha y en los que
+seguían en el grupo.
+
+### 15.5 Facturas
+
+Tablero Pendientes → Revisadas → Pagadas. Cada monitor ve, edita y borra solo las suyas
+mientras están pendientes; la imagen es obligatoria. Tesorería y administración ven todas
+(agrupadas por responsable) y cambian el estado con botones o arrastrando; una pagada no
+se edita ni se borra. Se guarda quién y cuándo cambió el estado.
+
+### 15.6 Inventario y listas de material
+
+- Base documental en JSON (`inventario.json`: ubicaciones en árbol y materiales con sus
+  existencias por ubicación; `listas.json`: listas y plantillas).
+- **Plano**: cada ubicación es una caja con sus sububicaciones dentro y una ficha por
+  material. Arrastrar una ficha a otra caja mueve la cantidad elegida (`mover_material`,
+  comprobado dentro del bloqueo). Arrastrar el título de una caja la mete en otra. Una
+  caja ocupa tantas columnas como sububicaciones tiene, calculado en JS
+  (`ajustarAnchos`). Hay vista de **tabla** y botones para hacerlo sin ratón.
+- **Listas**: se dice cuánto se necesita de cada cosa; `repartir` coge primero de las
+  ubicaciones elegidas arrastrando y después de donde más hay; lo que falta y lo que no
+  está en el inventario sale en «Hay que comprar». La lista no descuenta del inventario y
+  genera un documento para imprimir agrupado por ubicación. Las listas se guardan como
+  plantilla y se reutilizan.
+
+### 15.7 Configuración
+
+Identidad y apariencia del grupo (nombre, logo, colores, modo oscuro), datos del grupo,
+preferencias (formato de nombre, archivos, asistencia en pasados, plazo de conservación),
+catálogos (tipos de evento, secciones con edades, categorías de factura), documentos base
+y plantillas, cargos y permisos, copias de seguridad, exportación JSON, datos vencidos y
+rondas vencidas.
+
+### 15.8 Registro de accesos
+
+Tabla de solo lectura (`registro.ver`). Guarda identificadores, no nombres. No se
+registran las fotos de la galería (cada miniatura sería un acceso).
+
+### 15.9 Bajas y conservación de datos
+
+- **Baja**: con `fecha_baja` el educando desaparece de las vistas activas y su tutor ya no
+  opera con él; quitar la fecha la deshace.
+- **Datos vencidos** (E-06): pasado el plazo desde la baja se borran el educando, sus
+  asistencias, vínculos, fichas permanentes y archivos; el administrador decide si borra
+  también los tutores que se quedan sin educandos.
+- **Rondas vencidas** (E-16): pasado el plazo desde el final de una ronda (31 de agosto)
+  se borran su carpeta de circulares y las respuestas de asistencia de sus eventos, de
+  todos los educandos. Las fichas permanentes y las fotos se quedan.
+- En ambos casos el servidor recalcula qué ha vencido y el borrado queda registrado. Nunca
+  es automático: lo confirma el administrador.
+
+## 16. Estilos y criterios de interfaz
+
+`public/estilo.css`, organizado por secciones con comentarios
+(`/* ==================== FACTURAS ==================== */`): variables de color en
+`:root` (las cambia la configuración del grupo), cabecera, estructura, menús, tablas,
+botones, formularios y modales, calendario, dashboard, galería, facturas, inventario,
+configuración, responsive e impresión.
+
+Clases comunes: `.vista` (y `.vista-tabla`, `.vista-dashboard`…), `.vista-superficie`
+(fondo, borde, radio y sombra), `.vista-formulario`, `.boton` con variantes
+(`boton-crear`, `boton-editar`, `boton-borrar`, `boton-cancelar`, `boton-descargar`,
+`boton-mini`), `.fila-seccion-<código>` (color de fondo de cada sección).
+
+Criterios acordados con el usuario:
+
+- **Filas alineadas**: en cualquier lista de filas con controles, todas usan la misma
+  rejilla CSS (controles con ancho fijo, texto en `1fr`) y crean las mismas celdas aunque
+  alguna quede vacía; así los botones y campos quedan en la misma columna y altura. No se
+  usa `flex-wrap` para estas filas.
+- La celda de acciones de una tabla es una celda normal (`td.acciones` con `width:1%`),
+  pegada a la derecha.
+- Todo debe funcionar también con teclado: cada arrastre tiene un botón equivalente.
+
+## 17. Instalación y migraciones
+
+1. Crear la base `ingeriar` y el usuario `ingeriar_app` con permisos sobre ella.
+2. Configurar Apache (§6): DocumentRoot, `AllowOverride All` y variables de entorno.
+3. Crear las tablas con el instalador (`instalador.html`) o con `schema.sql`.
+4. Datos de prueba sencillos: `demo.sql` (contraseña `ingeriar-<n>` según el archivo; en la
+   instalación local de desarrollo se usan `usuarioN@ingeriar.test` / `demo-N`). Datos
+   de ejemplo completos y realistas: §19.
+5. Subir las plantillas en blanco (Configuración → «Documentos base y plantillas»).
+6. Dar permisos de escritura a Apache sobre `storage/`.
+
+**Instalador (E-11)**: cuatro pasos. (1) Base de datos configurada en el servidor y token
+si existe. (2) Tablas: asistente con el modelo de Ingeriar (`modelo.json`; editar tablas,
+columnas, índices y claves foráneas; descargar y cargar el modelo) o subir un
+`schema.sql` (solo CREATE TABLE, INSERT y ALTER TABLE … ADD). (3) Datos iniciales
+(`semillas/`) y primer administrador. (4) Vista previa del SQL e instalación. El SQL lo
+genera `ModeloDatos.php`. `modelo.json` se regenera con
+`INGERIAR_DB_NAME=<base> php server/herramientas/generar-modelo.php` cuando cambia
+`schema.sql` (la prueba INI-05 comprueba que coinciden).
+
+**Migraciones para bases anteriores** (`server/data/migraciones/`), en este orden:
+`2025-02-catalogos-eventos-secciones.sql`, `2025-03-categorias-factura.sql`,
+`2025-04-estado-facturas-enum.sql`, `2026-11-galeria.sql`, `2026-11-bajas-accesos.sql`,
+`2026-11-roles.sql`, `2026-11-facturas-tablero.sql`, `2026-11-claves-foraneas.sql`,
+`2026-11-documentacion.sql`, `2026-11-inventario.sql` y, cuando todo funcione,
+`2026-11-roles-retirar-columna.sql`. Los archivos subidos antes de E-16 y E-17 se mueven
+con el usuario de Apache (sin `--confirmar` solo informan; se pueden repetir):
+
+```bash
+sudo -u www-data php <ruta>/server/data/migraciones/2026-11-fichas-permanentes.php --confirmar
+sudo -u www-data php <ruta>/server/data/migraciones/2026-11-carpetas-galeria-facturas.php --confirmar
+```
+
+## 18. Copias de seguridad
+
+`server/copias/copia.php` crea `ingeriar-copia-AAAA-MM-DD-HHMMSS.zip` con el volcado de
+MySQL (`mysqldump`, con la contraseña en un fichero de opciones temporal 0600) y toda la
+carpeta `storage/`. Con `INGERIAR_COPIAS_CLAVE` se cifra (AES-256-CBC por bloques + HMAC
+SHA-256, claves con PBKDF2) como `.zip.cifrado`. Guarda las últimas
+`INGERIAR_COPIAS_RETENER` (10), no se ejecuta dos veces a la vez y anota cada ejecución
+en `registro-copias.log`. Se programa con cron **como el usuario de Apache**:
 
 ```bash
 sudo crontab -u www-data -e
 0 3 * * * INGERIAR_DB_PASSWORD=... INGERIAR_COPIAS_CLAVE=... php /var/www/ingeriar/server/copias/copia.php
 ```
 
-Restaurar en una base vacía (crear antes la base y dar permisos al usuario de la aplicación):
+Configuración → «Copias de seguridad» lista y descarga las copias (cada descarga queda
+registrada). Restaurar en una base vacía:
+`php server/copias/restaurar.php <copia> --base=ingeriar --confirmar` (se niega a
+sobrescribir salvo `--sobrescribir`). La carpeta de copias debe copiarse además fuera del
+servidor, siempre cifrada y con la clave guardada aparte.
+
+## 19. Pruebas y datos de ejemplo
+
+**Pruebas automáticas** (`docs/PLAN-PRUEBAS.md` tiene la lista y el resultado):
 
 ```bash
-INGERIAR_DB_PASSWORD=... INGERIAR_COPIAS_CLAVE=... \
-  php server/copias/restaurar.php copias/ingeriar-copia-....zip.cifrado --base=ingeriar --confirmar
+INGERIAR_DB_HOST=... INGERIAR_DB_PORT=... INGERIAR_DB_PASSWORD=... \
+  php server/pruebas/pruebas.php <url> --confirmar        # 124 pruebas por HTTP
+php server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar
+INGERIAR_DB_NAME=<base vacía> php server/pruebas/pruebas-instalador.php <url> --confirmar
 ```
 
-El script se niega a restaurar sobre una base con tablas o sobre un `storage/` con
-archivos, salvo con `--sobrescribir`. `--storage=<carpeta>` restaura los archivos en
-otra carpeta. Se comprobó una restauración completa con `server/pruebas/pruebas-copias.php`.
+Solo contra una **base de pruebas**: crean y borran sus propios datos (usuarios
+`@pruebas.ingeriar.test`, eventos «Prueba automática…», DNI `9999999?Z`) y dejan los JSON
+del inventario como estaban. Antes de lanzarlas hay que comprobar a qué base se conectan:
+sin las variables de entorno, `database.php` usa la base local de desarrollo. El servidor
+de pruebas usa el `storage/` de la carpeta desde la que se arranca:
+`php -S 127.0.0.1:8099 -t public`.
 
-Copia externa (paso manual): la carpeta de copias debe copiarse fuera del servidor
-(por ejemplo, a la unidad de Google Drive del grupo) con la periodicidad que decida el
-grupo. Subir solo copias cifradas y guardar la clave en un lugar distinto de las copias.
+**Datos de ejemplo** (ficticios, cargados por la API como si fueran personas usando la
+aplicación, así los archivos los escribe Apache y van a sus carpetas):
 
-## 14. Migraciones para bases antiguas
+| Script | Qué crea |
+|---|---|
+| `datos-ejemplo.php <url> <correo-admin> <contraseña> --confirmar` | Todo: 8 monitores (Marta Rodríguez también de tesorería), 19 familias con 26 educandos en todas las secciones (uno dado de baja hace meses y otro hace 6 años, que aparece en «Datos vencidos»), eventos de la ronda anterior y de la actual con sus secciones y circulares, respuestas de asistencia (algunas pendientes), circulares entregadas, fichas entregadas y revisadas (algunas «a corregir»), una plantilla nueva, fotos en la galería, 20 facturas con tique en los tres estados y el inventario. Si ya están cargados, no hace nada. |
+| `inventario-ejemplo.php <url> <correo> <contraseña> --confirmar` | 18 ubicaciones, 33 materiales y 5 listas (una plantilla). No duplica. |
+| `fotos-ejemplo.php --confirmar` | Fotos para eventos sin fotos y tiques para facturas sin imagen (escribe directamente en `storage/`). |
 
-Añadir las columnas que no existan:
+Las cuentas de `datos-ejemplo.php` entran con la contraseña `Seeonee-2026`:
+`marta.rodriguez@monitores.ingeriar.test` (monitora y tesorería), otros monitores
+`<nombre>.<apellido>@monitores.ingeriar.test` y familias
+`<nombre>.<apellido>@familias.ingeriar.test` (por ejemplo `ana.garcia@…`, con Hugo en
+Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
+(`server/pruebas/dibujos.php`).
 
-```sql
-ALTER TABLE eventos
-    ADD COLUMN circular BOOLEAN NOT NULL DEFAULT FALSE;
+## 20. Forma de trabajar y temas pendientes
 
-CREATE TABLE IF NOT EXISTS eventos_secciones (
-    id_evento INT UNSIGNED NOT NULL,
-    seccion ENUM('colonia', 'manada', 'tropa', 'posta', 'rutas') NOT NULL,
-    PRIMARY KEY (id_evento, seccion),
-    FOREIGN KEY (id_evento) REFERENCES eventos(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
-);
+- Reglas en `CLAUDE.md`. Tareas en `docs/ENCARGOS.md`, una rama `feat/E-XX-nombre` por
+  encargo, plan y confirmación antes de cambiar código, entrada en
+  `docs/REGISTRO-CAMBIOS.md`, línea en el diario (§21) y estado del encargo al terminar.
+  El usuario revisa y fusiona en `main`; el «chat del documento» que redacta la memoria
+  solo ve `main`.
+- Código y comentarios en español; sin frameworks ni librerías nuevas sin consultarlo.
+- **Pendiente**: E-10 (credenciales fuera del código y cambiar la contraseña de MySQL, que
+  está en el historial público); pruebas manuales MAN-01 a MAN-49; puesta en un servidor
+  real (publicar solo `public/`, cron de copias como `www-data`, `INGERIAR_COPIAS_CLAVE`);
+  la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
-ALTER TABLE educandos_asistencias
-    ADD COLUMN archivo_entrega VARCHAR(255) NULL;
+## 21. Diario de cambios
 
-ALTER TABLE facturas
-    ADD COLUMN imagen_factura VARCHAR(255) NULL;
-```
+### 2026-11-18 (documentación técnica y datos de ejemplo)
 
-Si la migración anterior creó `eventos.seccion`, elimínala después de crear la
-tabla intermedia:
-
-```sql
-ALTER TABLE eventos DROP COLUMN seccion;
-```
-
-Si existe la columna antigua, eliminarla:
-
-```sql
-ALTER TABLE eventos
-    DROP COLUMN circular_archivo;
-```
-
-Las sentencias deben ejecutarse solo si las columnas todavía no existen.
-
-## 15. Diario de cambios
+- `noteas.md` reescrito como documentación técnica completa (arquitectura, Apache,
+  seguridad, permisos, base de datos, almacenamiento, API, clases, módulos del cliente,
+  funcionalidades, estilos, instalación, copias y pruebas). El diario se conserva.
+- `server/pruebas/datos-ejemplo.php`: datos ficticios completos cargados por la API;
+  `dibujos.php` con las imágenes y un generador de PDF sencillo.
 
 ### 2026-11-18 (E-17 carpetas de galería y facturas)
 

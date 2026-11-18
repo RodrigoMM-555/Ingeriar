@@ -15,6 +15,37 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Documentación técnica completa y datos de ejemplo
+- Rama / commit: `feat/datos-ejemplo-y-documentacion`
+- Qué se ha hecho: a petición del usuario:
+  - `noteas.md` reescrito como documentación técnica para un desarrollador nuevo: qué es la aplicación, conceptos del
+    dominio (ronda, sección, circular, ficha…), arquitectura, tecnologías y motivos, estructura de carpetas, Apache y
+    despliegue, flujo de una petición, seguridad, cargos y tabla completa de permisos, base de datos (todas las
+    tablas y relaciones), almacenamiento, referencia de la API, clases de dominio y funciones comunes, módulos del
+    cliente, funcionalidades, estilos y criterios de interfaz, instalación y migraciones, copias, pruebas y datos de
+    ejemplo y temas pendientes. Se corrigen datos antiguos (estados de factura, bloques del dashboard). El diario de
+    cambios se conserva como §21.
+  - `server/pruebas/datos-ejemplo.php`: carga por la API un conjunto completo de datos ficticios (8 monitores, uno
+    también de tesorería; 19 familias con 26 educandos de todas las secciones, uno de baja reciente y otro vencido;
+    eventos de la ronda anterior y actual; respuestas de asistencia, circulares, fichas entregadas y revisadas, una
+    plantilla nueva, fotos, facturas en los tres estados e inventario). Se ejecutó en la instalación local.
+  - `server/pruebas/dibujos.php`: dibujo de fotos y tiques sacado de `fotos-ejemplo.php` y un generador de PDF de una
+    página para fichas, circulares y plantillas.
+- Archivos creados o modificados: `noteas.md`, `server/pruebas/datos-ejemplo.php` (nuevo), `server/pruebas/dibujos.php`
+  (nuevo), `server/pruebas/fotos-ejemplo.php`.
+- Decisiones técnicas y motivo: los datos se cargan por la API con las cuentas de cada papel (administrador, monitores,
+  familias), así pasan las mismas validaciones y permisos y los archivos los escribe Apache en sus carpetas (Claude
+  Code no tiene permiso de escritura en `storage/` de Apache). Las circulares de eventos ya pasados de la ronda se
+  entregan creando el evento con fecha futura y poniéndole después su fecha (las familias no pueden responder a
+  eventos terminados). Todos los datos son ficticios, con dominios `.test`. Probado antes en la base de pruebas
+  (también que no duplica al repetirlo).
+- Requisitos que cubre (RF/RNF): RNF de documentación y mantenimiento; apoyo a las pruebas manuales.
+- Cómo probarlo (pasos): entrar con `marta.rodriguez@monitores.ingeriar.test` o `ana.garcia@familias.ingeriar.test`
+  (contraseña `Seeonee-2026`).
+- Impacto en la memoria (apartados que habría que revisar): toda la memoria técnica puede apoyarse en `noteas.md`.
+- Pendiente o problemas: la migración de fichas permanentes de la instalación local la tiene que ejecutar el usuario
+  con `sudo -u www-data` (queda una ficha en la carpeta de la ronda).
+
 ## 2026-11-18 · E-17 Carpetas por ronda para la galería y las facturas
 - Rama / commit: `feat/E-17-carpetas-galeria-facturas`
 - Qué se ha hecho: a petición del usuario, los archivos de la galería y de las facturas dejan de estar todos en una
