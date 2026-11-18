@@ -1007,6 +1007,15 @@ try {
     prueba('INV-14', 'Un tutor no puede mover material → 403', fn() => esperar($inventarioApi($tutor, 'mover_material', [
         'material' => $idMaterial(), 'origen' => $idUbicacion('Prueba Zona A'), 'destino' => $idUbicacion('Prueba Local'), 'cantidad' => 1,
     ]), 403));
+    prueba('INV-15', 'Una lista guarda las ubicaciones preferidas y descarta las que no existen', function () use ($inventarioApi, $scouter, $idUbicacion, $idMaterial, $datosInventario) {
+        $respuesta = $inventarioApi($scouter, 'guardar_lista', ['nombre' => 'Prueba preferidas', 'lineas' => [[
+            'material' => $idMaterial(), 'necesarios' => 3, 'tomas' => [['ubicacion' => $idUbicacion('Prueba Local'), 'cantidad' => 3]],
+            'preferidas' => [$idUbicacion('Prueba Local'), 'u-no-existe', $idUbicacion('Prueba Local')],
+        ]]]);
+        $lista = array_values(array_filter($datosInventario()['listas'] ?? [], fn($l) => $l['nombre'] === 'Prueba preferidas'))[0] ?? null;
+        return esperar($respuesta, 200) === true && $lista && $lista['lineas'][0]['preferidas'] === [$idUbicacion('Prueba Local')]
+            ?: json_encode($lista ?: $respuesta['texto']);
+    });
     echo "\nCopias de seguridad desde la web (E-12)\n";
     require_once __DIR__ . '/../copias/comun-copias.php';
     $copiaFalsa = carpetaCopias() . '/ingeriar-copia-1999-01-01-000000.zip';

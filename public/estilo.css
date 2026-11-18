@@ -2571,11 +2571,60 @@ tr.fila-baja td{
     opacity:0.5;
 }
 
-.asa-toma{
-    padding:0 4px;
+/* Lista: lo que se necesita, de dónde se coge y qué hay que comprar */
+.anadir-lista{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.anadir-lista input[type="text"]{
+    flex:1;
+    min-width:160px;
+}
+
+.fila-necesidad,
+.fila-comprar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+}
+
+.nombre-necesidad,
+.fila-comprar span{
+    display:flex;
+    flex:1;
+    flex-direction:column;
+    min-width:0;
+    font-weight:600;
+}
+
+.nombre-necesidad small,
+.fila-comprar small,
+.lista-tomas small{
     color:var(--color_secundario);
-    cursor:grab;
-    user-select:none;
+    font-weight:400;
+}
+
+.fila-comprar{
+    border-left:4px solid #d97706;
+}
+
+.fila-comprar strong{
+    font-size:18px;
+}
+
+.lista-tomas{
+    margin:6px 0 0;
+    padding-left:18px;
+}
+
+.bloque-calculado{
+    display:grid;
+    gap:8px;
 }
 
 .vista-formulario > .ayuda-inventario,

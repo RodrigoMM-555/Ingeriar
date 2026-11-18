@@ -12,11 +12,13 @@
 //   mover_material     POST  {material, origen, destino, cantidad}   pasa unidades de una
 //                            ubicación a otra (plano del inventario, E-15)
 //   guardar_lista      POST  {id?, nombre, es_plantilla, origen, lineas, compras}
+//                            líneas: {material, necesarios, tomas:[{ubicacion, cantidad}], preferidas:[ubicación]}
 //   copiar_lista       POST  {id, nombre, es_plantilla}   plantilla ↔ lista, o versión nueva
 //   borrar_lista       POST  {id}
 //
-// Una lista no descuenta del inventario: indica qué coger y de dónde (lo elige el
-// monitor) y qué hay que comprar (necesarios − lo que se coge).
+// Una lista no descuenta del inventario: indica qué coger y de dónde y qué hay que comprar
+// (necesarios − lo que se coge). Desde E-15 el cliente reparte solo (primero las
+// ubicaciones preferidas, después donde más hay) y aquí se comprueba que no se pase.
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/comun.php';
@@ -278,11 +280,17 @@ try {
                     }
                     $tomas[] = ['ubicacion' => $ubicacion, 'cantidad' => $cantidad];
                 }
+                // Ubicaciones elegidas arrastrando (E-15): el reparto automático empieza por ellas.
+                $preferidas = array_values(array_unique(array_filter(
+                    array_map('strval', (array) ($linea['preferidas'] ?? [])),
+                    fn($ubicacion) => isset($ubicaciones[$ubicacion])
+                )));
                 $lineas[] = [
                     'material' => $materialId,
                     'nombre' => $material['nombre'],
                     'necesarios' => cantidadValida($linea['necesarios'] ?? 0, $material['nombre']),
                     'tomas' => $tomas,
+                    'preferidas' => $preferidas,
                 ];
             }
             $compras = [];

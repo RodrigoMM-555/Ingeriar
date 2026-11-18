@@ -152,13 +152,14 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | INV-12 | No se mueve más de lo que hay en el origen → 409 | RF-06 | Superada | 2026-11-17 |
 | INV-13 | Mover a la misma ubicación o 0 unidades → 400 | RF-06 | Superada | 2026-11-17 |
 | INV-14 | Un tutor no puede mover material → 403 | RF-06, RNF-03 | Superada | 2026-11-17 |
+| INV-15 | Una lista guarda las ubicaciones preferidas y descarta las que no existen | RF-06 | Superada | 2026-11-18 |
 
 | COP-01 | Un monitor no ve las copias de seguridad → 403 | RNF-03, RNF-04 | Superada | 2026-11-17 |
 | COP-02 | El administrador ve la lista de copias | RNF-04 | Superada | 2026-11-17 |
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-Resultado: 115 de 115 superadas el 2026-11-17 (con las pruebas de E-15).
+Resultado: 116 de 116 superadas el 2026-11-18 (con las pruebas de E-15).
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 
@@ -258,4 +259,6 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-42 | Monitor | Plano del inventario: arrastrar una ficha a otra caja y elegir la cantidad | Se resta del origen y se suma en el destino | RF-06 | Pendiente | |
 | MAN-43 | Monitor | Plano: arrastrar el título de una caja dentro de otra, y luego al fondo | Pasa a ser sububicación y luego ubicación principal | RF-06 | Pendiente | |
 | MAN-44 | Monitor | Plano con teclado: botón «⇄» de una ficha | Pide destino y cantidad y mueve el material | RF-06, RNF-06 | Pendiente | |
-| MAN-45 | Monitor | Lista: arrastrar fichas del plano a la derecha y una toma (⠿) de vuelta al plano | Las fichas muestran lo que queda; la toma se quita | RF-06 | Pendiente | |
+| MAN-45 | Monitor | Lista: pedir 20 de un material del que hay 10 repartidos en dos sitios | Coge de donde más hay primero y pone 10 en «Hay que comprar» | RF-06 | Pendiente | |
+| MAN-46 | Monitor | Lista: arrastrar la ficha de la ubicación con menos cantidad; luego «Reparto automático» | Esa ubicación se coge primero («elegida»); al pulsar, vuelve al reparto por cantidad | RF-06 | Pendiente | |
+| MAN-47 | Monitor | Lista: escribir «Malvaviscos» y 30 en «+ Añadir» | Aparece en «Hay que comprar» como «no está en el inventario» | RF-06 | Pendiente | |

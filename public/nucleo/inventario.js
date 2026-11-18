@@ -3,9 +3,10 @@
 // Se ve como plano (cada ubicación es una caja con sus fichas de material y sus
 // sububicaciones dentro) o como tabla. En el plano se arrastran fichas entre cajas para
 // mover material y cajas dentro de otras para reorganizar las ubicaciones.
-// Pestaña «Listas de material»: a la izquierda el mismo plano, a la derecha lo que se
-// lleva. Se pasa material arrastrando o con el botón «→» (para teclado). La lista no
-// descuenta del inventario: genera un documento con qué coger, de dónde y qué comprar.
+// Pestaña «Listas de material»: a la izquierda el mismo plano; a la derecha se indica
+// cuánto se necesita de cada cosa y la aplicación reparte entre las ubicaciones (primero
+// las elegidas arrastrando, después donde más hay) y calcula qué hay que comprar. La lista
+// no descuenta del inventario: genera un documento con qué coger, de dónde y qué comprar.
 class IngeriarInventario {
     constructor({utilidades, contenedor}) {
         this.utilidades = utilidades;
@@ -14,7 +15,7 @@ class IngeriarInventario {
         this.listas = [];
         this.pestana = "inventario";
         this.vistaInventario = "plano";
-        // Lo que se está arrastrando: {tipo: "material" | "ubicacion" | "toma", ...}.
+        // Lo que se está arrastrando: {tipo: "material" | "ubicacion", ...}.
         this.arrastre = null;
         this.filtroUbicacion = null;
         this.busqueda = "";
@@ -417,7 +418,8 @@ class IngeriarInventario {
 
     // Cuadro para elegir cuántas unidades (y, si se pasan destinos, a dónde). Devuelve una
     // promesa con {cantidad, destino} o null si se cancela.
-    pedirCantidad(titulo, texto, maximo, destinos = null) {
+    // Sin máximo (null) no hay deslizador. «inicial»: valor propuesto (por defecto, el máximo).
+    pedirCantidad(titulo, texto, maximo, destinos = null, inicial = maximo) {
         return new Promise((resolver) => {
             const {formulario, cerrar} = this.abrirModal(titulo);
             formulario.appendChild(this.parrafo(texto, "ayuda-inventario"));
@@ -425,36 +427,39 @@ class IngeriarInventario {
             const grupo = document.createElement("div");
             grupo.className = "campo campo-cantidad-mover";
             const etiqueta = document.createElement("label");
-            etiqueta.textContent = "Cantidad (de 1 a " + maximo + ")";
-            const deslizador = document.createElement("input");
-            deslizador.type = "range";
-            deslizador.min = 1;
-            deslizador.max = maximo;
-            deslizador.value = maximo;
-            deslizador.setAttribute("aria-hidden", "true");
-            deslizador.tabIndex = -1;
+            etiqueta.textContent = maximo === null ? "Cantidad" : "Cantidad (de 1 a " + maximo + ")";
             const numero = document.createElement("input");
             numero.type = "number";
             numero.min = 1;
-            numero.max = maximo;
             numero.step = 1;
-            numero.value = maximo;
+            numero.value = inicial;
             numero.required = true;
-            deslizador.oninput = () => {
-                numero.value = deslizador.value;
-            };
-            numero.oninput = () => {
-                deslizador.value = numero.value;
-            };
             etiqueta.appendChild(numero);
-            grupo.append(etiqueta, deslizador);
+            grupo.appendChild(etiqueta);
+            if (maximo !== null) {
+                numero.max = maximo;
+                const deslizador = document.createElement("input");
+                deslizador.type = "range";
+                deslizador.min = 1;
+                deslizador.max = maximo;
+                deslizador.value = inicial;
+                deslizador.setAttribute("aria-hidden", "true");
+                deslizador.tabIndex = -1;
+                deslizador.oninput = () => {
+                    numero.value = deslizador.value;
+                };
+                numero.oninput = () => {
+                    deslizador.value = numero.value;
+                };
+                grupo.appendChild(deslizador);
+            }
             formulario.appendChild(grupo);
             const terminar = (valor) => {
                 cerrar();
                 resolver(valor);
             };
             this.accionesFormulario(formulario, () => terminar(null), () => {
-                const cantidad = Math.min(maximo, Math.max(1, parseInt(numero.value, 10) || 0));
+                const cantidad = Math.min(maximo ?? Infinity, Math.max(1, parseInt(numero.value, 10) || 0));
                 terminar({cantidad, destino: selector?.value});
                 return Promise.resolve();
             }, "Aceptar");
@@ -819,6 +824,11 @@ class IngeriarInventario {
 
     abrirLista(lista) {
         this.lista = lista;
+        // El reparto se recalcula al abrir con lo que hay ahora en el inventario.
+        this.lista.lineas.forEach((linea) => {
+            linea.preferidas = linea.preferidas || [];
+            this.repartir(linea);
+        });
         this.cambiosSinGuardar = false;
         this.render();
     }
@@ -840,49 +850,57 @@ class IngeriarInventario {
         return Number(this.lineaDe(materialId)?.tomas.find((toma) => toma.ubicacion === ubicacionId)?.cantidad || 0);
     }
 
-    // Pasa material de una ubicación a la lista (arrastrando o con «→»).
+    // Reparto automático (E-15): primero las ubicaciones elegidas arrastrando (la última
+    // elegida, delante) y después donde más hay. Lo que no se cubre va a «Hay que comprar».
+    repartir(linea) {
+        const material = this.material(linea.material);
+        const preferidas = linea.preferidas || [];
+        const orden = (ubicacion) => {
+            const posicion = preferidas.indexOf(ubicacion);
+            return posicion === -1 ? preferidas.length : posicion;
+        };
+        const existencias = (material?.existencias || [])
+            .filter((existencia) => existencia.cantidad > 0 && this.ubicacion(existencia.ubicacion))
+            .sort((a, b) => orden(a.ubicacion) - orden(b.ubicacion) || b.cantidad - a.cantidad ||
+                this.ruta(a.ubicacion).localeCompare(this.ruta(b.ubicacion), "es"));
+        let resto = Number(linea.necesarios || 0);
+        linea.tomas = [];
+        existencias.forEach((existencia) => {
+            const cantidad = Math.min(resto, existencia.cantidad);
+            if (cantidad > 0) {
+                linea.tomas.push({ubicacion: existencia.ubicacion, cantidad});
+                resto -= cantidad;
+            }
+        });
+    }
+
+    // Arrastrar una ficha a la lista (o «→»): pregunta cuántos se necesitan y esa
+    // ubicación pasa a ser la primera de la que se coge.
     mover(materialId, ubicacionId) {
         const material = this.material(materialId);
-        const existencia = material?.existencias.find((elemento) => elemento.ubicacion === ubicacionId);
-        if (!material || !existencia) {
+        if (!material) {
             return;
         }
-        const disponible = existencia.cantidad - this.yaCogido(materialId, ubicacionId);
-        if (disponible <= 0) {
-            alert("Ya te llevas todo lo que hay de «" + material.nombre + "» en " + this.ruta(ubicacionId) + ".");
-            return;
-        }
-        this.pedirCantidad("Llevar material",
-            "¿Cuántas de «" + material.nombre + "» coges de " + this.ruta(ubicacionId) + "? Quedan " + disponible + ".",
-            disponible)
-            .then((respuesta) => respuesta && this.anadirALista(material, ubicacionId, respuesta.cantidad));
+        const linea = this.lineaDe(materialId);
+        const hay = material.existencias.find((existencia) => existencia.ubicacion === ubicacionId)?.cantidad || 0;
+        this.pedirCantidad(linea ? "Cambiar lo que se necesita" : "Añadir a la lista",
+            "¿Cuántos «" + material.nombre + "» necesitáis? Se cogen primero de " + this.ruta(ubicacionId) +
+            " (hay " + hay + "), lo que falte de otras ubicaciones y, si no llega, va a «Hay que comprar».",
+            null, null, linea ? Number(linea.necesarios) || 1 : Math.max(1, hay))
+            .then((respuesta) => respuesta && this.necesitar(material, respuesta.cantidad, ubicacionId));
     }
 
-    anadirALista(material, ubicacionId, cantidad) {
-        const materialId = material.id;
-        let linea = this.lineaDe(materialId);
+    necesitar(material, cantidad, ubicacionId = null) {
+        let linea = this.lineaDe(material.id);
         if (!linea) {
-            linea = {material: materialId, nombre: material.nombre, necesarios: 0, tomas: []};
+            linea = {material: material.id, nombre: material.nombre, necesarios: 0, tomas: [], preferidas: []};
             this.lista.lineas.push(linea);
         }
-        const toma = linea.tomas.find((elemento) => elemento.ubicacion === ubicacionId);
-        if (toma) {
-            toma.cantidad = Number(toma.cantidad) + cantidad;
-        } else {
-            linea.tomas.push({ubicacion: ubicacionId, cantidad});
+        linea.necesarios = cantidad;
+        if (ubicacionId) {
+            linea.preferidas = [ubicacionId, ...linea.preferidas.filter((id) => id !== ubicacionId)];
         }
-        linea.necesarios = Math.max(Number(linea.necesarios || 0), this.cogido(linea));
-        this.cambiosSinGuardar = true;
-        this.render();
-    }
-
-    // Arrastrar una toma de vuelta al plano la quita de la lista (lo necesario se queda).
-    quitarToma(materialId, ubicacionId) {
-        const linea = this.lineaDe(materialId);
-        if (!linea) {
-            return;
-        }
-        linea.tomas = linea.tomas.filter((toma) => toma.ubicacion !== ubicacionId);
+        this.repartir(linea);
         this.cambiosSinGuardar = true;
         this.render();
     }
@@ -934,12 +952,10 @@ class IngeriarInventario {
     }
 
     // Panel izquierdo: lo que hay y dónde, como plano. Las fichas muestran lo que queda
-    // después de lo que ya coge la lista.
+    // después de lo que coge la lista.
     renderDisponible() {
         const panel = document.createElement("section");
         panel.className = "panel-inventario vista-superficie";
-        this.zonaSoltar(panel, (arrastre) => arrastre.tipo === "toma",
-            (arrastre) => this.quitarToma(arrastre.material, arrastre.ubicacion));
         const titulo = document.createElement("h3");
         titulo.textContent = "Lo que hay";
         const buscador = this.buscadorPlano();
@@ -949,118 +965,208 @@ class IngeriarInventario {
             this.marcarBusqueda(plano);
         };
         panel.append(titulo,
-            this.parrafo("Arrastra una ficha a la derecha o pulsa «→». Para quitar algo de la lista, " +
-                "arrástralo de vuelta aquí.", "ayuda-inventario"),
+            this.parrafo("Arrastra una ficha a la derecha o pulsa «→» para añadirla: el material se cogerá " +
+                "primero de esa ubicación. Las cifras son lo que queda después de la lista.", "ayuda-inventario"),
             buscador, plano);
         return panel;
     }
 
-    // Panel derecho: lo que nos llevamos y lo que hay que comprar.
+    // Panel derecho: lo que necesitamos (se escribe), de dónde se coge y qué hay que
+    // comprar (se calculan solos).
     renderLlevamos() {
         const panel = document.createElement("section");
         panel.className = "panel-inventario vista-superficie zona-llevamos";
         this.zonaSoltar(panel, (arrastre) => arrastre.tipo === "material",
             (arrastre) => this.mover(arrastre.material, arrastre.ubicacion));
-        const titulo = document.createElement("h3");
-        titulo.textContent = "Lo que nos llevamos";
-        panel.appendChild(titulo);
 
-        if (this.lista.lineas.length === 0) {
-            panel.appendChild(this.parrafo("Todavía no hay nada. Arrastra material aquí.", "sin-datos"));
+        const tituloNecesitamos = document.createElement("h3");
+        tituloNecesitamos.textContent = "Lo que necesitamos";
+        panel.append(tituloNecesitamos, this.crearAnadir());
+        const tenemos = document.createElement("div");
+        const comprar = document.createElement("div");
+        tenemos.className = comprar.className = "bloque-calculado";
+        // Al cambiar una cantidad solo se repintan los bloques calculados (no se pierde el foco).
+        const pintar = () => {
+            tenemos.replaceChildren(...this.bloqueTenemos());
+            comprar.replaceChildren(...this.bloqueComprar());
+        };
+        if (this.lista.lineas.length === 0 && this.lista.compras.length === 0) {
+            panel.appendChild(this.parrafo("Todavía no hay nada. Arrastra material del plano o escríbelo arriba.", "sin-datos"));
         }
-        this.lista.lineas.forEach((linea, indice) => panel.appendChild(this.crearLinea(linea, indice)));
-
-        const tituloCompras = document.createElement("h3");
-        tituloCompras.textContent = "Otras compras (lo que no tenemos en el inventario)";
-        panel.appendChild(tituloCompras);
-        this.lista.compras.forEach((compra, indice) => {
-            const fila = document.createElement("div");
-            fila.className = "fila-compra";
-            const nombre = document.createElement("input");
-            nombre.type = "text";
-            nombre.value = compra.nombre;
-            nombre.placeholder = "Qué hay que comprar";
-            nombre.setAttribute("aria-label", "Qué hay que comprar");
-            nombre.oninput = () => {
-                compra.nombre = nombre.value;
-                this.cambiosSinGuardar = true;
-            };
-            const cantidad = this.campoNumero(compra.cantidad, "Cantidad a comprar", (valor) => {
-                compra.cantidad = valor;
-            });
-            fila.append(nombre, cantidad, this.boton("×", "boton-mini boton-mini-borrar", () => {
-                this.lista.compras.splice(indice, 1);
-                this.cambiosSinGuardar = true;
-                this.render();
-            }, "Quitar esta compra"));
-            panel.appendChild(fila);
+        this.lista.lineas.forEach((linea, indice) => {
+            const material = this.material(linea.material);
+            panel.appendChild(this.crearNecesidad(linea.nombre, material ? "" : "ya no está en el inventario",
+                linea.necesarios, (valor) => {
+                    linea.necesarios = valor;
+                    this.repartir(linea);
+                    pintar();
+                }, () => this.lista.lineas.splice(indice, 1)));
         });
-        panel.appendChild(this.boton("+ Añadir compra", "boton-cancelar", () => {
-            this.lista.compras.push({nombre: "", cantidad: 1});
-            this.cambiosSinGuardar = true;
-            this.render();
-        }));
+        this.lista.compras.forEach((compra, indice) => {
+            panel.appendChild(this.crearNecesidad(compra.nombre, "no está en el inventario", compra.cantidad, (valor) => {
+                compra.cantidad = valor;
+                pintar();
+            }, () => this.lista.compras.splice(indice, 1)));
+        });
+
+        const tituloTenemos = document.createElement("h3");
+        tituloTenemos.textContent = "Material que tenemos y dónde está";
+        const tituloComprar = document.createElement("h3");
+        tituloComprar.textContent = "Hay que comprar";
+        panel.append(tituloTenemos, tenemos, tituloComprar, comprar);
+        pintar();
         return panel;
     }
 
-    crearLinea(linea, indice) {
-        const material = this.material(linea.material);
-        const bloque = document.createElement("div");
-        bloque.className = "linea-lista";
-        const cabecera = document.createElement("div");
-        cabecera.className = "cabecera-linea";
-        const nombre = document.createElement("strong");
-        nombre.textContent = linea.nombre + (material ? "" : " (ya no está en el inventario)");
-        const necesarios = this.campoNumero(linea.necesarios, "Necesarios de " + linea.nombre, (valor) => {
-            linea.necesarios = valor;
-            resumen.textContent = this.textoResumen(linea);
-        });
-        const etiqueta = document.createElement("label");
-        etiqueta.className = "etiqueta-necesarios";
-        etiqueta.append("Necesarios ", necesarios);
-        cabecera.append(nombre, etiqueta, this.boton("×", "boton-mini boton-mini-borrar", () => {
-            this.lista.lineas.splice(indice, 1);
+    // Añadir escribiendo: si el nombre es de un material del inventario se reparte; si no,
+    // va directo a comprar.
+    crearAnadir() {
+        const formulario = document.createElement("form");
+        formulario.className = "anadir-lista";
+        const nombre = document.createElement("input");
+        nombre.type = "text";
+        nombre.placeholder = "Material (del inventario o no)";
+        nombre.setAttribute("aria-label", "Material que se necesita");
+        nombre.setAttribute("list", "materiales-inventario");
+        const sugerencias = document.createElement("datalist");
+        sugerencias.id = "materiales-inventario";
+        this.inventario.materiales
+            .map((material) => material.nombre)
+            .sort((a, b) => a.localeCompare(b, "es"))
+            .forEach((texto) => {
+                const opcion = document.createElement("option");
+                opcion.value = texto;
+                sugerencias.appendChild(opcion);
+            });
+        const cantidad = document.createElement("input");
+        cantidad.type = "number";
+        cantidad.min = 1;
+        cantidad.step = 1;
+        cantidad.value = 1;
+        cantidad.className = "campo-cantidad";
+        cantidad.setAttribute("aria-label", "Cuántos se necesitan");
+        const anadir = document.createElement("button");
+        anadir.type = "submit";
+        anadir.className = "boton boton-crear";
+        anadir.textContent = "+ Añadir";
+        formulario.append(nombre, sugerencias, cantidad, anadir);
+        formulario.onsubmit = (envio) => {
+            envio.preventDefault();
+            const texto = nombre.value.trim();
+            const numero = Math.max(1, parseInt(cantidad.value, 10) || 0);
+            if (!texto) {
+                nombre.focus();
+                return;
+            }
+            const minusculas = texto.toLowerCase();
+            const material = this.inventario.materiales.find((elemento) => elemento.nombre.toLowerCase() === minusculas);
+            if (material) {
+                // Si ya estaba en la lista, se suma.
+                this.necesitar(material, Number(this.lineaDe(material.id)?.necesarios || 0) + numero);
+                return;
+            }
+            const compra = this.lista.compras.find((elemento) => elemento.nombre.toLowerCase() === minusculas);
+            if (compra) {
+                compra.cantidad = Number(compra.cantidad) + numero;
+            } else {
+                this.lista.compras.push({nombre: texto, cantidad: numero});
+            }
             this.cambiosSinGuardar = true;
             this.render();
-        }, "Quitar " + linea.nombre + " de la lista"));
-        bloque.appendChild(cabecera);
-
-        linea.tomas.forEach((toma, posicion) => {
-            const existencia = material?.existencias.find((elemento) => elemento.ubicacion === toma.ubicacion);
-            const fila = document.createElement("div");
-            fila.className = "fila-toma";
-            const cantidad = this.campoNumero(toma.cantidad, "Cantidad de " + this.ruta(toma.ubicacion), (valor) => {
-                toma.cantidad = valor;
-                resumen.textContent = this.textoResumen(linea);
-            });
-            cantidad.max = existencia?.cantidad ?? 0;
-            const texto = document.createElement("span");
-            texto.textContent = "de " + this.ruta(toma.ubicacion) + " (hay " + (existencia?.cantidad ?? 0) + ")";
-            if (Number(toma.cantidad) > (existencia?.cantidad ?? 0)) {
-                texto.classList.add("aviso-stock");
-                texto.textContent += " · ya no hay tanto";
-            }
-            // Asa para arrastrar esta toma de vuelta al plano.
-            const asa = document.createElement("span");
-            asa.className = "asa-toma";
-            asa.textContent = "⠿";
-            asa.title = "Arrastra al plano para quitarlo de la lista";
-            this.hacerArrastrable(asa, {tipo: "toma", material: linea.material, ubicacion: toma.ubicacion});
-            fila.append(asa, "Coger ", cantidad, texto, this.boton("×", "boton-mini boton-mini-borrar", () => {
-                linea.tomas.splice(posicion, 1);
-                this.cambiosSinGuardar = true;
-                this.render();
-            }, "Quitar esta ubicación"));
-            bloque.appendChild(fila);
-        });
-        const resumen = this.parrafo(this.textoResumen(linea), "resumen-linea");
-        bloque.appendChild(resumen);
-        return bloque;
+        };
+        return formulario;
     }
 
-    textoResumen(linea) {
-        const comprar = this.aComprar(linea);
-        return "Se cogen " + this.cogido(linea) + (comprar > 0 ? " · hay que comprar " + comprar : " · no hay que comprar");
+    crearNecesidad(nombre, nota, valor, alCambiar, alQuitar) {
+        const fila = document.createElement("div");
+        fila.className = "fila-necesidad";
+        const texto = document.createElement("span");
+        texto.className = "nombre-necesidad";
+        texto.textContent = nombre;
+        if (nota) {
+            const detalle = document.createElement("small");
+            detalle.textContent = nota;
+            texto.appendChild(detalle);
+        }
+        const etiqueta = document.createElement("label");
+        etiqueta.className = "etiqueta-necesarios";
+        etiqueta.append("Necesarios ", this.campoNumero(valor, "Necesarios de " + nombre, alCambiar));
+        fila.append(texto, etiqueta, this.boton("×", "boton-mini boton-mini-borrar", () => {
+            alQuitar();
+            this.cambiosSinGuardar = true;
+            this.render();
+        }, "Quitar " + nombre + " de la lista"));
+        return fila;
+    }
+
+    // De dónde se coge cada material (calculado).
+    bloqueTenemos() {
+        const lineas = this.lista.lineas.filter((linea) => linea.tomas.length > 0);
+        if (lineas.length === 0) {
+            return [this.parrafo("No se coge nada del inventario.", "sin-datos")];
+        }
+        return lineas.map((linea) => {
+            const bloque = document.createElement("div");
+            bloque.className = "linea-lista";
+            const cabecera = document.createElement("div");
+            cabecera.className = "cabecera-linea";
+            const nombre = document.createElement("strong");
+            nombre.textContent = linea.nombre + ": " + this.cogido(linea) + " de " + linea.necesarios;
+            cabecera.appendChild(nombre);
+            if (linea.preferidas.length > 0) {
+                cabecera.appendChild(this.boton("Reparto automático", "boton-mini", () => {
+                    linea.preferidas = [];
+                    this.repartir(linea);
+                    this.cambiosSinGuardar = true;
+                    this.render();
+                }, "Repartir " + linea.nombre + " empezando por donde más hay"));
+            }
+            const lista = document.createElement("ul");
+            lista.className = "lista-tomas";
+            linea.tomas.forEach((toma) => {
+                const elemento = document.createElement("li");
+                elemento.textContent = "Coger " + toma.cantidad + " de " + this.ruta(toma.ubicacion);
+                if (linea.preferidas.includes(toma.ubicacion)) {
+                    const elegida = document.createElement("small");
+                    elegida.textContent = " · elegida";
+                    elemento.appendChild(elegida);
+                }
+                lista.appendChild(elemento);
+            });
+            bloque.append(cabecera, lista);
+            return bloque;
+        });
+    }
+
+    // Lo que falta (más de lo que hay) y lo que no está en el inventario (calculado).
+    bloqueComprar() {
+        const filas = [
+            ...this.lista.lineas.filter((linea) => this.aComprar(linea) > 0).map((linea) => {
+                const material = this.material(linea.material);
+                const motivo = !material ? "ya no está en el inventario"
+                    : this.total(material) === 0 ? "no queda en el inventario"
+                        : "solo hay " + this.cogido(linea) + " en el inventario";
+                return [linea.nombre, this.aComprar(linea), motivo];
+            }),
+            ...this.lista.compras.filter((compra) => Number(compra.cantidad) > 0)
+                .map((compra) => [compra.nombre, compra.cantidad, "no está en el inventario"])
+        ];
+        if (filas.length === 0) {
+            return [this.parrafo("No hay que comprar nada.", "sin-datos")];
+        }
+        return filas.map(([nombre, cantidad, motivo]) => {
+            const fila = document.createElement("div");
+            fila.className = "fila-comprar";
+            const texto = document.createElement("span");
+            texto.textContent = nombre;
+            const detalle = document.createElement("small");
+            detalle.textContent = motivo;
+            texto.appendChild(detalle);
+            const numero = document.createElement("strong");
+            numero.textContent = String(cantidad);
+            fila.append(texto, numero);
+            return fila;
+        });
     }
 
     guardarLista() {

@@ -15,6 +15,33 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · E-15 Listas de material con reparto automático y compras calculadas
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, al hacer una lista solo se dice cuánto se necesita de cada cosa y la
+  aplicación indica de dónde sacarlo y qué hay que comprar. El panel derecho tiene tres bloques:
+  - «Lo que necesitamos»: se añade arrastrando una ficha del plano, con «→» o escribiendo el nombre en «+ Añadir»
+    (sugiere los materiales del inventario; si no está, va a comprar). Cada fila solo tiene «Necesarios».
+  - «Material que tenemos y dónde está» (calculado): «Lápices: 10 de 20 · Coger 6 de Trastero › Zona A, 4 de Local».
+  - «Hay que comprar» (calculado): lo que falta porque no hay bastante y lo que no está en el inventario, con el motivo.
+- Archivos creados o modificados: `public/nucleo/inventario.js` (`repartir`, `necesitar`, `crearAnadir`,
+  `crearNecesidad`, `bloqueTenemos`, `bloqueComprar`; fuera la edición de cada toma y el asa ⠿),
+  `server/api/inventario.php` (guarda `preferidas` en cada línea, solo ubicaciones que existen), `public/estilo.css`,
+  versión de los scripts, `server/pruebas/pruebas.php` (INV-15), `docs/PLAN-PRUEBAS.md` (también MAN-45 a MAN-47),
+  `docs/ENCARGOS.md`, `noteas.md`.
+- Decisiones técnicas y motivo: **cambia la decisión de E-04** (reparto manual) por decisión del usuario. Orden del
+  reparto elegido por el usuario: primero donde más hay (menos sitios a los que ir); se corrige arrastrando la ficha de
+  la ubicación preferida, que pasa delante («elegida»); «Reparto automático» quita las preferencias. El reparto se hace
+  en el cliente y el servidor sigue comprobando que no se coja de un sitio más de lo que hay (INV-08). Se recalcula al
+  abrir una lista, así las listas antiguas se ajustan a las existencias actuales. El formato del JSON no cambia (solo se
+  añade `preferidas`).
+- Requisitos que cubre (RF/RNF): RF-06, RNF-03.
+- Cómo probarlo (pasos): pruebas automáticas (116 de 116 en una base de pruebas) y MAN-45 a MAN-47.
+- Impacto en la memoria (apartados que habría que revisar): RF-06 (listas de material: ya no se elige a mano de dónde
+  coger; reparto automático).
+- Pendiente o problemas: durante el trabajo, Claude Code ejecutó por error las pruebas automáticas contra la base de
+  desarrollo local en lugar de la de pruebas (las variables de entorno no se aplicaron). La limpieza de las pruebas
+  borró todos sus datos y se comprobó que no quedó nada; después se repitieron contra la base de pruebas.
+
 ## 2026-11-17 · E-15 Inventario visual con arrastrar y soltar
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, el inventario es más interactivo:

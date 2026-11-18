@@ -231,8 +231,12 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   ficha por material con su cantidad. Se mantiene la tabla anterior como vista alternativa (decisión del usuario).
 - Arrastrar una ficha a otra caja mueve la cantidad elegida (por defecto todo; si el destino ya tiene ese material, se
   suma). Arrastrar una caja dentro de otra la convierte en sububicación; al fondo, en ubicación principal.
-- Las listas de material usan el mismo plano a la izquierda: se arrastran fichas a la derecha y una toma de vuelta al
-  plano la quita de la lista.
+- Las listas de material usan el mismo plano a la izquierda. A la derecha se indica cuánto se necesita de cada cosa
+  (arrastrando una ficha o escribiendo el nombre) y la aplicación reparte sola entre las ubicaciones: primero las
+  elegidas arrastrando y después donde más hay. Lo que no se cubre, o lo que no está en el inventario, aparece solo en
+  «Hay que comprar». **Cambia la decisión de E-04** («el monitor elige a mano de qué ubicación coge cada cantidad»):
+  ahora el reparto es automático y se corrige arrastrando la ficha de la ubicación preferida (decisión del usuario,
+  2026-11-18).
 - Alternativa sin ratón: botones en cada ficha. Acción nueva en el servidor `mover_material`, dentro del bloqueo del JSON.
 - Aceptación: mover material y ubicaciones arrastrando; el servidor rechaza mover más de lo que hay; pruebas automáticas nuevas.
 - Estado: hecho (rama `feat/E-15-inventario-visual`, pendiente de fusionar)

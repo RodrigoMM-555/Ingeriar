@@ -531,12 +531,16 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
   (`guardar_ubicacion`); al fondo del plano, pasa a principal. El botón «⇄» de cada ficha
   hace lo mismo sin ratón. Arrastrar y soltar es el nativo de HTML: lo arrastrado se
   guarda en `this.arrastre` y la caja más interior que lo acepta recoge el evento.
-- Listas: a la izquierda lo que hay y dónde (el mismo plano, con lo que queda tras lo
-  que ya coge la lista), a la derecha lo que se lleva. Se pasa material arrastrando o
-  con «→»; el monitor elige de qué ubicación coge cada cantidad. Arrastrar una toma (⠿)
-  de vuelta al plano la quita.
-  A comprar = necesarios − lo que se coge, más las compras de cosas que no hay. La lista
-  no descuenta del inventario. El documento para imprimir agrupa por ubicación.
+- Listas (reparto automático desde 2026-11-18; antes el monitor elegía a mano de qué
+  ubicación cogía cada cantidad): a la izquierda el mismo plano, con lo que queda tras lo
+  que coge la lista. A la derecha, «Lo que necesitamos»: se añade arrastrando una ficha,
+  con «→» o escribiendo el nombre (con sugerencias del inventario) y solo se indica
+  cuántos. `repartir` coge primero de las ubicaciones elegidas arrastrando (`preferidas`,
+  la última delante) y después de donde más hay. «Material que tenemos y dónde está» y
+  «Hay que comprar» se calculan solos y se repintan al cambiar una cantidad. A comprar =
+  necesarios − lo que se coge, más lo que no está en el inventario (`compras`). El
+  reparto se recalcula al abrir la lista con las existencias actuales. La lista no
+  descuenta del inventario. El documento para imprimir agrupa por ubicación.
 - Plantillas: una lista se guarda como plantilla; de una plantilla sale una lista nueva o
   una versión nueva (se guarda de cuál viene).
 - Permiso `inventario.gestionar` (administrador y monitor). Bases existentes:
@@ -798,6 +802,11 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-18 (listas con reparto automático)
+
+- Listas: se indica cuánto se necesita y la aplicación reparte entre ubicaciones (primero
+  las elegidas arrastrando, después donde más hay) y calcula «Hay que comprar». INV-15.
 
 ### 2026-11-17 (E-15 inventario visual)
 
