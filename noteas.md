@@ -531,9 +531,11 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
   (`guardar_ubicacion`); al fondo del plano, pasa a principal. El botón «⇄» de cada ficha
   hace lo mismo sin ratón. Arrastrar y soltar es el nativo de HTML: lo arrastrado se
   guarda en `this.arrastre` y la caja más interior que lo acepta recoge el evento.
-  Una caja con dos o más sububicaciones (`.caja-ancha`) ocupa toda la fila de su rejilla
-  y reparte sus sububicaciones a lo ancho; las cajas pequeñas rellenan los huecos
-  (`grid-auto-flow: dense`), así el plano crece menos hacia abajo.
+  Una caja ocupa tantas columnas como sububicaciones directas tiene (dos, dos; tres,
+  tres), sin pasar de las que caben en su rejilla. Como las columnas dependen del ancho,
+  `ajustarAnchos` lo calcula en JavaScript con la página pintada (`grid-column: span N`,
+  de fuera hacia dentro) y al cambiar el tamaño de la ventana. Las cajas pequeñas
+  rellenan los huecos (`grid-auto-flow: dense`), así el plano crece menos hacia abajo.
 - Listas (reparto automático desde 2026-11-18; antes el monitor elegía a mano de qué
   ubicación cogía cada cantidad): a la izquierda el mismo plano, con lo que queda tras lo
   que coge la lista. A la derecha, «Lo que necesitamos»: se añade arrastrando una ficha,
@@ -814,7 +816,8 @@ Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ### 2026-11-18 (cajas anchas en el plano)
 
-- Plano: las ubicaciones con varias sububicaciones ocupan toda la fila.
+- Plano: las ubicaciones con varias sububicaciones se ensanchan, primero a toda la fila y
+  después (a petición del usuario) tantas columnas como sububicaciones tienen.
 
 ### 2026-11-18 (inventario de ejemplo)
 

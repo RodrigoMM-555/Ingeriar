@@ -2464,11 +2464,6 @@ tr.fila-baja td{
     background:var(--color_fondo);
 }
 
-/* Caja con varias sububicaciones: toda la fila de su rejilla */
-.caja-ancha{
-    grid-column:1 / -1;
-}
-
 .caja-sin-existencias{
     border-style:dashed;
     background:var(--color_fondo);

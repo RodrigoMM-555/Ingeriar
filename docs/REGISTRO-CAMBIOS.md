@@ -15,6 +15,23 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Plano del inventario: cada caja ocupa tantas columnas como sububicaciones
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, sustituye a «toda la fila» (entrada siguiente): una ubicación con dos
+  sububicaciones ocupa dos columnas, con tres, tres, y así; nunca más de las que caben, para no desbordarse.
+- Archivos creados o modificados: `public/nucleo/inventario.js` (`ajustarAnchos`, `data-columnas` en cada caja y
+  recálculo al cambiar el tamaño de la ventana), `public/estilo.css` (fuera `.caja-ancha`), versión de los scripts,
+  `noteas.md`.
+- Decisiones técnicas y motivo: el número de columnas de la rejilla (`auto-fill`) depende del ancho de la pantalla y
+  del panel, y CSS no permite limitar un `span` a las columnas que hay (si se pasa, crea columnas de más y se
+  desborda). Por eso se lee con `getComputedStyle(...).gridTemplateColumns` después de pintar y se aplica
+  `grid-column: span N`, primero en el plano y después dentro de cada caja. Comprobado con capturas a 1700 y 1000 px.
+- Requisitos que cubre (RF/RNF): RF-06, RNF-06.
+- Cómo probarlo (pasos): con el inventario de ejemplo: Local y Trastero (tres sububicaciones) ocupan tres columnas;
+  Zona A (dos estanterías) ocupa dos dentro del Trastero; al estrechar la ventana se ajustan sin desbordarse.
+- Impacto en la memoria (apartados que habría que revisar): capturas del inventario.
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Plano del inventario: cajas anchas para ubicaciones con varias sububicaciones
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, con muchos datos había que bajar mucho para ver el plano. Ahora una ubicación

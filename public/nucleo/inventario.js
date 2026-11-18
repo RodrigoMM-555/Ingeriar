@@ -21,6 +21,7 @@ class IngeriarInventario {
         this.busqueda = "";
         this.lista = null;
         this.cambiosSinGuardar = false;
+        window.addEventListener("resize", () => this.ajustarAnchos());
     }
 
     cargar() {
@@ -308,10 +309,8 @@ class IngeriarInventario {
             fichas.appendChild(this.crearFicha(material, ubicacion.id, disponible, modo));
         });
         const hijas = this.hijas(ubicacion.id);
-        // Con varias sububicaciones la caja ocupa toda la fila y las reparte a lo ancho.
-        if (hijas.length >= 2) {
-            caja.classList.add("caja-ancha");
-        }
+        // Con varias sububicaciones la caja se ensancha (ver ajustarAnchos).
+        caja.dataset.columnas = String(Math.max(1, hijas.length));
         if (fichas.children.length === 0 && hijas.length === 0) {
             fichas.appendChild(this.parrafo("Vacía", "caja-vacia"));
         }
@@ -514,6 +513,21 @@ class IngeriarInventario {
         } else {
             seccion.appendChild(this.renderListas());
         }
+        this.ajustarAnchos();
+    }
+
+    // Una caja con varias sububicaciones ocupa tantas columnas como sububicaciones tiene,
+    // sin pasar de las que caben en su rejilla. Las columnas dependen del ancho, así que se
+    // calcula con la página ya pintada (de fuera hacia dentro) y al cambiar el tamaño.
+    ajustarAnchos() {
+        const seccion = document.querySelector(this.contenedor);
+        seccion?.querySelectorAll(".plano-inventario, .hijas-caja").forEach((rejilla) => {
+            const columnas = getComputedStyle(rejilla).gridTemplateColumns.split(" ").length;
+            Array.from(rejilla.children).forEach((caja) => {
+                const necesarias = Number(caja.dataset.columnas || 1);
+                caja.style.gridColumn = necesarias > 1 ? "span " + Math.min(necesarias, columnas) : "";
+            });
+        });
     }
 
     // ---------- Pestaña Inventario ----------
