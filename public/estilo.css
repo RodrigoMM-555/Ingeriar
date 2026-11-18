@@ -1272,6 +1272,24 @@ table tbody tr td *{
     white-space:nowrap;
 }
 
+/* En una tabla la celda de acciones sigue siendo una celda (con display:flex dejaba de
+   estirarse hasta el final de la fila). Mide lo justo para sus botones y queda pegada
+   a la derecha, así el resto de columnas tiene más espacio. */
+td.acciones{
+    display:table-cell;
+    width:1%;
+    text-align:right;
+    vertical-align:middle;
+}
+
+td.acciones > .boton + .boton{
+    margin-left:8px;
+}
+
+th.columna-acciones{
+    text-align:right;
+}
+
 
 /* ==================== FORMULARIOS Y MODALES ==================== */
 

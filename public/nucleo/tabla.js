@@ -200,6 +200,7 @@ class IngeriarTabla {
         });
 
         let acciones = document.createElement("th");
+        acciones.className = "columna-acciones";
         acciones.textContent = "Acciones";
         filaCabecera.appendChild(acciones);
         cabeceraTabla.appendChild(filaCabecera);

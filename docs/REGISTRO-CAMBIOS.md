@@ -15,6 +15,22 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Tablas: columna de acciones hasta el final de la fila
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, en la tabla de educandos (y en las demás tablas genéricas) los botones de
+  acciones no llegaban al final de la fila y quitaban espacio al resto. La celda de acciones se alinea a la derecha, se
+  centra en la fila y ocupa solo lo que necesitan sus botones.
+- Archivos creados o modificados: `public/estilo.css` (`td.acciones`, `th.columna-acciones`), `public/nucleo/tabla.js`
+  (clase de la cabecera «Acciones»), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: la causa era `display:flex` en la propia celda `td.acciones`: deja de ser una celda de
+  tabla y no se estira con la fila. Se vuelve a `display:table-cell` con `width:1%` (la columna se ajusta a su
+  contenido) y separación entre botones con margen. La clase `.acciones` fuera de tablas no cambia. Comprobado con
+  capturas de una réplica de la tabla antes y después.
+- Requisitos que cubre (RF/RNF): RNF-06.
+- Cómo probarlo (pasos): abrir Educandos como monitor o administrador.
+- Impacto en la memoria (apartados que habría que revisar): capturas de las tablas.
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Plano del inventario: botones de crear juntos a la derecha
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, «+ Ubicación» y «+ Material» van en un mismo contenedor, juntos y pegados a

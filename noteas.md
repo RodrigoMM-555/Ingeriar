@@ -814,6 +814,11 @@ Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
 
+### 2026-11-18 (columna de acciones)
+
+- Tablas: la celda de acciones vuelve a ser una celda (`td.acciones`), mide lo justo y
+  queda pegada a la derecha.
+
 ### 2026-11-18 (botones del plano)
 
 - Plano: «+ Ubicación» y «+ Material» juntos a la derecha de la barra (`.botones-plano`).
