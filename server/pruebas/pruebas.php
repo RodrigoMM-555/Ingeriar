@@ -37,6 +37,8 @@ $formatoMarkdown = in_array('--markdown', $argumentos, true);
 const DOMINIO_PRUEBAS = '@pruebas.ingeriar.test';
 const CONTRASENA_PRUEBAS = 'pruebas-2026';
 const CARPETA_PRUEBAS = 'pruebas-automaticas';
+// Ronda ficticia muy antigua (2000-2001) para probar el borrado de rondas vencidas (E-16).
+const RONDA_ANTIGUA_PRUEBAS = '00-01';
 
 // ---------- Cliente HTTP con su propia sesión (una cookie por rol) ----------
 
@@ -199,7 +201,22 @@ function limpiarDatosPrueba(PDO $db): void
 {
     $eventos = $db->query("SELECT id FROM eventos WHERE nombre LIKE 'Prueba automática%'")
         ->fetchAll(PDO::FETCH_COLUMN);
+    $base = realpath(__DIR__ . '/../../storage/documentos');
     foreach ($eventos as $evento) {
+        // Circulares subidas a eventos de prueba (pueden estar en la carpeta de cualquier ronda).
+        $circulares = $db->prepare('SELECT archivo_entrega FROM educandos_asistencias WHERE id_evento = ? AND archivo_entrega IS NOT NULL');
+        $circulares->execute([$evento]);
+        foreach ($circulares->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
+            $ruta = $base !== false ? realpath($base . '/' . $archivo) : false;
+            if ($ruta && str_starts_with($ruta, $base . DIRECTORY_SEPARATOR) && is_file($ruta)) {
+                unlink($ruta);
+                $carpeta = dirname($ruta);
+                while ($carpeta !== $base && is_dir($carpeta) && count(scandir($carpeta)) === 2) {
+                    rmdir($carpeta);
+                    $carpeta = dirname($carpeta);
+                }
+            }
+        }
         $fotos = $db->prepare('SELECT archivo FROM galeria_fotos WHERE id_evento = ?');
         $fotos->execute([$evento]);
         foreach ($fotos->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
@@ -251,6 +268,8 @@ function limpiarDatosPrueba(PDO $db): void
     $db->prepare('DELETE FROM usuarios WHERE email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare("DELETE FROM roles WHERE codigo LIKE 'prueba\\_%'")->execute();
     borrarCarpeta(__DIR__ . '/../../storage/documentos/' . CARPETA_PRUEBAS);
+    borrarCarpeta(__DIR__ . '/../../storage/documentos/permanente/' . CARPETA_PRUEBAS);
+    borrarCarpeta(__DIR__ . '/../../storage/documentos/' . RONDA_ANTIGUA_PRUEBAS);
 }
 
 function borrarCarpeta(string $carpeta): void
@@ -604,6 +623,57 @@ try {
         return $fallos ? implode('; ', $fallos) : true;
     });
 
+    echo "\nRondas vencidas y fichas permanentes (E-16)\n";
+    $baseDocumentosPruebas = __DIR__ . '/../../storage/documentos/';
+    // Evento de la ronda 2000-2001 con una respuesta y su circular, y una ficha permanente.
+    $eventoAntiguo = crearEvento($db, 'Prueba automática ronda antigua', 'tropa', '2001-03-10');
+    $circularAntigua = RONDA_ANTIGUA_PRUEBAS . '/tropa/' . $educandoId . '-educando-prueba/circular.pdf';
+    mkdir(dirname($baseDocumentosPruebas . $circularAntigua), 0770, true);
+    file_put_contents($baseDocumentosPruebas . $circularAntigua, "%PDF-1.4\n% prueba\n");
+    $db->prepare("INSERT INTO educandos_asistencias (id_educando, id_evento, estado, archivo_entrega) VALUES (?, ?, 'si', ?)")
+        ->execute([$educandoId, $eventoAntiguo, $circularAntigua]);
+    $fichaPermanente = $baseDocumentosPruebas . 'permanente/' . CARPETA_PRUEBAS . '/ficha.pdf';
+    mkdir(dirname($fichaPermanente), 0770, true);
+    file_put_contents($fichaPermanente, "%PDF-1.4\n% ficha\n");
+
+    prueba('RON-01', 'Un monitor no ve las rondas vencidas → 403', fn() => esperar($scouter->get('/api/superapi.php?ruta=conservacion_rondas'), 403));
+    prueba('RON-02', 'La ronda 00-01 aparece vencida con su circular y su respuesta, y la actual no', function () use ($admin) {
+        $respuesta = $admin->get('/api/superapi.php?ruta=conservacion_rondas');
+        $rondas = array_column($respuesta['json']['rondas'] ?? [], null, 'ronda');
+        $antigua = $rondas[RONDA_ANTIGUA_PRUEBAS] ?? null;
+        return esperar($respuesta, 200) === true && $antigua && $antigua['archivos'] >= 1 && $antigua['asistencias'] >= 1
+            && !isset($rondas[rondaActual()]) ?: $respuesta['texto'];
+    });
+    prueba('RON-03', 'No se borra una ronda que no ha vencido → 400', fn() => esperar($admin->json('/api/superapi.php?ruta=conservacion_rondas', [
+        'rondas' => [rondaActual()],
+    ]), 400));
+    prueba('RON-04', 'Borrar la ronda vencida elimina su carpeta y sus asistencias, pero no el evento ni las fichas permanentes', function () use (
+        $admin, $db, $eventoAntiguo, $baseDocumentosPruebas, $fichaPermanente
+    ) {
+        $respuesta = $admin->json('/api/superapi.php?ruta=conservacion_rondas', ['rondas' => [RONDA_ANTIGUA_PRUEBAS, rondaActual()]]);
+        $asistencias = (int) $db->query("SELECT COUNT(*) FROM educandos_asistencias WHERE id_evento = {$eventoAntiguo}")->fetchColumn();
+        $evento = (bool) $db->query("SELECT 1 FROM eventos WHERE id = {$eventoAntiguo}")->fetchColumn();
+        $fallos = array_filter([
+            esperar($respuesta, 200) === true ? null : 'código ' . $respuesta['codigo'],
+            ($respuesta['json']['rondas'] ?? null) === [RONDA_ANTIGUA_PRUEBAS] ? null : 'solo debía borrar la ronda vencida',
+            is_dir($baseDocumentosPruebas . RONDA_ANTIGUA_PRUEBAS) ? 'la carpeta de la ronda sigue' : null,
+            $asistencias === 0 ? null : 'quedan asistencias',
+            $evento ? null : 'se ha borrado el evento',
+            is_file($fichaPermanente) ? null : 'se ha borrado la ficha permanente',
+        ]);
+        return $fallos ? implode('; ', $fallos) : true;
+    });
+    prueba('RON-05', 'Una circular se guarda en la carpeta de la ronda del evento', function () use ($tutor, $db, $educandoId, $imagen) {
+        $evento = crearEvento($db, 'Prueba automática próxima ronda', 'tropa', '2027-10-09');
+        $db->prepare('UPDATE eventos SET circular = 1 WHERE id = ?')->execute([$evento]);
+        $respuesta = $tutor->post("/api/archivo.php?tipo=entrega&evento={$evento}&educando={$educandoId}", [
+            'archivo' => new CURLFile($imagen, 'image/png', 'circular.png'),
+        ]);
+        $archivo = (string) $db->query("SELECT archivo_entrega FROM educandos_asistencias WHERE id_evento = {$evento}")->fetchColumn();
+        return esperar($respuesta, 200) === true && str_starts_with($archivo, '27-28/')
+            && is_file(__DIR__ . '/../../storage/documentos/' . $archivo) ?: ($archivo ?: $respuesta['texto']);
+    });
+
     echo "\nCargos y permisos (E-13)\n";
     $tesorero = new ClienteHttp($base);
     $tesorero->iniciarSesion('tesorero' . DOMINIO_PRUEBAS);
@@ -817,13 +887,14 @@ try {
             && ($respuesta['json']['puede_subir'] ?? false) && !($respuesta['json']['puede_revisar'] ?? true) ?: $respuesta['texto'];
     });
     prueba('DOC-06', 'El tutor no ve la documentación de otro educando → 403', fn() => esperar($estadoDocumentos($tutor, $educandoAjenoId), 403));
-    prueba('DOC-07', 'El tutor entrega un documento y queda pendiente en la carpeta del educando', function () use ($entregar, $tutor, $educandoId, $db) {
+    prueba('DOC-07', 'El tutor entrega un documento y queda pendiente en la carpeta permanente del educando', function () use ($entregar, $tutor, $educandoId, $db) {
         $respuesta = $entregar($tutor, $educandoId);
         $fila = $db->query("SELECT estado, archivo FROM documentos_educando WHERE id_educando = {$educandoId} AND codigo_documento = 'prueba_doc'")->fetch();
         $partes = explode('/', (string) ($fila['archivo'] ?? ''));
         $ruta = __DIR__ . '/../../storage/documentos/' . ($fila['archivo'] ?? '');
-        return esperar($respuesta, 200) === true && $fila['estado'] === 'pendiente' && count($partes) === 4
-            && str_starts_with($partes[2], $educandoId . '-') && is_file($ruta) ?: json_encode($fila ?: $respuesta['texto']);
+        return esperar($respuesta, 200) === true && $fila['estado'] === 'pendiente' && count($partes) === 3
+            && $partes[0] === 'permanente' && str_starts_with($partes[1], $educandoId . '-') && is_file($ruta)
+            ?: json_encode($fila ?: $respuesta['texto']);
     });
     prueba('DOC-08', 'El tutor no entrega documentos de otro educando → 403', fn() => esperar($entregar($tutor, $educandoAjenoId), 403));
     prueba('DOC-09', 'Un archivo con formato no admitido → 415', fn() => esperar($entregar($tutor, $educandoId, $falsa), 415));

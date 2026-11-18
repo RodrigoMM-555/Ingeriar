@@ -15,6 +15,36 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · E-16 Rondas vencidas y fichas permanentes
+- Rama / commit: `feat/E-16-conservacion-rondas`
+- Qué se ha hecho: a petición del usuario, se reorganizan los documentos para poder borrar rondas enteras:
+  - Las fichas de inscripción se guardan en `storage/documentos/permanente/<educando>/`, fuera de las rondas.
+  - Las circulares de actividades siguen en `<ronda>/<sección>/<educando>/`, pero con la ronda y la sección **del
+    evento** (antes, las del día en que se subía: una circular subida en agosto para septiembre iba a la ronda anterior).
+  - Configuración → «Rondas vencidas»: lista las rondas cuyo final (31 de agosto) es anterior al plazo de conservación,
+    con sus archivos y respuestas, y al confirmar borra la carpeta de la ronda y las respuestas de asistencia de sus
+    eventos (los eventos se quedan). Las fichas permanentes no se tocan.
+  - Script `2026-11-fichas-permanentes.php` para mover las fichas ya entregadas a la carpeta permanente.
+- Archivos creados o modificados: `server/api/superapi.php` (ruta `conservacion_rondas`), `server/api/documentos.php`
+  (carpeta permanente), `server/api/archivo.php` (ronda y sección del evento), `server/api/comun.php`
+  (`borrarCarpetaDentroDe`), `public/nucleo/configuracion.js` (bloque «Rondas vencidas»),
+  `server/data/migraciones/2026-11-fichas-permanentes.php` (nuevo), `server/pruebas/pruebas.php` (RON-01 a RON-05,
+  DOC-07, limpieza de circulares de eventos de prueba), `docs/PLAN-PRUEBAS.md`, `docs/ENCARGOS.md`, `noteas.md`.
+- Decisiones técnicas y motivo: **cambia E-14** (las fichas iban en la carpeta de la ronda) y **amplía E-06** (solo se
+  borraba lo de educandos dados de baja), por decisión del usuario. Decisiones del usuario: se mantiene la fecha de baja
+  para borrar el educando y sus fichas permanentes 5 años después (no se conservan datos personales sin límite), y al
+  borrar una ronda se borran también sus respuestas de asistencia. El plazo es el mismo `plazo_conservacion_anos`. El
+  servidor recalcula qué rondas han vencido y solo borra esas; primero borra en la base de datos (transacción) y después
+  los archivos, comprobando que cada ruta está dentro de `storage/documentos`. El borrado queda en `registro_accesos`.
+  La migración se ejecuta con el usuario del servidor web porque `storage/` es suyo.
+- Requisitos que cubre (RF/RNF): RF-04, RF-02, RNF-03.
+- Cómo probarlo (pasos): pruebas automáticas (121 de 121 en una base de pruebas) y MAN-48, MAN-49. En la instalación
+  local, mover las fichas existentes:
+  `sudo -u www-data php /var/www/html/Ingeriar/server/data/migraciones/2026-11-fichas-permanentes.php --confirmar`.
+- Impacto en la memoria (apartados que habría que revisar): RF-04 (documentación y conservación), protección de datos
+  (plazos de conservación), estructura de `storage/`.
+- Pendiente o problemas: las rondas se interpretan como años 2000 a 2099 (nombre de carpeta «AA-BB»).
+
 ## 2026-11-18 · Tablas: columna de acciones hasta el final de la fila
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, en la tabla de educandos (y en las demás tablas genéricas) los botones de

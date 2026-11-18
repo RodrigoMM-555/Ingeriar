@@ -474,12 +474,24 @@ Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
   con él (`tutorTieneEducando` solo admite educandos activos). El administrador lo
   sigue viendo en la tabla, en cursiva y al final; quitar la fecha deshace la baja.
   En la galería cuenta solo para los eventos anteriores a su baja.
-- **Conservación**: `plazo_conservacion_anos` (5 por defecto) en la configuración.
-  Configuración → «Datos vencidos» (ruta `conservacion`, solo administrador) lista los
-  educandos con baja anterior al plazo y los tutores que se quedarían sin educandos.
-  Al confirmar se borran el educando (asistencias y vínculos en cascada), los tutores
-  marcados y los archivos de entregas con sus carpetas vacías. El servidor vuelve a
-  comprobar qué está vencido: no borra nada que no lo esté aunque se le pida.
+- **Conservación** (E-06, ampliada en E-16): `plazo_conservacion_anos` (5 por defecto)
+  en la configuración se aplica de dos formas:
+  - **Educandos dados de baja**: Configuración → «Datos vencidos» (ruta `conservacion`,
+    solo administrador) lista los educandos con baja anterior al plazo y los tutores que
+    se quedarían sin educandos. Al confirmar se borran el educando (asistencias y
+    vínculos en cascada), sus fichas permanentes, los tutores marcados y los archivos de
+    entregas con sus carpetas vacías.
+  - **Rondas** (E-16): Configuración → «Rondas vencidas» (ruta `conservacion_rondas`)
+    lista las rondas cuyo final (31 de agosto) es anterior al plazo. Al confirmar se
+    borran la carpeta `storage/documentos/<ronda>/` entera (circulares de todos los
+    educandos) y las respuestas de asistencia de los eventos de esa ronda (los eventos
+    se quedan). Las fichas permanentes no se tocan.
+  En los dos casos el servidor vuelve a comprobar qué está vencido: no borra nada que
+  no lo esté aunque se le pida, y el borrado queda en `registro_accesos`.
+- **Carpetas de documentos** (E-16):
+  - `storage/documentos/permanente/<educando>/`: fichas de inscripción (permanentes).
+  - `storage/documentos/<ronda>/<sección>/<educando>/`: circulares de actividades. La
+    ronda y la sección son las **del evento** (antes, las del día en que se subía).
 - **Registro de accesos** (`registro_accesos`): quién, acción, recurso, educando,
   fecha e IP. Se registran ver, previsualizar y subir entregas, la descarga de la copia
   completa y el borrado de datos vencidos. No se registran las fotos de la galería (cada
@@ -501,9 +513,10 @@ junto con la circular de participación que se adjunta a los eventos.
   lo deja pendiente de revisión. Un monitor también puede entregarlo (copia en papel).
 - Un monitor lo marca como revisado o pide corrección con observaciones
   (`documentos.revisar`). Estados: pendiente, revisado, corregir.
-- Los archivos van con las circulares, en la carpeta del educando en la ronda
-  (`storage/documentos/<ronda>/<sección>/<educando>/inscripcion-<documento>-<aleatorio>`),
-  así que el borrado de datos vencidos los elimina. Ver y subir queda en `registro_accesos`.
+- Los archivos van a la carpeta permanente del educando, fuera de las rondas (E-16):
+  `storage/documentos/permanente/<educando>/inscripcion-<documento>-<aleatorio>`. Así se
+  puede borrar una ronda entera sin perderlos; se borran con el educando, 5 años después
+  de su baja. Ver y subir queda en `registro_accesos`.
 - Dashboard: «Documentos pendientes» (tutor) y «Documentos por revisar» (monitor).
 - Bases existentes: `2026-11-documentacion.sql`.
 
@@ -676,6 +689,10 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
    Cuando las pruebas pasen,
    `2026-11-roles-retirar-columna.sql` quita la columna antigua `usuarios.rol`. El
    código funciona antes y después de este último paso.
+10. Si ya había fichas de inscripción entregadas antes de E-16, moverlas a la carpeta
+    permanente con el usuario del servidor web, desde la copia que sirve Apache:
+    `sudo -u www-data php <ruta>/server/data/migraciones/2026-11-fichas-permanentes.php --confirmar`
+    (sin `--confirmar` solo muestra lo que haría; se puede repetir).
 
 El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
 aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
@@ -813,6 +830,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-18 (E-16 rondas vencidas y fichas permanentes)
+
+- Fichas de inscripción en `permanente/<educando>/`; circulares en la ronda del evento.
+- Configuración → «Rondas vencidas»: borra la carpeta de la ronda y sus asistencias.
+- Migración `2026-11-fichas-permanentes.php`. Pruebas RON-01 a RON-05.
 
 ### 2026-11-18 (columna de acciones)
 

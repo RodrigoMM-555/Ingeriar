@@ -961,6 +961,147 @@ switch ($ruta) {
             'archivos' => $archivosBorrados,
         ]);
 
+    case 'conservacion_rondas':
+        // E-16: rondas cuyo plazo de conservación ha pasado, contado desde el final de la
+        // ronda (31 de agosto). Se borran su carpeta (circulares de todos los educandos) y
+        // las respuestas de asistencia de sus eventos. Las fichas permanentes están en
+        // storage/documentos/permanente y no se tocan (se borran con el educando, E-06).
+        // GET lista lo que se borraría; POST lo borra.
+        exigirPermiso('conservacion.gestionar');
+        $configuracion = json_decode(
+            (string) file_get_contents(__DIR__ . '/../data/config.php'),
+            true
+        );
+        $plazo = max(1, (int) ($configuracion['plazo_conservacion_anos'] ?? 5));
+        $baseDocumentos = __DIR__ . '/../../storage/documentos';
+        $hoy = new DateTimeImmutable('today');
+        // «26-27» → del 2026-09-01 al 2027-08-31.
+        $limitesRonda = function (string $ronda): array {
+            $inicio = 2000 + (int) substr($ronda, 0, 2);
+            return [sprintf('%04d-09-01', $inicio), sprintf('%04d-08-31', $inicio + 1)];
+        };
+        $esVencida = fn(string $ronda): bool =>
+            (new DateTimeImmutable($limitesRonda($ronda)[1]))->modify("+{$plazo} years") < $hoy;
+
+        // Rondas candidatas: las carpetas que hay y las de los eventos con respuestas.
+        $rondas = [];
+        foreach (is_dir($baseDocumentos) ? scandir($baseDocumentos) : [] as $nombre) {
+            if (preg_match('/^\d{2}-\d{2}$/', $nombre) && is_dir($baseDocumentos . '/' . $nombre)) {
+                $rondas[$nombre] = true;
+            }
+        }
+        foreach ($db->query('SELECT DISTINCT e.fecha_inicio FROM eventos e
+                             JOIN educandos_asistencias a ON a.id_evento = e.id') as $fila) {
+            $rondas[rondaActual(new DateTimeImmutable($fila['fecha_inicio']))] = true;
+        }
+        $rondasVencidas = array_values(array_filter(array_keys($rondas), $esVencida));
+        sort($rondasVencidas);
+
+        $asistenciasRonda = function (string $ronda) use ($db, $limitesRonda): array {
+            [$desde, $hasta] = $limitesRonda($ronda);
+            $stmt = $db->prepare(
+                'SELECT a.id_educando, a.id_evento, a.archivo_entrega
+                 FROM educandos_asistencias a
+                 JOIN eventos e ON e.id = a.id_evento
+                 WHERE e.fecha_inicio >= ? AND e.fecha_inicio < ?'
+            );
+            $stmt->execute([$desde, (new DateTimeImmutable($hasta))->modify('+1 day')->format('Y-m-d')]);
+            return $stmt->fetchAll();
+        };
+        $archivosEnCarpeta = function (string $carpeta): int {
+            if (!is_dir($carpeta)) {
+                return 0;
+            }
+            $total = 0;
+            foreach (new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($carpeta, FilesystemIterator::SKIP_DOTS)
+            ) as $elemento) {
+                $total += $elemento->isFile() ? 1 : 0;
+            }
+            return $total;
+        };
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            responder([
+                'plazo_anos' => $plazo,
+                'rondas' => array_map(function (string $ronda) use ($limitesRonda, $asistenciasRonda, $archivosEnCarpeta, $baseDocumentos) {
+                    [$desde, $hasta] = $limitesRonda($ronda);
+                    return [
+                        'ronda' => $ronda,
+                        'desde' => $desde,
+                        'hasta' => $hasta,
+                        'asistencias' => count($asistenciasRonda($ronda)),
+                        'archivos' => $archivosEnCarpeta($baseDocumentos . '/' . $ronda),
+                    ];
+                }, $rondasVencidas),
+            ]);
+        }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            responder(['error' => 'Método no permitido'], 405);
+        }
+
+        $datos = json_decode(file_get_contents('php://input'), true);
+        // Solo se borra lo que el servidor confirma como vencido, aunque el cliente pida otra cosa.
+        $borrarRondas = array_values(array_intersect(
+            $rondasVencidas,
+            array_map('strval', (array) ($datos['rondas'] ?? []))
+        ));
+        if (!$borrarRondas) {
+            responder(['error' => 'No hay ninguna ronda vencida seleccionada'], 400);
+        }
+
+        $archivosSueltos = [];
+        $asistenciasBorradas = 0;
+        $db->beginTransaction();
+        try {
+            $borrarAsistencia = $db->prepare(
+                'DELETE FROM educandos_asistencias WHERE id_educando = ? AND id_evento = ?'
+            );
+            foreach ($borrarRondas as $ronda) {
+                foreach ($asistenciasRonda($ronda) as $asistencia) {
+                    if ($asistencia['archivo_entrega']) {
+                        $archivosSueltos[] = $asistencia['archivo_entrega'];
+                    }
+                    $borrarAsistencia->execute([$asistencia['id_educando'], $asistencia['id_evento']]);
+                    $asistenciasBorradas += $borrarAsistencia->rowCount();
+                }
+            }
+            $db->commit();
+        } catch (Throwable $error) {
+            $db->rollBack();
+            responder(['error' => 'No se pudo completar el borrado: ' . $error->getMessage()], 500);
+        }
+
+        // Los archivos se borran después de confirmar el borrado en la base de datos: primero
+        // las carpetas de las rondas y después las circulares que estuvieran en otra carpeta.
+        $archivosBorrados = 0;
+        foreach ($borrarRondas as $ronda) {
+            $archivosBorrados += borrarCarpetaDentroDe($baseDocumentos . '/' . $ronda, $baseDocumentos);
+        }
+        $base = realpath($baseDocumentos);
+        foreach ($archivosSueltos as $archivo) {
+            $ruta = $base !== false ? realpath($base . '/' . ltrim((string) $archivo, '/')) : false;
+            if ($ruta && is_file($ruta) && str_starts_with($ruta, $base . DIRECTORY_SEPARATOR) && unlink($ruta)) {
+                $archivosBorrados++;
+            }
+        }
+        registrarAcceso(
+            $db,
+            $usuario,
+            'eliminar',
+            'rondas_vencidas',
+            null,
+            // El detalle es solo texto ASCII y cabe en 255 caracteres.
+            substr('rondas ' . implode(', ', $borrarRondas) . ': ' . $asistenciasBorradas
+                . ' asistencias, ' . $archivosBorrados . ' archivos', 0, 255)
+        );
+        responder([
+            'ok' => true,
+            'rondas' => $borrarRondas,
+            'asistencias' => $asistenciasBorradas,
+            'archivos' => $archivosBorrados,
+        ]);
+
     case 'roles':
         // E-13: cargos y permisos. GET: lista (también para el formulario de usuarios).
         // POST: crear o editar un cargo y sus permisos (roles.gestionar).

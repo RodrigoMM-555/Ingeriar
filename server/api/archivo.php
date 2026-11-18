@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(400);
         exit('Datos de entrega no válidos');
     }
-    $eventoStmt = $db->prepare('SELECT circular, fecha_fin FROM eventos WHERE id = ?');
+    $eventoStmt = $db->prepare('SELECT circular, fecha_inicio, fecha_fin FROM eventos WHERE id = ?');
     $eventoStmt->execute([$eventoId]);
     $evento = $eventoStmt->fetch();
     if (!$evento || !$evento['circular']) {
@@ -69,10 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'SELECT codigo, edad_minima, edad_maxima FROM secciones
          WHERE activo = 1 ORDER BY orden, nombre'
     )->fetchAll();
+    // E-16: la circular va a la ronda del evento (no a la del día en que se sube) y a la
+    // sección que tendrá entonces, porque las rondas vencidas se borran enteras.
+    $fechaEvento = new DateTimeImmutable($evento['fecha_inicio']);
     $seccion = $educando
         ? seccionDeEducandoConCatalogo(
             $educando['naz'] ?? null,
-            $secciones
+            $secciones,
+            $fechaEvento
         )
         : null;
     if (!$educando || !$seccion) {
@@ -82,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $nombreArchivo = bin2hex(random_bytes(16)) . '.' . $permitidos[$mime];
     $rutaRelativa = implode('/', [
-        rondaActual(),
+        rondaActual($fechaEvento),
         $seccion,
         nombreCarpetaEducando($educandoId, $educando['nombre'], $educando['apellidos']),
         $nombreArchivo,

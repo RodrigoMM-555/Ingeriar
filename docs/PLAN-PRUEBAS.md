@@ -83,6 +83,11 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | BAJ-10 | Se lista el educando vencido y no el dado de baja ayer | RF-02, RNF-03 | Superada | 2026-11-17 |
 | BAJ-11 | No se puede borrar un educando que no ha vencido → 400 | RNF-03 | Superada | 2026-11-17 |
 | BAJ-12 | Eliminar vencidos borra educando, tutor elegido y archivos | RF-02, RF-04, RNF-03 | Superada | 2026-11-17 |
+| RON-01 | Un monitor no ve las rondas vencidas → 403 | RNF-03 | Superada | 2026-11-18 |
+| RON-02 | La ronda 00-01 aparece vencida con su circular y su respuesta, y la actual no | RF-04 | Superada | 2026-11-18 |
+| RON-03 | No se borra una ronda que no ha vencido → 400 | RF-04, RNF-03 | Superada | 2026-11-18 |
+| RON-04 | Borrar la ronda vencida elimina su carpeta y sus asistencias, pero no el evento ni las fichas permanentes | RF-04 | Superada | 2026-11-18 |
+| RON-05 | Una circular se guarda en la carpeta de la ronda del evento | RF-04 | Superada | 2026-11-18 |
 
 | ROL-01 | Un monitor solo ve sus facturas | RF-05, RNF-03 | Superada | 2026-11-17 |
 | ROL-02 | Un monitor con tesorería ve todas las facturas | RF-01, RF-05 | Superada | 2026-11-17 |
@@ -124,7 +129,7 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | DOC-04 | Un monitor no cambia las plantillas → 403 | RNF-03 | Superada | 2026-11-17 |
 | DOC-05 | El tutor ve la documentación de su educando | RF-04 | Superada | 2026-11-17 |
 | DOC-06 | El tutor no ve la documentación de otro educando → 403 | RNF-03 | Superada | 2026-11-17 |
-| DOC-07 | El tutor entrega un documento y queda pendiente en la carpeta del educando | RF-04 | Superada | 2026-11-17 |
+| DOC-07 | El tutor entrega un documento y queda pendiente en la carpeta permanente del educando | RF-04 | Superada | 2026-11-18 |
 | DOC-08 | El tutor no entrega documentos de otro educando → 403 | RNF-03 | Superada | 2026-11-17 |
 | DOC-09 | Un archivo con formato no admitido → 415 | RNF-03 | Superada | 2026-11-17 |
 | DOC-10 | El tutor no puede revisar → 403 | RNF-03 | Superada | 2026-11-17 |
@@ -159,7 +164,7 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-Resultado: 116 de 116 superadas el 2026-11-18 (con las pruebas de E-15).
+Resultado: 121 de 121 superadas el 2026-11-18 (con las pruebas de E-15 y E-16).
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 
@@ -262,3 +267,5 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-45 | Monitor | Lista: pedir 20 de un material del que hay 10 repartidos en dos sitios | Coge de donde más hay primero y pone 10 en «Hay que comprar» | RF-06 | Pendiente | |
 | MAN-46 | Monitor | Lista: arrastrar la ficha de la ubicación con menos cantidad; luego «Reparto automático» | Esa ubicación se coge primero («elegida»); al pulsar, vuelve al reparto por cantidad | RF-06 | Pendiente | |
 | MAN-47 | Monitor | Lista: escribir «Malvaviscos» y 30 en «+ Añadir» | Aparece en «Hay que comprar» como «no está en el inventario» | RF-06 | Pendiente | |
+| MAN-48 | Tutor | Entregar una ficha de inscripción | El archivo queda en `storage/documentos/permanente/<educando>/` | RF-04 | Pendiente | |
+| MAN-49 | Administrador | Configuración → «Rondas vencidas» | Lista solo rondas terminadas hace más del plazo; al eliminar desaparecen su carpeta y sus asistencias | RF-04 | Pendiente | |

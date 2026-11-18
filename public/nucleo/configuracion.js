@@ -237,6 +237,7 @@ class IngeriarConfiguracion {
             }
             if (this.utilidades.tienePermiso("conservacion.gestionar")) {
                 seccion.appendChild(this.crearBloqueVencidos());
+                seccion.appendChild(this.crearBloqueRondasVencidas());
             }
         });
     }
@@ -417,7 +418,7 @@ class IngeriarConfiguracion {
             const ayuda = document.createElement("p");
             ayuda.textContent = "Se borran definitivamente los educandos dados de baja " +
                 "hace " + datos.plazo_anos + " años o más (baja anterior o igual al " +
-                datos.fecha_limite + "), con sus entregas y asistencias.";
+                datos.fecha_limite + "), con sus fichas permanentes, entregas y asistencias.";
             contenido.appendChild(ayuda);
             if (datos.educandos.length === 0) {
                 const vacio = document.createElement("p");
@@ -487,6 +488,84 @@ class IngeriarConfiguracion {
                 }).catch((error) => alert(error.message));
             };
             contenido.appendChild(borrar);
+        }).catch((error) => {
+            contenido.textContent = error.message;
+        });
+
+        cargar();
+        return bloque;
+    }
+
+    // Rondas vencidas (E-16): se borran la carpeta de la ronda (circulares de todos los
+    // educandos) y las respuestas de asistencia de sus eventos. Las fichas permanentes no.
+    crearBloqueRondasVencidas() {
+        const bloque = document.createElement("div");
+        bloque.className = "caja-configuracion vista-superficie";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = "Rondas vencidas";
+        const contenido = document.createElement("div");
+        contenido.textContent = "Cargando…";
+        bloque.append(titulo, contenido);
+
+        const cargar = () => this.utilidades.obtenerJson(
+            "api/superapi.php?ruta=conservacion_rondas"
+        ).then((datos) => {
+            contenido.replaceChildren();
+            const ayuda = document.createElement("p");
+            ayuda.textContent = "Pasados " + datos.plazo_anos + " años desde el final de una ronda " +
+                "(31 de agosto) se borran sus circulares y las respuestas de asistencia de sus " +
+                "eventos, de todos los educandos. Las fichas permanentes no se borran aquí.";
+            contenido.appendChild(ayuda);
+            if (datos.rondas.length === 0) {
+                const vacio = document.createElement("p");
+                vacio.className = "sin-datos";
+                vacio.textContent = "No hay rondas vencidas.";
+                contenido.appendChild(vacio);
+                return;
+            }
+            const lista = document.createElement("div");
+            lista.className = "lista-vencidos";
+            datos.rondas.forEach((ronda) => {
+                const etiqueta = document.createElement("label");
+                etiqueta.className = "casilla-vencido";
+                const casilla = document.createElement("input");
+                casilla.type = "checkbox";
+                casilla.name = "rondas";
+                casilla.value = ronda.ronda;
+                casilla.checked = true;
+                etiqueta.append(casilla, " Ronda " + ronda.ronda + " (" + ronda.desde + " a " +
+                    ronda.hasta + ") · " + ronda.archivos + " archivos · " +
+                    ronda.asistencias + " respuestas de asistencia");
+                lista.appendChild(etiqueta);
+            });
+            const borrar = document.createElement("button");
+            borrar.type = "button";
+            borrar.className = "boton boton-borrar";
+            borrar.textContent = "Eliminar rondas";
+            borrar.onclick = () => {
+                const rondas = Array.from(
+                    contenido.querySelectorAll('input[name="rondas"]:checked')
+                ).map((casilla) => casilla.value);
+                if (rondas.length === 0) {
+                    alert("No hay ninguna ronda seleccionada.");
+                    return;
+                }
+                if (!confirm("Se borrarán las circulares y las asistencias de las rondas " +
+                    rondas.join(", ") + ". No se puede deshacer. ¿Continuar?")) {
+                    return;
+                }
+                this.utilidades.enviarJson(
+                    "api/superapi.php?ruta=conservacion_rondas",
+                    {rondas}
+                ).then((resultado) => {
+                    alert("Borradas las rondas " + resultado.rondas.join(", ") + ": " +
+                        resultado.archivos + " archivos y " +
+                        resultado.asistencias + " respuestas de asistencia.");
+                    return cargar();
+                }).catch((error) => alert(error.message));
+            };
+            contenido.append(lista, borrar);
         }).catch((error) => {
             contenido.textContent = error.message;
         });

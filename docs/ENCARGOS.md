@@ -240,3 +240,18 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Alternativa sin ratón: botones en cada ficha. Acción nueva en el servidor `mover_material`, dentro del bloqueo del JSON.
 - Aceptación: mover material y ubicaciones arrastrando; el servidor rechaza mover más de lo que hay; pruebas automáticas nuevas.
 - Estado: hecho (rama `feat/E-15-inventario-visual`, pendiente de fusionar)
+
+## E-16 · Rondas vencidas y fichas permanentes
+- Requisitos: RF-04, RF-02, RNF-03. Pedido por el usuario el 2026-11-18. Modifica E-06 y E-14.
+- Las fichas de inscripción (E-14) se guardan en una carpeta por educando dentro de `storage/documentos/permanente/`,
+  fuera de las rondas. **Cambia E-14**, donde iban en la carpeta del educando en la ronda junto a las circulares.
+- Las circulares de actividades siguen en `<ronda>/<sección>/<educando>/`, ahora con la ronda y la sección del evento.
+- Pasados 5 años (el plazo configurable) desde el final de una ronda, el administrador borra la ronda entera: su
+  carpeta y las respuestas de asistencia de sus eventos, de todos los educandos (decisión del usuario: también las
+  asistencias). **Amplía E-06**, que solo borraba lo de los educandos dados de baja.
+- Se mantiene la fecha de baja (decisión del usuario): el educando, sus fichas permanentes y sus datos se borran 5 años
+  después de la baja, como en E-06, para no conservarlos sin límite.
+- Script de migración para mover las fichas ya entregadas a la carpeta permanente.
+- Aceptación: borrar una ronda vencida elimina su carpeta y sus asistencias y no toca las fichas permanentes ni rondas
+  sin vencer; pruebas automáticas nuevas.
+- Estado: hecho (rama `feat/E-16-conservacion-rondas`, pendiente de fusionar)

@@ -28,6 +28,9 @@ const FORMATOS_DOCUMENTO = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
 ];
 
+// Carpeta de las fichas permanentes de cada educando (E-16).
+const CARPETA_PERMANENTE = 'permanente';
+
 function baseDocumentos(): string
 {
     return realpath(__DIR__ . '/../../storage/documentos');
@@ -205,13 +208,10 @@ switch ($accion) {
         }
         $extension = validarArchivo('archivo', FORMATOS_DOCUMENTO);
 
-        // Misma carpeta que las circulares: ronda / sección / educando.
-        $secciones = $db->query(
-            'SELECT codigo, edad_minima, edad_maxima FROM secciones WHERE activo = 1 ORDER BY orden, nombre'
-        )->fetchAll();
+        // E-16: las fichas son permanentes y van fuera de las rondas, en una carpeta por
+        // educando. Así se puede borrar una ronda entera (circulares) sin perderlas.
         $relativa = implode('/', [
-            rondaActual(),
-            $educando->seccion($secciones) ?? 'sin-seccion',
+            CARPETA_PERMANENTE,
             $educando->carpeta(),
             'inscripcion-' . $codigo . '-' . bin2hex(random_bytes(12)) . '.' . $extension,
         ]);
