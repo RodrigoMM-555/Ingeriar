@@ -15,6 +15,30 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Configuración: columnas alineadas y nombres de documentos más anchos
+- Rama / commit: `feat/E-16-conservacion-rondas`
+- Qué se ha hecho: a petición del usuario, en Configuración:
+  - «Documentos base y plantillas»: cada fila tiene siempre las mismas cinco columnas (nombre, opciones, plantilla
+    actual, archivo nuevo y guardar), aunque alguna quede vacía. El nombre ocupa el espacio libre y se lee entero;
+    todos los «Guardar» quedan en la misma columna y con el mismo ancho. La circular (sin casillas) ya no desplaza la fila.
+  - Casillas sueltas de los formularios («Modo oscuro», «Mostrar educandos sin sección», «Permitir asistencia en
+    eventos pasados»): a la izquierda y a la altura de los demás campos. Los controles de una misma fila quedan
+    alineados abajo aunque una etiqueta ocupe dos líneas.
+  - «Listas de la aplicación»: «Activo» y «Quitar» siempre en las dos últimas columnas, pegados a la derecha y en la
+    misma posición en todas las listas (antes cambiaban según la lista tuviera edades o no).
+- Archivos creados o modificados: `public/nucleo/documentos.js` (celdas de cada fila), `public/estilo.css`
+  (`.fila-plantilla`, `.celda-plantilla-*`, `.fila-catalogo`, `.caja-configuracion > .campo`), versión de los scripts,
+  `noteas.md`.
+- Decisiones técnicas y motivo: rejilla CSS con la misma plantilla de columnas en todas las filas (ancho fijo para los
+  controles y `1fr` para el texto) en lugar de `flex-wrap`, que coloca cada elemento según el ancho de los anteriores.
+  En pantallas estrechas las filas pasan a dos columnas y a una. Comprobado con capturas de la pantalla real de
+  Configuración (administrador de demostración) a 1400 y 1100 px.
+- Requisitos que cubre (RF/RNF): RNF-06.
+- Cómo probarlo (pasos): entrar como administrador y abrir Configuración.
+- Impacto en la memoria (apartados que habría que revisar): capturas de Configuración.
+- Pendiente o problemas: en «Cargos y permisos» la cabecera de cada cargo es estrecha (el nombre «Administrador» se
+  corta); no se ha cambiado.
+
 ## 2026-11-18 · E-16 Rondas vencidas y fichas permanentes
 - Rama / commit: `feat/E-16-conservacion-rondas`
 - Qué se ha hecho: a petición del usuario, se reorganizan los documentos para poder borrar rondas enteras:

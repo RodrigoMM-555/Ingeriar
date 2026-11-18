@@ -202,22 +202,33 @@ class IngeriarDocumentos {
             }
             return etiqueta;
         };
+        // Todas las filas tienen las mismas cinco celdas (nombre, opciones, plantilla actual,
+        // archivo nuevo y botón), aunque alguna quede vacía: así las columnas y los botones
+        // de guardar quedan alineados entre filas.
+        const celda = (clase) => {
+            const elemento = document.createElement("div");
+            elemento.className = "celda-plantilla " + clase;
+            formulario.appendChild(elemento);
+            return elemento;
+        };
+        const celdaNombre = celda("celda-plantilla-nombre");
         if (nuevo) {
-            formulario.appendChild(campo("text", "codigo", "", "código (p. ej. ficha_campamento)"));
+            celdaNombre.appendChild(campo("text", "codigo", "", "código (p. ej. ficha_campamento)"));
         } else {
             const codigo = document.createElement("input");
             codigo.type = "hidden";
             codigo.name = "codigo";
             codigo.value = documento.codigo;
-            formulario.appendChild(codigo);
+            celdaNombre.appendChild(codigo);
         }
-        formulario.appendChild(campo("text", "nombre", documento?.nombre, "Nombre visible"));
+        celdaNombre.appendChild(campo("text", "nombre", documento?.nombre, "Nombre visible"));
+        const celdaOpciones = celda("celda-plantilla-opciones");
         if (documento?.tipo === "participacion") {
             const nota = document.createElement("small");
             nota.textContent = "Circular de los eventos";
-            formulario.appendChild(nota);
+            celdaOpciones.appendChild(nota);
         } else {
-            formulario.append(
+            celdaOpciones.append(
                 campo("checkbox", "obligatorio", documento?.obligatorio ?? true, "Obligatorio"),
                 campo("checkbox", "activo", documento?.activo ?? true, "Activo")
             );
@@ -228,27 +239,28 @@ class IngeriarDocumentos {
         orden.value = documento?.orden ?? 100;
         formulario.appendChild(orden);
 
+        const celdaActual = celda("celda-plantilla-actual");
         if (documento?.tiene_plantilla) {
             const actual = document.createElement("a");
             actual.className = "boton boton-descargar";
             actual.href = "api/documentos.php?accion=plantilla&codigo=" + encodeURIComponent(documento.codigo);
             actual.textContent = "Plantilla actual";
-            formulario.appendChild(actual);
+            celdaActual.appendChild(actual);
         } else if (!nuevo) {
             const falta = document.createElement("small");
             falta.className = "estado-documento estado-falta";
             falta.textContent = "Sin plantilla";
-            formulario.appendChild(falta);
+            celdaActual.appendChild(falta);
         }
         const archivo = campo("file", "plantilla", null, "Nueva plantilla");
         archivo.querySelector("input").accept = ".pdf,.jpg,.jpeg,.png,.docx";
-        formulario.appendChild(archivo);
+        celda("celda-plantilla-archivo").appendChild(archivo);
 
         const guardar = document.createElement("button");
         guardar.type = "submit";
         guardar.className = "boton boton-crear";
         guardar.textContent = nuevo ? "+ Añadir documento" : "Guardar";
-        formulario.appendChild(guardar);
+        celda("celda-plantilla-guardar").appendChild(guardar);
         formulario.onsubmit = (envio) => {
             envio.preventDefault();
             const datos = new FormData(formulario);

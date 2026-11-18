@@ -831,6 +831,14 @@ Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
 
+### 2026-11-18 (alineación en Configuración)
+
+- Documentos base: cada fila con las mismas cinco columnas (el nombre ocupa el espacio
+  libre). Casillas de los formularios a la izquierda y controles alineados abajo.
+  «Activo» y «Quitar» de las listas, en las dos últimas columnas.
+- Criterio general: en las listas de filas con controles, todas las filas usan la misma
+  rejilla, para que los botones y campos queden a la misma altura y en la misma columna.
+
 ### 2026-11-18 (E-16 rondas vencidas y fichas permanentes)
 
 - Fichas de inscripción en `permanente/<educando>/`; circulares en la ronda del evento.

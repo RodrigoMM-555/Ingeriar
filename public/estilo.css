@@ -705,14 +705,24 @@ section h2{
 
 .fila-catalogo{
     display:grid;
-    grid-template-columns:minmax(130px,1fr) minmax(180px,2fr)
-        110px 110px auto auto;
+    /* «Activo» y «Quitar» siempre en las dos últimas columnas, con el mismo ancho en todas
+       las listas: así quedan pegados a la derecha y alineados aunque una lista tenga más
+       campos (las secciones llevan edades). */
+    grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) 90px 100px;
     align-items:center;
     gap:10px;
     padding:12px;
     border:1px solid var(--color_borde);
     border-radius:var(--radio);
     background:var(--color_fondo);
+}
+
+.lista-catalogo[data-edades="true"] .fila-catalogo{
+    grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) 110px 110px 90px 100px;
+}
+
+.fila-catalogo .boton-borrar{
+    width:100%;
 }
 
 .fila-catalogo input:not([type="checkbox"]){
@@ -1383,6 +1393,21 @@ body.modal-abierto{
 }
 
 
+/* En las cajas de Configuración los campos de una misma fila tienen la misma altura: la
+   etiqueta arriba y el control abajo, así los controles quedan alineados aunque una
+   etiqueta ocupe dos líneas. */
+.caja-configuracion > .campo{
+    justify-content:space-between;
+}
+
+/* Casilla suelta en un campo: a la izquierda y con la altura de un campo de texto. */
+.campo > input[type="checkbox"]{
+    align-self:flex-start;
+    width:20px;
+    height:20px;
+    margin:10px 0 10px 2px;
+}
+
 .campo label{
     font-size:14px;
 
@@ -1942,12 +1967,57 @@ body.modal-abierto{
 }
 
 .fila-plantilla{
-    display:flex;
-    flex-wrap:wrap;
+    /* Mismas columnas en todas las filas: el nombre se queda con el espacio libre y el
+       resto tiene ancho fijo, así los botones quedan alineados entre filas. */
+    display:grid;
+    grid-template-columns:minmax(260px,1fr) 200px 130px 230px 120px;
     align-items:center;
     gap:8px 14px;
     padding:10px 0;
     border-bottom:1px solid var(--color_borde);
+}
+
+.celda-plantilla{
+    min-width:0;
+}
+
+.celda-plantilla-nombre{
+    display:grid;
+    grid-auto-flow:column;
+    grid-auto-columns:minmax(0,1fr);
+    gap:8px;
+}
+
+.celda-plantilla input[type="text"],
+.celda-plantilla input[type="file"]{
+    width:100%;
+    box-sizing:border-box;
+}
+
+.celda-plantilla-opciones{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px 14px;
+}
+
+.celda-plantilla-guardar .boton{
+    width:100%;
+}
+
+@media (max-width:1250px){
+    .fila-plantilla{
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    }
+
+    .celda-plantilla-nombre{
+        grid-column:1 / -1;
+    }
+}
+
+@media (max-width:600px){
+    .fila-plantilla{
+        grid-template-columns:minmax(0,1fr);
+    }
 }
 
 @media (max-width:700px){
