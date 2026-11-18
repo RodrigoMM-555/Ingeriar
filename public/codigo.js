@@ -48,6 +48,22 @@ const inventario = new IngeriarInventario({
     contenedor: "main > section"
 });
 
+// Salir de Configuración con cambios sin guardar pide confirmación (E-18). Se escucha en
+// la fase de captura para poder cancelar el clic antes de que cambie la vista.
+document.addEventListener("click", (evento) => {
+    const enlace = evento.target.closest("#entidades a, #modulos a");
+    if (enlace && configuracion.hayCambiosSinGuardar() &&
+        !confirm("Hay cambios sin guardar en Configuración. ¿Salir igualmente?")) {
+        evento.preventDefault();
+        evento.stopImmediatePropagation();
+    }
+}, true);
+window.addEventListener("beforeunload", (evento) => {
+    if (configuracion.hayCambiosSinGuardar()) {
+        evento.preventDefault();
+    }
+});
+
 window.addEventListener("configuracion-actualizada", () => {
     if (vistaActual === "tabla" && tablaActual) {
         tabla.cargar(tablaActual);

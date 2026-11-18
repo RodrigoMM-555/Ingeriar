@@ -19,6 +19,7 @@ class IngeriarConfiguracion {
     }
 
     aplicarConfiguracion(configuracion) {
+        this.configuracionActual = configuracion;
         document.documentElement.style.setProperty(
             "--color_corporativo",
             configuracion.color || "#8b0000"
@@ -33,12 +34,19 @@ class IngeriarConfiguracion {
             Object.fromEntries((configuracion.catalogos?.tipos_evento || [])
                 .map((tipo) => [tipo.codigo, tipo.nombre]))
         );
+        // E-18: el catálogo completo de tipos (horario y plazos para el formulario de eventos).
+        document.documentElement.dataset.tiposEvento = JSON.stringify(
+            configuracion.catalogos?.tipos_evento || []
+        );
         document.documentElement.dataset.secciones = JSON.stringify(
             configuracion.catalogos?.secciones || []
         );
         document.documentElement.dataset.categoriasFactura = JSON.stringify(
             configuracion.catalogos?.categorias_factura || []
         );
+        document.documentElement.dataset.contrasenaMinima =
+            String(configuracion.contrasena_longitud_minima || 8);
+        this.aplicarColoresCatalogos(configuracion.catalogos || {});
         const logo = document.querySelector("#logo-grupo");
         if (logo) {
             logo.hidden = !configuracion.logo_archivo;
@@ -46,6 +54,37 @@ class IngeriarConfiguracion {
                 ? "api/superapi.php?ruta=configuracion_logo"
                 : "";
         }
+    }
+
+    // Colores de secciones (fondo claro de filas y fichas) y de tipos de evento (calendario).
+    // Los colores llegan validados del servidor (#rrggbb); los códigos se escapan.
+    aplicarColoresCatalogos(catalogos) {
+        let estilo = document.querySelector("#colores-catalogos");
+        if (!estilo) {
+            estilo = document.createElement("style");
+            estilo.id = "colores-catalogos";
+            document.head.appendChild(estilo);
+        }
+        const color = (valor) => /^#[0-9a-fA-F]{6}$/.test(valor || "") ? valor : null;
+        const reglas = [];
+        (catalogos.secciones || []).forEach((seccion) => {
+            if (color(seccion.color)) {
+                reglas.push(".fila-seccion-" + CSS.escape(seccion.codigo) +
+                    "{background:color-mix(in srgb," + seccion.color + " 26%,white);}");
+            }
+        });
+        (catalogos.tipos_evento || []).forEach((tipo) => {
+            if (color(tipo.color)) {
+                const clase = "." + this.utilidades.claseTipoEvento(tipo.codigo);
+                reglas.push(clase + "," + ".detalle-evento" + clase + "{--color-evento:" + tipo.color + ";}");
+            }
+        });
+        estilo.textContent = reglas.join("\n");
+    }
+
+    // ¿Algún apartado tiene cambios sin guardar? (para avisar al salir de Configuración)
+    hayCambiosSinGuardar() {
+        return Boolean(document.querySelector(".vista-configuracion [data-cambios]"));
     }
 
     crearBoton() {
@@ -64,10 +103,13 @@ class IngeriarConfiguracion {
         document.querySelector(this.cabecera).appendChild(boton);
     }
 
+    // Cada apartado es una caja con su propio botón Guardar (E-18). Las acciones (copias,
+    // datos vencidos…) tienen sus botones dentro de su caja.
     mostrar() {
         return this.utilidades.obtenerJson(
             "api/superapi.php?ruta=configuracion"
         ).then((configuracion) => {
+            this.configuracionActual = configuracion;
             let seccion = document.querySelector("main > section");
             if (!seccion) {
                 throw new Error("No se encontró el contenedor principal");
@@ -79,12 +121,7 @@ class IngeriarConfiguracion {
             titulo.textContent = "Configuración";
             seccion.appendChild(titulo);
 
-            // Cada apartado va en su propia caja (.caja-configuracion); el formulario
-            // de datos generales agrupa varias cajas y un único botón Guardar.
-            let formulario = document.createElement("form");
-            formulario.className = "formulario-configuracion";
-
-            const campos = [
+            const apartados = [
                 ["Identidad del grupo", [
                     ["nombre_grupo", "Nombre del grupo", "text"],
                     ["logo_archivo", "Logo del grupo", "file"]
@@ -106,123 +143,24 @@ class IngeriarConfiguracion {
                     ["formato_nombre", "Formato del nombre", "select"],
                     ["mostrar_educandos_sin_seccion", "Mostrar educandos sin sección", "checkbox"]
                 ]],
-                ["Asistencias y archivos", [
-                    ["permitir_asistencia_pasada", "Permitir asistencia en eventos pasados", "checkbox"],
+                ["Archivos", [
                     ["tamano_maximo_archivos_mb", "Tamaño máximo de archivos (MB)", "number"],
                     ["formatos_entrega", "Formatos de entrega", "text"]
                 ]],
+                ["Seguridad de las cuentas", [
+                    ["contrasena_longitud_minima", "Longitud mínima de las contraseñas", "number"],
+                    ["sesion_inactividad_minutos", "Cerrar la sesión tras estos minutos sin actividad (0 = nunca)", "number"]
+                ]],
                 ["Conservación de datos", [
-                    ["plazo_conservacion_anos", "Años que se conservan los datos de un educando dado de baja", "number"]
+                    ["plazo_conservacion_anos", "Años que se conservan los datos de un educando dado de baja y las circulares de una ronda", "number"]
                 ]]
             ];
-            const catalogos = configuracion.catalogos || {
-                tipos_evento: [],
-                secciones: [],
-                categorias_factura: []
-            };
-            campos.forEach(([nombreGrupo, definiciones]) => {
-                const caja = document.createElement("div");
-                caja.className = "caja-configuracion vista-superficie";
-                let grupoTitulo = document.createElement("h3");
-                grupoTitulo.className = "titulo-configuracion";
-                grupoTitulo.textContent = nombreGrupo;
-                caja.appendChild(grupoTitulo);
-                formulario.appendChild(caja);
-                definiciones.forEach(([clave, texto, tipo]) => {
-                let grupo = document.createElement("div");
-                grupo.className = "campo";
-
-                let etiqueta = document.createElement("label");
-                etiqueta.textContent = texto;
-
-                let entrada = document.createElement(
-                    tipo === "textarea" ? "textarea" : "input"
-                );
-                entrada.name = clave;
-                if (entrada.tagName === "INPUT") {
-                    entrada.type = tipo;
-                }
-                if (tipo === "select") {
-                    entrada = document.createElement("select");
-                    entrada.name = clave;
-                    const opciones = clave === "formato_nombre"
-                        ? [["nombre_apellidos", "Nombre Apellidos"],
-                            ["apellidos_nombre", "Apellidos, Nombre"]]
-                        : [];
-                    opciones.forEach(([valor, texto]) => {
-                        let opcion = document.createElement("option");
-                        opcion.value = valor;
-                        opcion.textContent = texto;
-                        entrada.appendChild(opcion);
-                    });
-                }
-                if (tipo === "checkbox") {
-                    entrada.checked = Boolean(configuracion[clave]);
-                } else if (tipo !== "file") {
-                    entrada.value = configuracion[clave] ?? "";
-                }
-                if (tipo === "file") {
-                    entrada.accept = "image/jpeg,image/png,image/webp";
-                }
-                grupo.append(etiqueta, entrada);
-                caja.appendChild(grupo);
-                });
+            apartados.forEach(([nombre, campos]) => {
+                seccion.appendChild(this.crearApartadoGeneral(nombre, campos, configuracion));
             });
-            const cajaListas = document.createElement("div");
-            cajaListas.className = "caja-configuracion vista-superficie";
-            const tiposTitulo = document.createElement("h3");
-            tiposTitulo.className = "titulo-configuracion";
-            tiposTitulo.textContent = "Listas de la aplicación";
-            cajaListas.appendChild(tiposTitulo);
-            formulario.appendChild(cajaListas);
-            const tipos = this.crearEditorCatalogo(
-                "Tipos de evento", catalogos.tipos_evento, false
-            );
-            const secciones = this.crearEditorCatalogo(
-                "Secciones", catalogos.secciones, true
-            );
-            const categoriasFactura = this.crearEditorCatalogo(
-                "Categorías de facturas",
-                catalogos.categorias_factura,
-                false
-            );
-            cajaListas.append(tipos, secciones, categoriasFactura);
-
-            // Botón fijo al pie: guarda todas las cajas del formulario.
-            const acciones = document.createElement("div");
-            acciones.className = "acciones-configuracion vista-superficie";
-            const aviso = document.createElement("span");
-            aviso.textContent = "Los apartados anteriores se guardan juntos.";
-            let guardar = document.createElement("button");
-            guardar.type = "submit";
-            guardar.textContent = "Guardar configuración";
-            guardar.className = "boton boton-crear";
-            acciones.append(aviso, guardar);
-            formulario.appendChild(acciones);
-
-            formulario.onsubmit = (evento) => {
-                evento.preventDefault();
-                let datos = Object.fromEntries(
-                    new FormData(evento.target).entries()
-                );
-                datos.modo_oscuro = evento.target.modo_oscuro.checked;
-                datos.mostrar_educandos_sin_seccion =
-                    evento.target.mostrar_educandos_sin_seccion.checked;
-                datos.permitir_asistencia_pasada =
-                    evento.target.permitir_asistencia_pasada.checked;
-                const catalogosActualizados = {
-                    tipos_evento: this.leerEditorCatalogo(tipos),
-                    secciones: this.leerEditorCatalogo(secciones),
-                    categorias_factura: this.leerEditorCatalogo(categoriasFactura)
-                };
-                this.guardar(
-                    datos,
-                    evento.target.logo_archivo.files[0],
-                    catalogosActualizados
-                );
-            };
-
-            seccion.appendChild(formulario);
+            seccion.appendChild(this.crearApartadoListas(configuracion.catalogos || {
+                tipos_evento: [], secciones: [], categorias_factura: []
+            }));
             // Cada bloque solo aparece con su permiso; el servidor lo vuelve a comprobar.
             if (this.utilidades.tienePermiso("roles.gestionar")) {
                 seccion.appendChild(this.crearBloqueRoles());
@@ -239,11 +177,125 @@ class IngeriarConfiguracion {
                 seccion.appendChild(this.crearBloqueVencidos());
                 seccion.appendChild(this.crearBloqueRondasVencidas());
             }
+            seccion.appendChild(this.crearBloqueInstalacion());
         });
     }
 
+    crearCaja(texto) {
+        const caja = document.createElement("div");
+        caja.className = "caja-configuracion vista-superficie";
+        const titulo = document.createElement("h3");
+        titulo.className = "titulo-configuracion";
+        titulo.textContent = texto;
+        caja.appendChild(titulo);
+        return caja;
+    }
+
+    // Apartado de la configuración general: solo envía sus campos (el servidor conserva el resto).
+    crearApartadoGeneral(nombre, campos, configuracion) {
+        const caja = this.crearCaja(nombre);
+        const controles = {};
+        campos.forEach(([clave, texto, tipo]) => {
+            const grupo = document.createElement("div");
+            grupo.className = "campo";
+            const etiqueta = document.createElement("label");
+            etiqueta.textContent = texto;
+            let entrada;
+            if (tipo === "select") {
+                entrada = document.createElement("select");
+                const opciones = clave === "formato_nombre"
+                    ? [["nombre_apellidos", "Nombre Apellidos"], ["apellidos_nombre", "Apellidos, Nombre"]]
+                    : [];
+                opciones.forEach(([valor, textoOpcion]) => {
+                    const opcion = document.createElement("option");
+                    opcion.value = valor;
+                    opcion.textContent = textoOpcion;
+                    entrada.appendChild(opcion);
+                });
+            } else {
+                entrada = document.createElement("input");
+                entrada.type = tipo;
+            }
+            entrada.name = clave;
+            const id = "config-" + clave;
+            entrada.id = id;
+            etiqueta.htmlFor = id;
+            if (tipo === "checkbox") {
+                entrada.checked = Boolean(configuracion[clave]);
+            } else if (tipo === "file") {
+                entrada.accept = "image/jpeg,image/png,image/webp";
+            } else {
+                entrada.value = configuracion[clave] ?? "";
+            }
+            if (tipo === "number") {
+                entrada.min = "0";
+            }
+            controles[clave] = entrada;
+            grupo.append(etiqueta, entrada);
+            caja.appendChild(grupo);
+        });
+        caja.appendChild(this.utilidades.crearAccionesGuardar(caja, () => {
+            const datos = {};
+            let logo = null;
+            Object.entries(controles).forEach(([clave, control]) => {
+                if (control.type === "file") {
+                    logo = control.files[0] || null;
+                } else if (control.type === "checkbox") {
+                    datos[clave] = control.checked;
+                } else {
+                    datos[clave] = control.value;
+                }
+            });
+            const formulario = new FormData();
+            formulario.append("configuracion", JSON.stringify(datos));
+            if (logo) {
+                formulario.append("logo", logo);
+            }
+            return this.utilidades.enviarFormulario("api/superapi.php?ruta=configuracion", formulario)
+                .then(() => this.cargar())
+                .then(() => window.dispatchEvent(new CustomEvent("configuracion-actualizada")));
+        }));
+        return caja;
+    }
+
+    // Listas de la aplicación: tipos de evento, secciones y categorías se guardan juntas.
+    crearApartadoListas(catalogos) {
+        const caja = this.crearCaja("Listas de la aplicación");
+        const tipos = this.crearEditorCatalogo("Tipos de evento", catalogos.tipos_evento || [], "tipos");
+        const secciones = this.crearEditorCatalogo("Secciones", catalogos.secciones || [], "secciones");
+        const categorias = this.crearEditorCatalogo("Categorías de facturas", catalogos.categorias_factura || [], "categorias");
+        caja.append(tipos, secciones, categorias);
+        caja.appendChild(this.utilidades.crearAccionesGuardar(caja, () =>
+            this.utilidades.enviarJson("api/superapi.php?ruta=catalogos", {
+                tipos_evento: this.leerEditorCatalogo(tipos),
+                secciones: this.leerEditorCatalogo(secciones),
+                categorias_factura: this.leerEditorCatalogo(categorias)
+            }).then(() => this.cargar())
+                .then(() => window.dispatchEvent(new CustomEvent("configuracion-actualizada")))
+        ));
+        return caja;
+    }
+
+    // Acceso al instalador (E-18). Con datos ya instalados, el instalador exige la sesión de
+    // un administrador y no borra nada: sirve para revisar o crear tablas que falten.
+    crearBloqueInstalacion() {
+        const caja = this.crearCaja("Instalación");
+        const ayuda = document.createElement("p");
+        ayuda.textContent = "El instalador crea las tablas y los datos iniciales en la base de datos " +
+            "configurada en el servidor. Con la aplicación ya en uso solo puede abrirlo un administrador. " +
+            "Antes de usarlo, descarga una copia de seguridad.";
+        const enlace = document.createElement("a");
+        enlace.className = "boton boton-editar";
+        enlace.href = "instalador.html";
+        enlace.target = "_blank";
+        enlace.rel = "noopener";
+        enlace.textContent = "Abrir el instalador";
+        caja.append(ayuda, enlace);
+        return caja;
+    }
+
     // Cargos y permisos (E-13): una columna por cargo y una fila por permiso.
-    // Cada columna se guarda por separado. El administrador no se puede modificar.
+    // Un solo botón Guardar para todos (E-18). El administrador no se puede modificar.
     crearBloqueRoles() {
         const bloque = document.createElement("div");
         bloque.className = "caja-configuracion vista-superficie";
@@ -259,19 +311,38 @@ class IngeriarConfiguracion {
         contenido.textContent = "Cargando…";
         bloque.append(titulo, ayuda, contenido);
 
+        const alta = document.createElement("div");
         const cargar = () => this.utilidades.obtenerJson("api/superapi.php?ruta=roles")
             .then((datos) => {
-                contenido.replaceChildren(this.crearTablaRoles(datos, cargar));
-                contenido.appendChild(this.crearFormularioCargo(cargar));
+                contenido.replaceChildren(this.crearTablaRoles(datos));
+                alta.replaceChildren(this.crearFormularioCargo(cargar));
             })
             .catch((error) => {
                 contenido.textContent = error.message;
             });
         cargar();
+        // Un solo Guardar para todos los cargos (el administrador no se modifica).
+        bloque.append(alta, this.utilidades.crearAccionesGuardar(bloque, () => {
+            const tabla = contenido.querySelector(".tabla-roles");
+            const columnas = (tabla?.columnasCargos || [])
+                .filter((columna) => columna.rol.codigo !== "administrador");
+            return columnas.reduce((cadena, columna) => cadena.then(() => this.utilidades.enviarJson(
+                "api/superapi.php?ruta=roles",
+                {
+                    codigo: columna.rol.codigo,
+                    nombre: columna.nombre.value,
+                    activo: columna.casillaActivo.checked,
+                    orden: columna.rol.orden,
+                    permisos: columna.casillas
+                        .filter((casilla) => casilla.checked)
+                        .map((casilla) => casilla.value)
+                }
+            )), Promise.resolve()).then(cargar);
+        }));
         return bloque;
     }
 
-    crearTablaRoles(datos, recargar) {
+    crearTablaRoles(datos) {
         const tabla = document.createElement("table");
         tabla.className = "tabla-roles";
         const cabecera = document.createElement("tr");
@@ -328,32 +399,7 @@ class IngeriarConfiguracion {
             tabla.appendChild(fila);
         });
 
-        const filaGuardar = document.createElement("tr");
-        filaGuardar.appendChild(document.createElement("th"));
-        columnas.forEach((columna) => {
-            const celda = document.createElement("td");
-            if (columna.rol.codigo !== "administrador") {
-                const guardar = document.createElement("button");
-                guardar.type = "button";
-                guardar.className = "boton boton-crear";
-                guardar.textContent = "Guardar";
-                guardar.onclick = () => this.utilidades.enviarJson(
-                    "api/superapi.php?ruta=roles",
-                    {
-                        codigo: columna.rol.codigo,
-                        nombre: columna.nombre.value,
-                        activo: columna.casillaActivo.checked,
-                        orden: columna.rol.orden,
-                        permisos: columna.casillas
-                            .filter((casilla) => casilla.checked)
-                            .map((casilla) => casilla.value)
-                    }
-                ).then(recargar).catch((error) => alert(error.message));
-                celda.appendChild(guardar);
-            }
-            filaGuardar.appendChild(celda);
-        });
-        tabla.appendChild(filaGuardar);
+        tabla.columnasCargos = columnas;
         return tabla;
     }
 
@@ -361,6 +407,8 @@ class IngeriarConfiguracion {
     crearFormularioCargo(recargar) {
         const formulario = document.createElement("form");
         formulario.className = "formulario-cargo";
+        // Crear un cargo es una acción propia: no cuenta como cambio sin guardar.
+        formulario.dataset.sinCambios = "1";
         const codigo = document.createElement("input");
         codigo.placeholder = "código (p. ej. secretaria)";
         codigo.pattern = "[a-z][a-z0-9_]{1,49}";
@@ -663,7 +711,17 @@ class IngeriarConfiguracion {
         return bloque;
     }
 
-    crearEditorCatalogo(titulo, elementos, incluyeEdades) {
+    // Editor de un catálogo. Todas las filas (y la cabecera) usan la misma rejilla para
+    // que las columnas queden alineadas. tipo: «tipos», «secciones» o «categorias».
+    crearEditorCatalogo(titulo, elementos, tipo) {
+        const columnas = {
+            tipos: [["codigo", "Código", "text"], ["nombre", "Nombre visible", "text"], ["color", "Color", "color"],
+                ["hora_inicio", "Empieza", "time"], ["hora_fin", "Termina", "time"],
+                ["apertura_dias", "Abre (días antes)", "number"], ["cierre_horas", "Cierra (horas antes)", "number"]],
+            secciones: [["codigo", "Código", "text"], ["nombre", "Nombre visible", "text"], ["color", "Color", "color"],
+                ["edad_minima", "Edad mín.", "number"], ["edad_maxima", "Edad máx.", "number"]],
+            categorias: [["codigo", "Código", "text"], ["nombre", "Nombre visible", "text"]]
+        }[tipo];
         const bloque = document.createElement("section");
         bloque.className = "bloque-catalogo";
         const encabezado = document.createElement("h3");
@@ -671,116 +729,91 @@ class IngeriarConfiguracion {
         encabezado.textContent = titulo;
         const lista = document.createElement("div");
         lista.className = "lista-catalogo";
-        lista.dataset.edades = incluyeEdades ? "true" : "false";
+        lista.dataset.tipo = tipo;
+        const cabecera = document.createElement("div");
+        cabecera.className = "fila-catalogo cabecera-catalogo";
+        [...columnas.map(([, texto]) => texto), "Activo", ""].forEach((texto) => {
+            const celda = document.createElement("span");
+            celda.textContent = texto;
+            cabecera.appendChild(celda);
+        });
+        lista.appendChild(cabecera);
         const añadir = (elemento = {}) => {
             const fila = document.createElement("div");
             fila.className = "fila-catalogo";
-            fila.innerHTML = `
-                <input data-campo="codigo" placeholder="Código interno">
-                <input data-campo="nombre" placeholder="Nombre visible">
-                ${incluyeEdades ? `
-                    <input data-campo="edad_minima" type="number" min="0"
-                        placeholder="Edad mín.">
-                    <input data-campo="edad_maxima" type="number" min="0"
-                        placeholder="Edad máx.">` : ""}
-                <label><input data-campo="activo" type="checkbox"> Activo</label>
-                <button type="button" class="boton boton-borrar">Quitar</button>`;
-            Object.entries(elemento).forEach(([clave, valor]) => {
-                const control = fila.querySelector(`[data-campo="${clave}"]`);
-                if (!control) {
-                    return;
+            columnas.forEach(([campo, texto, tipoCampo]) => {
+                const control = document.createElement("input");
+                control.type = tipoCampo;
+                control.dataset.campo = campo;
+                control.setAttribute("aria-label", texto);
+                if (tipoCampo === "number") {
+                    control.min = "0";
+                    control.placeholder = campo === "apertura_dias" ? "Siempre"
+                        : campo === "cierre_horas" ? "Al terminar" : "";
                 }
-                if (control.type === "checkbox") {
-                    control.checked = Boolean(Number(valor) || valor === true);
-                } else {
-                    control.value = valor ?? "";
+                if (tipoCampo === "text") {
+                    control.placeholder = texto;
                 }
+                control.value = elemento[campo] ?? (tipoCampo === "color" ? "#64748b" : "");
+                fila.appendChild(control);
             });
-            fila.querySelector(".boton-borrar").onclick = () => {
-                fila.querySelector('[data-campo="activo"]').checked = false;
+            const activo = document.createElement("label");
+            const casilla = document.createElement("input");
+            casilla.type = "checkbox";
+            casilla.dataset.campo = "activo";
+            casilla.checked = elemento.activo === undefined ? true : Boolean(Number(elemento.activo) || elemento.activo === true);
+            activo.append(casilla, " Activo");
+            const quitar = document.createElement("button");
+            quitar.type = "button";
+            quitar.className = "boton boton-borrar";
+            quitar.textContent = "Quitar";
+            // Quitar archiva (activo = 0) para conservar el histórico.
+            quitar.onclick = () => {
+                casilla.checked = false;
                 fila.hidden = true;
+                casilla.dispatchEvent(new Event("change", {bubbles: true}));
             };
+            fila.append(activo, quitar);
             lista.appendChild(fila);
         };
         elementos.forEach(añadir);
         const nuevo = document.createElement("button");
         nuevo.type = "button";
-        nuevo.className = "boton";
-        nuevo.textContent = "Añadir";
+        nuevo.className = "boton boton-anadir-catalogo";
+        nuevo.textContent = "+ Añadir";
         nuevo.onclick = () => añadir();
         bloque.append(encabezado, lista, nuevo);
+        if (tipo === "tipos") {
+            const ayuda = document.createElement("p");
+            ayuda.className = "ayuda-catalogo";
+            ayuda.textContent = "Empieza y Termina se proponen al crear un evento de ese tipo. Abre: cuántos días " +
+                "antes del inicio pueden las familias empezar a responder y subir la circular (vacío: siempre). " +
+                "Cierra: cuántas horas antes del inicio deja de poder responderse (vacío: hasta que termina). " +
+                "Cada evento puede cambiar estos plazos.";
+            bloque.appendChild(ayuda);
+        }
         return bloque;
     }
 
-    crearCampoLista(clave, titulo, valor) {
-        const grupo = document.createElement("div");
-        grupo.className = "campo campo-lista-simple";
-        const etiqueta = document.createElement("label");
-        etiqueta.textContent = titulo;
-        const ayuda = document.createElement("small");
-        ayuda.textContent = "Separados por comas";
-        const entrada = document.createElement("textarea");
-        entrada.name = clave;
-        entrada.value = valor || "";
-        entrada.rows = 3;
-        grupo.append(etiqueta, ayuda, entrada);
-        return grupo;
-    }
-
     leerEditorCatalogo(bloque) {
-        return Array.from(bloque.querySelectorAll(".fila-catalogo"))
+        return Array.from(bloque.querySelectorAll(".fila-catalogo:not(.cabecera-catalogo)"))
             .map((fila, orden) => {
-                const valor = (campo) => fila.querySelector(
-                    `[data-campo="${campo}"]`
-                );
+                const valor = (campo) => fila.querySelector(`[data-campo="${campo}"]`);
+                const texto = (campo) => valor(campo) ? valor(campo).value.trim() : null;
                 return {
-                    codigo: valor("codigo").value.trim(),
-                    nombre: valor("nombre").value.trim(),
-                    edad_minima: valor("edad_minima")?.value || null,
-                    edad_maxima: valor("edad_maxima")?.value || null,
+                    codigo: texto("codigo"),
+                    nombre: texto("nombre"),
+                    color: texto("color"),
+                    hora_inicio: texto("hora_inicio"),
+                    hora_fin: texto("hora_fin"),
+                    apertura_dias: texto("apertura_dias"),
+                    cierre_horas: texto("cierre_horas"),
+                    edad_minima: texto("edad_minima") || null,
+                    edad_maxima: texto("edad_maxima") || null,
                     activo: valor("activo").checked,
                     orden
                 };
             })
             .filter((elemento) => elemento.codigo && elemento.nombre);
-    }
-
-    guardar(datos, logo, catalogos) {
-        const formulario = new FormData();
-        formulario.append("configuracion", JSON.stringify(datos));
-        if (logo) {
-            formulario.append("logo", logo);
-        }
-        const guardarConfiguracion = fetch("api/superapi.php?ruta=configuracion", {
-            method: "POST",
-            body: formulario
-        }).then((respuesta) => respuesta.json().then((resultado) => {
-            if (!respuesta.ok) {
-                throw new Error(resultado.error || "No se pudo guardar");
-            }
-            return resultado;
-        }));
-        return guardarConfiguracion.then((resultado) => {
-            if (!resultado.ok) {
-                throw new Error(resultado.error || "No se pudo guardar");
-            }
-            return fetch("api/superapi.php?ruta=catalogos", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(catalogos)
-            }).then((respuesta) => respuesta.json().then((catalogosResultado) => {
-                if (!respuesta.ok || !catalogosResultado.ok) {
-                    throw new Error(
-                        catalogosResultado.error || "No se pudieron guardar los catálogos"
-                    );
-                }
-                datos.catalogos = catalogosResultado.catalogos;
-                document.querySelector(this.nombre).textContent =
-                    datos.nombre_grupo;
-                this.aplicarConfiguracion(datos);
-                window.dispatchEvent(new CustomEvent("configuracion-actualizada"));
-                alert("Configuración guardada");
-            }));
-        });
     }
 }

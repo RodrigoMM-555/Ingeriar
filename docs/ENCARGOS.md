@@ -266,3 +266,16 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Script de migración para mover los archivos existentes.
 - Aceptación: las subidas nuevas van a su carpeta; editar mueve los archivos; la migración se puede repetir; pruebas nuevas.
 - Estado: hecho (rama `feat/E-17-carpetas-galeria-facturas`, pendiente de fusionar)
+
+## E-18 · Configuración ampliada
+- Requisitos: RF-03, RF-07, RNF-03, RNF-06. Pedido por el usuario el 2026-11-18.
+- Cada apartado de Configuración se guarda por separado con un único botón en el mismo sitio y aviso de cambios sin
+  guardar (decisión del usuario).
+- Colores editables de secciones y tipos de evento, con los actuales como valor inicial; se aplican en toda la aplicación.
+- Por tipo de evento: horario propuesto al crear un evento y plazo de respuesta de las familias (cuántos días antes se
+  abre y cuántas horas antes se cierra); cada evento puede cambiar su plazo (decisión del usuario).
+- Seguridad de las cuentas: longitud mínima de contraseña y cierre de sesión por inactividad.
+- Acceso al instalador desde Configuración y arreglos visuales (tabla de permisos, botones «Añadir»).
+- Aceptación: fuera de plazo el servidor rechaza respuestas y circulares; guardar un apartado no cambia los demás;
+  pruebas automáticas nuevas.
+- Estado: hecho (rama `feat/E-18-configuracion`, pendiente de fusionar)

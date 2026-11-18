@@ -699,20 +699,6 @@ section h2{
 }
 
 /* Botón de guardar fijo al pie mientras se recorre el formulario */
-.acciones-configuracion{
-    position:sticky;
-    bottom:0;
-    z-index:2;
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:flex-end;
-    gap:12px;
-    padding:12px 24px;
-    color:var(--color_secundario);
-    font-size:14px;
-}
-
 .bloque-listas-simples{
     grid-column:1 / -1;
     display:grid;
@@ -732,7 +718,26 @@ section h2{
 
 .bloque-catalogo{
     margin-top:22px;
+    margin-bottom:8px;
     padding-top:6px;
+}
+
+/* Pie de cada apartado de Configuración con su Guardar (E-18): siempre abajo a la derecha */
+.acciones-caja{
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:12px;
+    margin-top:6px;
+    padding-top:14px;
+    border-top:1px solid var(--color_borde);
+}
+
+.aviso-cambios{
+    color:#d97706;
+    font-size:13px;
+    font-weight:600;
 }
 
 .lista-catalogo{
@@ -749,14 +754,50 @@ section h2{
     grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) 90px 100px;
     align-items:center;
     gap:10px;
-    padding:12px;
+    padding:10px 12px;
     border:1px solid var(--color_borde);
     border-radius:var(--radio);
     background:var(--color_fondo);
 }
 
-.lista-catalogo[data-edades="true"] .fila-catalogo{
-    grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) 110px 110px 90px 100px;
+/* E-18: secciones con color y edades; tipos de evento con color, horario y plazos */
+.lista-catalogo[data-tipo="secciones"] .fila-catalogo{
+    grid-template-columns:minmax(110px,1fr) minmax(160px,2fr) 56px 90px 90px 90px 100px;
+}
+
+.lista-catalogo[data-tipo="tipos"] .fila-catalogo{
+    grid-template-columns:minmax(110px,1fr) minmax(150px,1.6fr) 56px 104px 104px 96px 96px 90px 100px;
+}
+
+/* Fila de títulos de las columnas: misma rejilla, sin fondo */
+.fila-catalogo.cabecera-catalogo{
+    padding:0 12px;
+    border:0;
+    background:none;
+    color:var(--color_secundario);
+    font-size:12px;
+    font-weight:600;
+}
+
+.fila-catalogo input[type="color"]{
+    height:36px;
+    padding:2px;
+    cursor:pointer;
+}
+
+a.boton{
+    display:inline-block;
+    text-decoration:none;
+}
+
+.boton-anadir-catalogo{
+    margin-top:12px;
+}
+
+.ayuda-catalogo{
+    margin:10px 0 0;
+    color:var(--color_secundario);
+    font-size:13px;
 }
 
 .fila-catalogo .boton-borrar{
@@ -1082,8 +1123,13 @@ table tbody tr[class^="fila-seccion-"]:hover{
         grid-template-columns:1fr;
     }
 
-    .fila-catalogo{
-        grid-template-columns:1fr;
+    .fila-catalogo,
+    .lista-catalogo[data-tipo] .fila-catalogo{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .fila-catalogo.cabecera-catalogo{
+        display:none;
     }
 
     .campo-secciones,
@@ -2144,7 +2190,7 @@ body.modal-abierto{
     /* Mismas columnas en todas las filas: el nombre se queda con el espacio libre y el
        resto tiene ancho fijo, así los botones quedan alineados entre filas. */
     display:grid;
-    grid-template-columns:minmax(260px,1fr) 200px 130px 230px 120px;
+    grid-template-columns:minmax(260px,1fr) 200px 130px 260px;
     align-items:center;
     gap:8px 14px;
     padding:10px 0;
@@ -2172,10 +2218,6 @@ body.modal-abierto{
     display:flex;
     flex-wrap:wrap;
     gap:4px 14px;
-}
-
-.celda-plantilla-guardar .boton{
-    width:100%;
 }
 
 @media (max-width:1250px){
@@ -2239,20 +2281,34 @@ body.modal-abierto{
 .tabla-roles th[scope="row"]{
     text-align:left;
     font-weight:400;
+    /* La columna de permisos va sobre fondo claro (antes heredaba el granate de las
+       cabeceras y el código pequeño no se leía) */
+    color:var(--color_texto);
+    background:var(--color_superficie);
+    cursor:default;
+    /* Las descripciones parten línea para dejar sitio a las columnas de los cargos */
+    white-space:normal;
+    min-width:240px;
 }
 
-.tabla-roles th[scope="row"] small,
-.tabla-roles th[scope="col"] small{
+.tabla-roles th[scope="row"] small{
     color:var(--color_secundario);
+    font-family:monospace;
+    font-size:12px;
+}
+
+.tabla-roles th[scope="col"] small{
+    color:rgba(255,255,255,0.85);
+    font-size:12px;
 }
 
 .tabla-roles th[scope="col"]{
     display:table-cell;
-    min-width:120px;
+    min-width:136px;
 }
 
 .tabla-roles th[scope="col"] input[type="text"]{
-    width:110px;
+    width:128px;
 }
 
 .tabla-roles th[scope="col"] small,

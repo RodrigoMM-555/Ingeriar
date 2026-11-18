@@ -15,6 +15,52 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · E-18 Configuración ampliada
+- Rama / commit: `feat/E-18-configuracion`
+- Qué se ha hecho: a petición del usuario:
+  - **Guardado por apartado** (decisión del usuario): cada caja tiene su «Guardar» abajo a la derecha, «Cambios sin
+    guardar» al modificar algo y confirmación al salir de Configuración (o cerrar la página) con cambios. Antes había un
+    botón común para varias cajas y otros por fila o por columna. Cargos y permisos y Documentos base pasan a tener un
+    solo Guardar. El servidor ya no pone a «no» las casillas que no llegan, así guardar un apartado no cambia los demás.
+  - **Colores** de secciones y tipos de evento, editables, con los que ya usaba la aplicación como valor inicial. Se
+    aplican a las filas de educandos, las fichas del tutor, el anillo del dashboard y el calendario (antes estaban fijos
+    en el CSS y el dashboard tenía otros).
+  - **Por tipo de evento**: horario propuesto al crear un evento y plazo de respuesta de las familias (días antes en que
+    se abre y horas antes en que se cierra). Cada evento puede tener su plazo propio (decisión del usuario: valor base
+    por tipo y modificable por evento). El servidor lo comprueba al responder y al subir la circular (409 con la fecha);
+    el calendario indica hasta cuándo se puede responder y el dashboard del tutor solo muestra lo que tiene el plazo
+    abierto, con su cierre.
+  - **Seguridad de las cuentas**: longitud mínima de contraseña y cierre de sesión por inactividad.
+  - **Instalación**: apartado con el enlace al instalador.
+  - Arreglos visuales: la columna de permisos de «Cargos y permisos» va sobre fondo claro (el código pequeño no se leía
+    sobre el granate) y parte líneas para que quepan los cargos; los botones «Añadir» de las listas tienen espacio; las
+    listas tienen una fila de títulos alineada con las columnas.
+  - Se quita «Permitir asistencia en eventos pasados»: se guardaba pero ningún código la usaba.
+- Archivos creados o modificados: `server/data/schema.sql`, `server/data/semillas/catalogos.sql`,
+  `server/data/migraciones/2026-11-configuracion-ampliada.sql` (nueva), `server/data/modelo.json` (regenerado),
+  `server/instalacion/ModeloDatos.php` y `public/instalador.js` (tipo TIME), `server/dominio/Evento.php`
+  (`ventanaRespuestas`, `motivoVentanaCerrada`), `server/api/superapi.php` (catálogos, configuración, asistencia del
+  tutor, dashboard), `server/api/archivo.php`, `server/api/login.php`, `server/auth/permisos.php` (inactividad),
+  `server/auth/contrasenas.php` (longitud configurable), `server/data/config.php`, `public/nucleo/configuracion.js`,
+  `public/nucleo/documentos.js`, `public/nucleo/utilidades.js` (`crearAccionesGuardar`, `claseTipoEvento`, sesión
+  caducada), `public/nucleo/formulario.js` (plazo y horario de eventos), `public/nucleo/calendario.js`,
+  `public/nucleo/dashboard.js`, `public/codigo.js`, `public/login.js`, `public/estilo.css`, versión de los scripts,
+  `server/pruebas/pruebas.php` (PLZ-01 a 04, CAT-01 a 03), `server/pruebas/datos-ejemplo.php`, `docs/PLAN-PRUEBAS.md`
+  (también MAN-50 a 54), `docs/ENCARGOS.md`, `noteas.md`.
+- Decisiones técnicas y motivo: el plazo de un evento se guarda como días y horas relativos al inicio (no como fechas),
+  así se mueve solo si cambia la fecha del evento; NULL en el evento = el de su tipo; NULL en el tipo = siempre abierto
+  y hasta que termina. Los colores se validan en el servidor (#rrggbb) antes de inyectarlos en un `<style>`. La acampada
+  no propone hora de fin (dura varios días). El instalador admite el tipo TIME; INI-05 sigue comprobando que el
+  asistente instala lo mismo que `schema.sql`.
+- Requisitos que cubre (RF/RNF): RF-03, RF-07, RNF-03, RNF-06.
+- Cómo probarlo (pasos): pruebas automáticas (131 de 131 y 7 de 7 del instalador, en bases de pruebas) y MAN-50 a 54.
+  Migración aplicada en la base local.
+- Impacto en la memoria (apartados que habría que revisar): RF-03 (plazos de respuesta), RF-07 (configuración),
+  RNF-03 (inactividad y contraseñas), capturas de Configuración.
+- Pendiente o problemas: en la instalación local, Apache no puede escribir `server/data/config.php` (es del usuario
+  del sistema), así que la configuración general no se guarda desde la aplicación hasta darle permiso. El despliegue
+  local excluye ahora ese archivo para no sobrescribir la configuración guardada.
+
 ## 2026-11-18 · Dashboard del tutor: pendientes agrupados por evento
 - Rama / commit: `feat/dashboard-pendientes-por-evento`
 - Qué se ha hecho: a petición del usuario, «Pendientes de este mes» muestra una tarjeta por evento (nombre, día de la

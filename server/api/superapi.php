@@ -51,13 +51,17 @@ function comprobarTabla(PDO $db, string $tabla): void
 function catalogos(PDO $db, bool $soloActivos = false): array
 {
     $filtro = $soloActivos ? ' WHERE activo = 1' : '';
+    // E-18: color, horario y plazo de respuesta. Sin la migración, se devuelven vacíos.
+    $migrada = (bool) $db->query("SHOW COLUMNS FROM tipos_evento LIKE 'color'")->fetchColumn();
     $tipos = $db->query(
-        'SELECT codigo, nombre, activo, orden FROM tipos_evento' .
-        $filtro . ' ORDER BY orden, nombre'
+        'SELECT codigo, nombre, ' . ($migrada
+            ? "color, TIME_FORMAT(hora_inicio, '%H:%i') AS hora_inicio, TIME_FORMAT(hora_fin, '%H:%i') AS hora_fin, apertura_dias, cierre_horas"
+            : 'NULL AS color, NULL AS hora_inicio, NULL AS hora_fin, NULL AS apertura_dias, NULL AS cierre_horas')
+        . ', activo, orden FROM tipos_evento' . $filtro . ' ORDER BY orden, nombre'
     )->fetchAll();
     $secciones = $db->query(
-        'SELECT codigo, nombre, edad_minima, edad_maxima, activo, orden
-         FROM secciones' . $filtro . ' ORDER BY orden, nombre'
+        'SELECT codigo, nombre, ' . ($migrada ? 'color' : 'NULL AS color')
+        . ', edad_minima, edad_maxima, activo, orden FROM secciones' . $filtro . ' ORDER BY orden, nombre'
     )->fetchAll();
     $categoriasFactura = $db->query(
         'SELECT codigo, nombre, activo, orden FROM categorias_factura' .
@@ -417,6 +421,7 @@ switch ($ruta) {
                 [$inicioMes, $finMes]
             );
             $pendientes = [];
+            $ventanas = [];
             foreach (Educando::deTutor($db, $usuario['id']) as $educando) {
                 $seccion = seccionEducando($db, $educando->nacimiento);
                 if (!$seccion) {
@@ -430,8 +435,14 @@ switch ($ruta) {
                     $respuestas[(int) $respuesta['id_evento']] = $respuesta;
                 }
                 foreach ($eventosMes as $evento) {
-                    // Solo los eventos que convocan a la sección de este educando.
+                    // Solo los eventos que convocan a la sección de este educando y que tienen
+                    // abierto el plazo de respuesta (E-18).
                     if (!Evento::convocaA($convocatoriasDashboard[(int) $evento['id']] ?? [], [$seccion])) {
+                        continue;
+                    }
+                    $ventanas[(int) $evento['id']] ??= Evento::ventanaRespuestas($db, (int) $evento['id']);
+                    $ventana = $ventanas[(int) $evento['id']];
+                    if (!($ventana['abierta'] ?? false)) {
                         continue;
                     }
                     $respuesta = $respuestas[(int) $evento['id']] ?? null;
@@ -454,6 +465,7 @@ switch ($ruta) {
                         'evento_id' => (int) $evento['id'],
                         'evento' => $evento['nombre'],
                         'fecha' => $evento['fecha_inicio'],
+                        'cierra' => $ventana['hasta']->format('Y-m-d H:i:s'),
                     ];
                 }
             }
@@ -525,8 +537,13 @@ switch ($ruta) {
                 $seccionesStmt->execute([$eventoId]);
                 $seccionesEvento = $seccionesStmt->fetchAll(PDO::FETCH_COLUMN);
             }
+            // Plazo de respuesta, para que el calendario lo muestre y bloquee fuera de él.
+            $ventana = Evento::ventanaRespuestas($db, $eventoId);
             $asistenciasFiltradas = [];
             foreach ($asistencias as $asistencia) {
+                $asistencia['respuestas_abiertas'] = (bool) ($ventana['abierta'] ?? false);
+                $asistencia['respuestas_desde'] = $ventana['desde']?->format('Y-m-d H:i:s');
+                $asistencia['respuestas_hasta'] = $ventana['hasta']?->format('Y-m-d H:i:s');
                 $asistencia['seccion'] = seccionEducando($db, $asistencia['naz']);
                 if (
                     !$seccionesEvento
@@ -550,12 +567,10 @@ switch ($ruta) {
             ) {
                 responder(['error' => 'Datos de asistencia no válidos'], 400);
             }
-            $eventoStmt = $db->prepare(
-                'SELECT fecha_fin FROM eventos WHERE id = ? AND fecha_fin >= NOW()'
-            );
-            $eventoStmt->execute([$eventoId]);
-            if (!$eventoStmt->fetchColumn()) {
-                responder(['error' => 'No se puede rellenar la asistencia de un evento pasado'], 409);
+            // E-18: solo dentro del plazo de respuesta del evento (o de su tipo).
+            $motivo = Evento::motivoVentanaCerrada(Evento::ventanaRespuestas($db, $eventoId));
+            if ($motivo !== null) {
+                responder(['error' => $motivo], 409);
             }
             if ($estado === 'si') {
                 $stmt = $db->prepare(
@@ -629,11 +644,42 @@ switch ($ruta) {
             }
             return $codigo;
         };
+        // E-18: color #rrggbb, hora HH:MM y números de días u horas (vacío = sin valor).
+        $validarColor = static function ($valor): ?string {
+            $valor = trim((string) ($valor ?? ''));
+            if ($valor === '') {
+                return null;
+            }
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $valor) !== 1) {
+                responder(['error' => 'El color debe tener el formato #rrggbb'], 400);
+            }
+            return strtolower($valor);
+        };
+        $validarHora = static function ($valor): ?string {
+            $valor = trim((string) ($valor ?? ''));
+            if ($valor === '') {
+                return null;
+            }
+            if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', substr($valor, 0, 5)) !== 1) {
+                responder(['error' => 'La hora debe tener el formato HH:MM'], 400);
+            }
+            return substr($valor, 0, 5);
+        };
+        $validarNumero = static function ($valor, int $maximo, string $campo): ?int {
+            if ($valor === null || trim((string) $valor) === '') {
+                return null;
+            }
+            $numero = filter_var($valor, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => $maximo]]);
+            if ($numero === false) {
+                responder(['error' => "{$campo} debe ser un número entre 0 y {$maximo}"], 400);
+            }
+            return $numero;
+        };
         $guardarCatalogo = static function (
             PDO $db,
             string $tabla,
             array $elementos
-        ) use ($validarCodigo): void {
+        ) use ($validarCodigo, $validarColor, $validarHora, $validarNumero): void {
             $codigos = [];
             foreach ($elementos as $indice => $elemento) {
                 if (!is_array($elemento)) {
@@ -650,16 +696,31 @@ switch ($ruta) {
                 }
                 $activo = !empty($elemento['activo']) ? 1 : 0;
                 $orden = max(0, (int) ($elemento['orden'] ?? $indice));
-                if ($tabla === 'tipos_evento' || $tabla === 'categorias_factura') {
-                    $tablaSql = $tabla === 'categorias_factura'
-                        ? 'categorias_factura' : 'tipos_evento';
+                if ($tabla === 'categorias_factura') {
                     $stmt = $db->prepare(
-                        'INSERT INTO ' . $tablaSql . '
+                        'INSERT INTO categorias_factura
                          (codigo, nombre, activo, orden) VALUES (?, ?, ?, ?)
                          ON DUPLICATE KEY UPDATE nombre = VALUES(nombre),
                          activo = VALUES(activo), orden = VALUES(orden)'
                     );
                     $stmt->execute([$codigo, $nombre, $activo, $orden]);
+                } elseif ($tabla === 'tipos_evento') {
+                    $stmt = $db->prepare(
+                        'INSERT INTO tipos_evento
+                         (codigo, nombre, color, hora_inicio, hora_fin, apertura_dias, cierre_horas, activo, orden)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), color = VALUES(color),
+                         hora_inicio = VALUES(hora_inicio), hora_fin = VALUES(hora_fin),
+                         apertura_dias = VALUES(apertura_dias), cierre_horas = VALUES(cierre_horas),
+                         activo = VALUES(activo), orden = VALUES(orden)'
+                    );
+                    $stmt->execute([
+                        $codigo, $nombre, $validarColor($elemento['color'] ?? null),
+                        $validarHora($elemento['hora_inicio'] ?? null), $validarHora($elemento['hora_fin'] ?? null),
+                        $validarNumero($elemento['apertura_dias'] ?? null, 365, 'Los días de apertura'),
+                        $validarNumero($elemento['cierre_horas'] ?? null, 720, 'Las horas de cierre'),
+                        $activo, $orden,
+                    ]);
                 } else {
                     $minima = $elemento['edad_minima'] === '' ||
                         $elemento['edad_minima'] === null
@@ -672,15 +733,17 @@ switch ($ruta) {
                     }
                     $stmt = $db->prepare(
                         'INSERT INTO secciones
-                         (codigo, nombre, edad_minima, edad_maxima, activo, orden)
-                         VALUES (?, ?, ?, ?, ?, ?)
+                         (codigo, nombre, color, edad_minima, edad_maxima, activo, orden)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)
                          ON DUPLICATE KEY UPDATE nombre = VALUES(nombre),
+                         color = VALUES(color),
                          edad_minima = VALUES(edad_minima),
                          edad_maxima = VALUES(edad_maxima),
                          activo = VALUES(activo), orden = VALUES(orden)'
                     );
                     $stmt->execute([
-                        $codigo, $nombre, $minima, $maxima, $activo, $orden
+                        $codigo, $nombre, $validarColor($elemento['color'] ?? null),
+                        $minima, $maxima, $activo, $orden
                     ]);
                 }
             }
@@ -691,7 +754,7 @@ switch ($ruta) {
             $guardarCatalogo($db, 'secciones', $recibida['secciones']);
             $guardarCatalogo($db, 'categorias_factura', $recibida['categorias_factura']);
             $db->commit();
-        } catch (Throwable $error) {
+        } catch (PDOException $error) {
             $db->rollBack();
             responder(['error' => 'No se pudieron guardar los catálogos'], 500);
         }
@@ -728,6 +791,10 @@ switch ($ruta) {
                     'acampada' => 'Acampada',
                     'otro' => 'Otro'
                 ];
+            }
+            // Valores por defecto de las opciones añadidas en E-18.
+            if (is_array($configuracion)) {
+                $configuracion += ['contrasena_longitud_minima' => 8, 'sesion_inactividad_minutos' => 0];
             }
             if (is_array($configuracion) && tablaExiste($db, 'tipos_evento')
                 && tablaExiste($db, 'secciones')
@@ -774,11 +841,23 @@ switch ($ruta) {
                 }
                 $configuracion['nombres_tipos_evento'] = $nombres;
             }
-            foreach (['modo_oscuro', 'mostrar_educandos_sin_seccion',
-                'permitir_asistencia_pasada'] as $campo) {
-                $configuracion[$campo] = filter_var(
-                    $recibida[$campo] ?? false,
-                    FILTER_VALIDATE_BOOLEAN
+            // Cada apartado de Configuración se guarda por separado (E-18): solo se cambian
+            // los campos que llegan; el resto se conserva.
+            foreach (['modo_oscuro', 'mostrar_educandos_sin_seccion'] as $campo) {
+                if (array_key_exists($campo, $recibida)) {
+                    $configuracion[$campo] = filter_var($recibida[$campo], FILTER_VALIDATE_BOOLEAN);
+                }
+            }
+            if (isset($recibida['contrasena_longitud_minima'])) {
+                $configuracion['contrasena_longitud_minima'] = max(
+                    6,
+                    min(64, (int) $recibida['contrasena_longitud_minima'])
+                );
+            }
+            if (isset($recibida['sesion_inactividad_minutos'])) {
+                $configuracion['sesion_inactividad_minutos'] = max(
+                    0,
+                    min(1440, (int) $recibida['sesion_inactividad_minutos'])
                 );
             }
             if (isset($recibida['plazo_conservacion_anos'])) {

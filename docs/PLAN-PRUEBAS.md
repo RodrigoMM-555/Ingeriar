@@ -161,13 +161,20 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | INV-13 | Mover a la misma ubicación o 0 unidades → 400 | RF-06 | Superada | 2026-11-17 |
 | INV-14 | Un tutor no puede mover material → 403 | RF-06, RNF-03 | Superada | 2026-11-17 |
 | INV-15 | Una lista guarda las ubicaciones preferidas y descarta las que no existen | RF-06 | Superada | 2026-11-18 |
+| PLZ-01 | Antes de que se abra el plazo el tutor no puede responder → 409 | RF-03 | Superada | 2026-11-18 |
+| PLZ-02 | Con el plazo cerrado no se responde ni se sube la circular → 409 | RF-03 | Superada | 2026-11-18 |
+| PLZ-03 | Dentro del plazo el tutor responde | RF-03 | Superada | 2026-11-18 |
+| PLZ-04 | Sin plazo propio, el evento usa el de su tipo | RF-03 | Superada | 2026-11-18 |
+| CAT-01 | El catálogo guarda color, horario y plazos de un tipo de evento | RF-07 | Superada | 2026-11-18 |
+| CAT-02 | Un color con formato incorrecto → 400 | RNF-03 | Superada | 2026-11-18 |
+| CAT-03 | Un monitor no puede cambiar los catálogos → 403 | RNF-03 | Superada | 2026-11-18 |
 
 | COP-01 | Un monitor no ve las copias de seguridad → 403 | RNF-03, RNF-04 | Superada | 2026-11-17 |
 | COP-02 | El administrador ve la lista de copias | RNF-04 | Superada | 2026-11-17 |
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-Resultado: 124 de 124 superadas el 2026-11-18 (con las pruebas de E-15, E-16 y E-17).
+Resultado: 131 de 131 superadas el 2026-11-18 (con las pruebas de E-15 a E-18).
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 
@@ -197,7 +204,7 @@ de cada archivo de storage/ entre el origen y la restauración).
 | INI-06 | El primer administrador entra con su cargo y sus permisos | RF-01 | Superada | 2026-11-17 |
 | INI-07 | Con la aplicación en uso, el instalador responde 403 sin sesión | RNF-03 | Superada | 2026-11-17 |
 
-Resultado: 7 de 7 superadas el 2026-11-17. El token de instalación (`INGERIAR_TOKEN_INSTALACION`) se comprobó a mano:
+Resultado: 7 de 7 superadas el 2026-11-18 (con el modelo de E-18). El token de instalación (`INGERIAR_TOKEN_INSTALACION`) se comprobó a mano:
 sin token o con uno incorrecto, 403; con el correcto, 200.
 
 Resultado anterior: 107 de 107 superadas el 2026-11-17 (servidor de PHP con 4 procesos para que las escrituras sean simultáneas).
@@ -272,3 +279,8 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-47 | Monitor | Lista: escribir «Malvaviscos» y 30 en «+ Añadir» | Aparece en «Hay que comprar» como «no está en el inventario» | RF-06 | Pendiente | |
 | MAN-48 | Tutor | Entregar una ficha de inscripción | El archivo queda en `storage/documentos/permanente/<educando>/` | RF-04 | Pendiente | |
 | MAN-49 | Administrador | Configuración → «Rondas vencidas» | Lista solo rondas terminadas hace más del plazo; al eliminar desaparecen su carpeta y sus asistencias | RF-04 | Pendiente | |
+| MAN-50 | Administrador | Configuración: cambiar un campo de un apartado y salir sin guardar | Aparece «Cambios sin guardar» y al salir pide confirmación | RNF-06 | Pendiente | |
+| MAN-51 | Administrador | Cambiar el color de una sección y de un tipo de evento y guardar | Las filas de educandos, las fichas del tutor, el anillo del dashboard y el calendario usan los colores nuevos | RF-07 | Pendiente | |
+| MAN-52 | Monitor | Crear un evento de tipo Sábado y elegir el día | Se proponen las 10:30 y las 13:30; los campos de plazo indican el del tipo | RF-03 | Pendiente | |
+| MAN-53 | Tutor | Abrir la asistencia de un evento con el plazo sin abrir y otro con el plazo abierto | El primero indica cuándo se abre y no deja responder; el segundo, hasta cuándo | RF-03 | Pendiente | |
+| MAN-54 | Administrador | Poner 1 minuto de inactividad, esperar y usar la aplicación | Vuelve al acceso con «La sesión se ha cerrado por inactividad» | RNF-03 | Pendiente | |

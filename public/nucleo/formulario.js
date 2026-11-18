@@ -90,6 +90,9 @@ class IngeriarFormulario {
                     control && this.formulario.appendChild(control)
                 );
                 this.formulario.appendChild(acciones);
+                if (this.tabla === "eventos") {
+                    this.configurarEvento(registro);
+                }
                 this.formulario.onsubmit = (evento) =>
                     this.guardar(evento, columnasEditables, registro);
                 this.contenedor.appendChild(this.formulario);
@@ -98,6 +101,69 @@ class IngeriarFormulario {
                 guardar.focus();
             });
         });
+    }
+
+    // Formulario de eventos (E-18): el plazo de respuesta vacío usa el de su tipo (se indica
+    // en el campo) y, al crear, se propone el horario del tipo.
+    configurarEvento(registro) {
+        let tipos = [];
+        try {
+            tipos = JSON.parse(document.documentElement.dataset.tiposEvento || "[]");
+        } catch (error) {
+            tipos = [];
+        }
+        const campos = this.formulario.elements;
+        const tipo = campos.tipo;
+        const inicio = campos.fecha_inicio;
+        const fin = campos.fecha_fin;
+        const apertura = campos.apertura_dias;
+        const cierre = campos.cierre_horas;
+        if (!tipo) {
+            return;
+        }
+        const tipoActual = () => tipos.find((elemento) => elemento.codigo === tipo.value) || {};
+        const actualizarPlazos = () => {
+            const datos = tipoActual();
+            if (apertura) {
+                apertura.min = "0";
+                apertura.placeholder = "Según el tipo: " + (datos.apertura_dias == null
+                    ? "siempre abierto" : datos.apertura_dias + " días antes");
+            }
+            if (cierre) {
+                cierre.min = "0";
+                cierre.placeholder = "Según el tipo: " + (datos.cierre_horas == null
+                    ? "hasta que termina" : datos.cierre_horas + " horas antes");
+            }
+        };
+        // Horario: al crear, el inicio toma la hora del tipo y el fin el mismo día a su hora,
+        // mientras no se haya cambiado el fin a mano.
+        let finAutomatico = registro === null;
+        if (fin) {
+            fin.addEventListener("input", () => {
+                finAutomatico = false;
+            });
+        }
+        const aplicarHorario = (cambiarInicio) => {
+            const datos = tipoActual();
+            if (registro !== null || !inicio || !inicio.value) {
+                return;
+            }
+            const dia = inicio.value.substring(0, 10);
+            if (cambiarInicio && datos.hora_inicio) {
+                inicio.value = dia + "T" + datos.hora_inicio;
+            }
+            if (fin && finAutomatico && datos.hora_fin) {
+                fin.value = dia + "T" + datos.hora_fin;
+            }
+        };
+        tipo.addEventListener("change", () => {
+            actualizarPlazos();
+            aplicarHorario(true);
+        });
+        if (inicio) {
+            inicio.addEventListener("change", () => aplicarHorario(false));
+        }
+        actualizarPlazos();
     }
 
     cerrar() {
@@ -148,7 +214,14 @@ class IngeriarFormulario {
         let instancia = this.plantilla(columna).content.cloneNode(true);
         let etiqueta = instancia.querySelector("label");
         let control = instancia.querySelector("input, select");
-        etiqueta.textContent = this.utilidades.capitalizar(columna.name);
+        // Nombres claros para el plazo de respuesta del evento (E-18).
+        const etiquetasEvento = {
+            apertura_dias: "Abrir respuestas (días antes)",
+            cierre_horas: "Cerrar respuestas (horas antes)"
+        };
+        etiqueta.textContent = this.tabla === "eventos" && etiquetasEvento[columna.name]
+            ? etiquetasEvento[columna.name]
+            : this.utilidades.capitalizar(columna.name);
         control.name = columna.name;
         control.required = columna.required;
 
@@ -172,10 +245,11 @@ class IngeriarFormulario {
             control.type = "password";
             control.value = "";
             control.autocomplete = "new-password";
-            control.minLength = 8;
+            const minima = Number(document.documentElement.dataset.contrasenaMinima || 8);
+            control.minLength = minima;
             control.required = registro === null;
             control.placeholder = registro === null
-                ? "Mínimo 8 caracteres, con un número o símbolo"
+                ? "Mínimo " + minima + " caracteres, con un número o símbolo"
                 : "Dejar vacía para no cambiarla";
             return Promise.resolve(instancia);
         }

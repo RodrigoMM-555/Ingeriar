@@ -196,17 +196,17 @@ class IngeriarDashboard {
         return codigos.sort((a, b) => posicion(a) - posicion(b));
     }
 
-    // Color de cada sección: el mismo matiz que su fondo en las tablas (estilo.css),
-    // más intenso para que se distingan los tonos. Las secciones nuevas usan el del grupo.
+    // Color de cada sección: el de su catálogo (Configuración, E-18). Sin color, el del grupo.
     tonosSeccion(seccion) {
-        const base = {
-            colonia: "#ef6c00",
-            manada: "#f2b705",
-            tropa: "#1e63c6",
-            posta: "#d32f2f",
-            rutas: "#2e7d32"
-        }[seccion] || getComputedStyle(document.documentElement)
-            .getPropertyValue("--color_corporativo").trim() || "#8b0000";
+        let catalogo = [];
+        try {
+            catalogo = JSON.parse(document.documentElement.dataset.secciones || "[]");
+        } catch (error) {
+            catalogo = [];
+        }
+        const base = catalogo.find((elemento) => elemento.codigo === seccion)?.color ||
+            getComputedStyle(document.documentElement).getPropertyValue("--color_corporativo").trim() ||
+            "#8b0000";
         // De claro a oscuro: mezcla con blanco y después con negro.
         return [
             this.mezclarColor(base, "#ffffff", 0.6),
@@ -276,6 +276,14 @@ class IngeriarDashboard {
             fecha.className = "fecha-evento-pendiente";
             fecha.textContent = this.formatearDiaMes(primero.fecha);
             cabecera.append(nombre, fecha);
+            // Hasta cuándo se puede responder (plazo del evento o de su tipo, E-18).
+            if (primero.cierra) {
+                const cierra = document.createElement("span");
+                cierra.className = "fecha-evento-pendiente";
+                cierra.textContent = "· responde antes del " + this.formatearDiaMes(primero.cierra) +
+                    " a las " + primero.cierra.substring(11, 16);
+                cabecera.appendChild(cierra);
+            }
             if (primero.circular) {
                 cabecera.appendChild(etiqueta("Necesita circular", "etiqueta-circular"));
             }

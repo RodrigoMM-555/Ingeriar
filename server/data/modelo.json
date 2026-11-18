@@ -488,6 +488,22 @@
                     "auto": false,
                     "sin_signo": false,
                     "defecto": false
+                },
+                {
+                    "nombre": "apertura_dias",
+                    "tipo": "SMALLINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "cierre_horas",
+                    "tipo": "SMALLINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
                 }
             ],
             "clave_primaria": [
@@ -1031,6 +1047,15 @@
                     "longitud": 100
                 },
                 {
+                    "nombre": "color",
+                    "tipo": "CHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 7
+                },
+                {
                     "nombre": "edad_minima",
                     "tipo": "TINYINT",
                     "nulo": true,
@@ -1090,6 +1115,47 @@
                     "sin_signo": false,
                     "defecto": null,
                     "longitud": 100
+                },
+                {
+                    "nombre": "color",
+                    "tipo": "CHAR",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null,
+                    "longitud": 7
+                },
+                {
+                    "nombre": "hora_inicio",
+                    "tipo": "TIME",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "hora_fin",
+                    "tipo": "TIME",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": false,
+                    "defecto": null
+                },
+                {
+                    "nombre": "apertura_dias",
+                    "tipo": "SMALLINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
+                },
+                {
+                    "nombre": "cierre_horas",
+                    "tipo": "SMALLINT",
+                    "nulo": true,
+                    "auto": false,
+                    "sin_signo": true,
+                    "defecto": null
                 },
                 {
                     "nombre": "activo",

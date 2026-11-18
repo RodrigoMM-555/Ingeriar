@@ -20,7 +20,7 @@
 class ModeloDatos
 {
     public const TIPOS = ['VARCHAR', 'CHAR', 'INT', 'SMALLINT', 'TINYINT', 'DECIMAL',
-        'DATE', 'DATETIME', 'BOOLEAN', 'TEXT', 'ENUM'];
+        'DATE', 'DATETIME', 'TIME', 'BOOLEAN', 'TEXT', 'ENUM'];
     public const ACCIONES_FK = ['CASCADE', 'SET NULL', 'RESTRICT', 'NO ACTION'];
     private const ENTEROS = ['INT', 'SMALLINT', 'TINYINT'];
 

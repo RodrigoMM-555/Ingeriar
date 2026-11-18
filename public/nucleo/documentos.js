@@ -266,18 +266,28 @@ class IngeriarDocumentos {
             .then((documentos) => {
                 contenido.replaceChildren();
                 documentos.forEach((documento) => {
-                    contenido.appendChild(this.crearFilaPlantilla(documento, cargar));
+                    contenido.appendChild(this.crearFilaPlantilla(documento));
                 });
-                contenido.appendChild(this.crearFilaPlantilla(null, cargar));
+                contenido.appendChild(this.crearFilaPlantilla(null));
             })
             .catch((error) => {
                 contenido.textContent = error.message;
             });
         cargar();
+        // E-18: un solo Guardar para el apartado; envía las filas que han cambiado (y la
+        // nueva, si tiene código y nombre), una detrás de otra.
+        bloque.appendChild(this.utilidades.crearAccionesGuardar(bloque, () => {
+            const filas = Array.from(contenido.querySelectorAll(".fila-plantilla[data-modificada]"))
+                .filter((fila) => fila.dataset.nueva !== "1" ||
+                    (fila.elements.codigo.value.trim() && fila.elements.nombre.value.trim()));
+            return filas.reduce((cadena, fila) => cadena.then(() => this.utilidades.enviarFormulario(
+                "api/documentos.php?accion=guardar_plantilla", fila.datosPlantilla()
+            )), Promise.resolve()).then(cargar);
+        }));
         return bloque;
     }
 
-    crearFilaPlantilla(documento, recargar) {
+    crearFilaPlantilla(documento) {
         const formulario = document.createElement("form");
         formulario.className = "fila-plantilla";
         const nuevo = documento === null;
@@ -351,22 +361,24 @@ class IngeriarDocumentos {
         archivo.querySelector("input").accept = ".pdf,.jpg,.jpeg,.png,.docx";
         celda("celda-plantilla-archivo").appendChild(archivo);
 
-        const guardar = document.createElement("button");
-        guardar.type = "submit";
-        guardar.className = "boton boton-crear";
-        guardar.textContent = nuevo ? "+ Añadir documento" : "Guardar";
-        celda("celda-plantilla-guardar").appendChild(guardar);
-        formulario.onsubmit = (envio) => {
-            envio.preventDefault();
+        if (nuevo) {
+            formulario.dataset.nueva = "1";
+        }
+        // Se marca la fila al cambiar algo; el Guardar del apartado envía las marcadas.
+        const marcar = () => {
+            formulario.dataset.modificada = "1";
+        };
+        formulario.addEventListener("input", marcar);
+        formulario.addEventListener("change", marcar);
+        formulario.onsubmit = (envio) => envio.preventDefault();
+        formulario.datosPlantilla = () => {
             const datos = new FormData(formulario);
             // Las casillas desmarcadas no se envían: se indica su valor explícitamente.
             if (documento?.tipo !== "participacion") {
                 datos.set("obligatorio", formulario.elements.obligatorio.checked ? "1" : "0");
                 datos.set("activo", formulario.elements.activo.checked ? "1" : "0");
             }
-            this.utilidades.enviarFormulario("api/documentos.php?accion=guardar_plantilla", datos)
-                .then(recargar)
-                .catch((error) => alert(error.message));
+            return datos;
         };
         return formulario;
     }

@@ -63,6 +63,7 @@ if (contrasenaNecesitaActualizarse($guardada)) {
 }
 
 session_regenerate_id(true);
+$_SESSION['ultima_actividad'] = time();
 // Cargos y permisos del usuario (E-13). Se recargan en cada petición posterior.
 $_SESSION['usuario'] = cargarPermisosUsuario($db, (int) $usuario['id']);
 

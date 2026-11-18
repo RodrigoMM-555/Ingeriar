@@ -190,12 +190,17 @@ ejecutan con `sudo -u www-data`.
 suficientes para subir varias fotos (la aplicación limita a su vez con
 `tamano_maximo_archivos_mb`). `session.cookie_httponly` lo fuerza `sesion.php`.
 
-**Despliegue local de desarrollo**: el repositorio se copia a Apache sin `storage/` ni
-`copias/` (que son de la instalación):
+**Despliegue local de desarrollo**: el repositorio se copia a Apache sin `storage/`,
+`copias/` ni la configuración del grupo (que son de la instalación):
 
 ```bash
-rsync -a --exclude='.git' --exclude='/storage/' --exclude='/copias/' ./ /var/www/html/Ingeriar/
+rsync -a --exclude='.git' --exclude='/storage/' --exclude='/copias/' \
+  --exclude='/server/data/config.php' ./ /var/www/html/Ingeriar/
 ```
+
+`server/data/config.php` lo escribe la aplicación al guardar la configuración: Apache
+necesita permiso de escritura sobre ese archivo
+(`sudo chgrp www-data server/data/config.php && sudo chmod g+w server/data/config.php`).
 
 **Caché del navegador**: `index.html`, `login.html` e `instalador.html` cargan scripts y
 `estilo.css` con `?v=<fecha+letra>`. Al cambiar cualquier JS o CSS hay que subir ese
@@ -340,7 +345,7 @@ Catálogos: tipos_evento, secciones, categorias_factura, documentos_base
 | `roles`, `permisos`, `usuarios_roles`, `roles_permisos` | Cargos (`basico`, `activo`, `orden`), permisos y sus asignaciones. |
 | `educandos` | nombre, apellidos, `DNI` (único), `naz` (nacimiento), `fecha_baja`. |
 | `usuarios_educandos` | Vínculo tutor–educando (un educando puede tener varios tutores). |
-| `eventos` | nombre, `fecha_inicio`, `fecha_fin`, `id_responsable`, lugar, municipio, comunidad, `tipo` (código de `tipos_evento`), `circular`. |
+| `eventos` | nombre, `fecha_inicio`, `fecha_fin`, `id_responsable`, lugar, municipio, comunidad, `tipo` (código de `tipos_evento`), `circular`, y su plazo de respuesta propio `apertura_dias` / `cierre_horas` (NULL = el de su tipo). |
 | `eventos_secciones` | Secciones convocadas por evento (PK compuesta). Sin filas = todas. |
 | `educandos_asistencias` | Respuesta por educando y evento: `estado` (`pendiente`, `si`, `no`) y `archivo_entrega` (circular). Única por (educando, evento). |
 | `galeria_fotos` | Foto: `id_evento`, `archivo` (ruta relativa en `storage/galeria/`), nombre original, quién la subió. |
@@ -348,7 +353,7 @@ Catálogos: tipos_evento, secciones, categorias_factura, documentos_base
 | `documentos_base` | Catálogo de documentos: `tipo` (`participacion` = circular de eventos, `inscripcion` = ficha), plantilla en blanco, obligatorio, activo, orden. |
 | `documentos_educando` | Ficha entregada: educando, documento, archivo, quién la subió, `estado` (`pendiente`, `revisado`, `corregir`), observaciones, quién y cuándo la revisó. Única por (educando, documento). |
 | `registro_accesos` | Registro inalterable de accesos a documentación sensible. |
-| `tipos_evento`, `secciones`, `categorias_factura` | Catálogos con `codigo` estable, nombre visible, `activo` y `orden` (las secciones, también edades). Retirar = `activo = 0`, para conservar el histórico. |
+| `tipos_evento`, `secciones`, `categorias_factura` | Catálogos con `codigo` estable, nombre visible, `activo` y `orden`. Las secciones tienen edades y `color`; los tipos de evento, `color`, `hora_inicio`, `hora_fin`, `apertura_dias` y `cierre_horas` (E-18). Retirar = `activo = 0`, para conservar el histórico. |
 
 Las claves foráneas usan `ON DELETE CASCADE` donde lo dependiente no tiene sentido solo
 (asistencias, fotos, vínculos) y `SET NULL` en referencias a usuarios que pueden borrarse
@@ -358,8 +363,9 @@ lo dependiente por si la base se creó con el instalador antiguo sin claves for�
 **Configuración del grupo** (`server/data/config.php`, JSON): `nombre_grupo`,
 `logo_archivo`, `color`, `color_secundario`, `modo_oscuro`, datos de contacto (`cif`,
 `direccion`, `municipio`, `provincia`, `telefono`, `correo`, `coordinador`),
-`formato_nombre`, `mostrar_educandos_sin_seccion`, `permitir_asistencia_pasada`,
-`tamano_maximo_archivos_mb`, `formatos_entrega` y `plazo_conservacion_anos`.
+`formato_nombre`, `mostrar_educandos_sin_seccion`, `tamano_maximo_archivos_mb`,
+`formatos_entrega`, `plazo_conservacion_anos`, `contrasena_longitud_minima` y
+`sesion_inactividad_minutos`.
 
 ## 11. Almacenamiento de archivos (`storage/`)
 
@@ -524,9 +530,17 @@ del usuario (se usa `textContent`), los permisos del cliente solo deciden qué s
 
 - Un evento convoca a unas secciones; sin ninguna, a todas. El formulario tiene casillas y
   «Todas las secciones».
-- El tutor responde sí o no por cada educando convocado mientras el evento no ha terminado.
-  Si el evento lleva circular, la descarga en blanco (plantilla `participacion`) y sube la
-  firmada; se guarda en la carpeta de la ronda y la sección **del evento**.
+- El tutor responde sí o no por cada educando convocado **dentro del plazo de respuesta**
+  (E-18). El plazo se abre `apertura_dias` días antes del inicio (sin valor, siempre) y se
+  cierra `cierre_horas` horas antes del inicio (sin valor, cuando termina el evento). Cada
+  evento puede tener su propio plazo; si lo deja vacío, usa el de su tipo
+  (`Evento::ventanaRespuestas`, comprobado en el servidor al responder y al subir la
+  circular; fuera de plazo, 409 con la fecha). El calendario indica hasta cuándo se puede
+  responder o cuándo se abre, y el dashboard solo muestra pendientes con el plazo abierto.
+- Si el evento lleva circular, la familia la descarga en blanco (plantilla
+  `participacion`) y sube la firmada; se guarda en la carpeta de la ronda y la sección
+  **del evento**.
+- Al crear un evento, el formulario propone la hora de inicio y de fin de su tipo.
 - Los monitores ven las respuestas por sección y las circulares (cada vista queda en el
   registro de accesos). La tabla de asistencias solo la edita quien tiene
   `asistencia.gestionar`.
@@ -577,11 +591,31 @@ se edita ni se borra. Se guarda quién y cuándo cambió el estado.
 
 ### 15.7 Configuración
 
-Identidad y apariencia del grupo (nombre, logo, colores, modo oscuro), datos del grupo,
-preferencias (formato de nombre, archivos, asistencia en pasados, plazo de conservación),
-catálogos (tipos de evento, secciones con edades, categorías de factura), documentos base
-y plantillas, cargos y permisos, copias de seguridad, exportación JSON, datos vencidos y
-rondas vencidas.
+Cada apartado es una caja con su propio botón «Guardar» abajo a la derecha (E-18); al
+cambiar algo aparece «Cambios sin guardar» y, al salir de Configuración con cambios, se
+pide confirmación. Los apartados de la configuración general envían solo sus campos (el
+servidor conserva el resto). Apartados:
+
+- Identidad del grupo, Apariencia, Información del grupo, Usuarios y educandos, Archivos.
+- **Seguridad de las cuentas**: longitud mínima de las contraseñas
+  (`contrasena_longitud_minima`, 6-64) y cierre de sesión tras X minutos sin actividad
+  (`sesion_inactividad_minutos`, 0 = nunca; lo comprueba `exigirUsuario` y el cliente
+  vuelve al acceso con un aviso).
+- Conservación de datos (plazo en años).
+- **Listas de la aplicación**: tipos de evento (código, nombre, **color**, **hora de
+  inicio y fin propuestas**, **días antes en que se abren las respuestas** y **horas
+  antes en que se cierran**), secciones (código, nombre, **color**, edades) y categorías
+  de factura. Las filas tienen una fila de títulos con la misma rejilla.
+- Cargos y permisos (un Guardar para todos los cargos), Documentos base y plantillas (un
+  Guardar que envía las filas cambiadas), copias de seguridad, exportación JSON, datos
+  vencidos, rondas vencidas e **Instalación** (enlace al instalador).
+
+Los colores de los catálogos se aplican en toda la aplicación desde
+`IngeriarConfiguracion.aplicarColoresCatalogos`, que genera un `<style>` con
+`.fila-seccion-<código>` (fondo: el color mezclado con blanco) y
+`.cal-evento-<tipo>` (`--color-evento`); el dashboard usa los mismos colores para el
+anillo de asistencias. La opción antigua «Permitir asistencia en eventos pasados» se
+quitó: se guardaba pero ningún código la usaba; la sustituyen los plazos de respuesta.
 
 ### 15.8 Registro de accesos
 
@@ -648,7 +682,8 @@ genera `ModeloDatos.php`. `modelo.json` se regenera con
 `2025-02-catalogos-eventos-secciones.sql`, `2025-03-categorias-factura.sql`,
 `2025-04-estado-facturas-enum.sql`, `2026-11-galeria.sql`, `2026-11-bajas-accesos.sql`,
 `2026-11-roles.sql`, `2026-11-facturas-tablero.sql`, `2026-11-claves-foraneas.sql`,
-`2026-11-documentacion.sql`, `2026-11-inventario.sql` y, cuando todo funcione,
+`2026-11-documentacion.sql`, `2026-11-inventario.sql`, `2026-11-configuracion-ampliada.sql`
+y, cuando todo funcione,
 `2026-11-roles-retirar-columna.sql`. Los archivos subidos antes de E-16 y E-17 se mueven
 con el usuario de Apache (sin `--confirmar` solo informan; se pueden repetir):
 
@@ -683,7 +718,7 @@ servidor, siempre cifrada y con la clave guardada aparte.
 
 ```bash
 INGERIAR_DB_HOST=... INGERIAR_DB_PORT=... INGERIAR_DB_PASSWORD=... \
-  php server/pruebas/pruebas.php <url> --confirmar        # 124 pruebas por HTTP
+  php server/pruebas/pruebas.php <url> --confirmar        # 131 pruebas por HTTP
 php server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar
 INGERIAR_DB_NAME=<base vacía> php server/pruebas/pruebas-instalador.php <url> --confirmar
 ```
@@ -725,6 +760,12 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (E-18 configuración ampliada)
+
+- Un Guardar por apartado, seguridad de cuentas, colores de secciones y tipos de evento,
+  horario y plazo de respuesta por tipo (y por evento), acceso al instalador y arreglos
+  visuales de Configuración. Migración `2026-11-configuracion-ampliada.sql`.
 
 ### 2026-11-18 (pendientes del tutor por evento)
 

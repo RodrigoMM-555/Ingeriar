@@ -1,3 +1,10 @@
+// Vuelta desde la aplicación tras cerrar la sesión por inactividad (E-18).
+if (new URLSearchParams(window.location.search).has("caducada")) {
+    const aviso = document.querySelector("#error-login");
+    aviso.textContent = "La sesión se ha cerrado por inactividad. Vuelve a entrar.";
+    aviso.hidden = false;
+}
+
 document.querySelector("#formulario-login").addEventListener("submit", (evento) => {
     evento.preventDefault();
     const formulario = new FormData(evento.currentTarget);

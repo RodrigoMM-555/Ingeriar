@@ -320,7 +320,9 @@ foreach ($eventos as $indice => &$evento) {
         'lugar' => $evento['lugar'], 'municipio' => $evento['municipio'], 'comunidad' => 'Comunitat Valenciana',
         'id_responsable' => $evento['responsable'], 'convocatorias' => $evento['convoca'],
     ];
-    $admin->formulario('/api/superapi.php?ruta=crear', ['tabla' => 'eventos', 'datos' => json_encode($evento['datos'] + [
+    // Mientras está en fecha provisional, su plazo de respuesta está abierto (E-18).
+    $plazoProvisional = $pasadoConCircular ? ['apertura_dias' => 365, 'cierre_horas' => 0] : [];
+    $admin->formulario('/api/superapi.php?ruta=crear', ['tabla' => 'eventos', 'datos' => json_encode($evento['datos'] + $plazoProvisional + [
         'fecha_inicio' => $inicio->format('Y-m-d H:i:s'),
         'fecha_fin' => ($pasadoConCircular ? $inicio->add($duracion) : $evento['fin'])->format('Y-m-d H:i:s'),
     ])]);
@@ -349,8 +351,21 @@ $convocados = function (array $evento) use ($activos, $secciones): array {
         return $seccion !== null && (!$evento['convoca'] || in_array($seccion, $evento['convoca'], true));
     }));
 };
+// Plazo de respuesta de cada tipo (E-18): las familias solo responden dentro de él.
+$plazosTipo = array_column($catalogos['tipos_evento'] ?? [], null, 'codigo');
+$ahora = new DateTimeImmutable();
+$plazoAbierto = function (array $evento) use ($plazosTipo, $ahora): bool {
+    $tipo = $plazosTipo[$evento['tipo']] ?? [];
+    $desde = ($tipo['apertura_dias'] ?? null) === null ? null : $evento['inicio']->modify('-' . (int) $tipo['apertura_dias'] . ' days');
+    $hasta = ($tipo['cierre_horas'] ?? null) === null ? $evento['fin'] : $evento['inicio']->modify('-' . (int) $tipo['cierre_horas'] . ' hours');
+    return ($desde === null || $ahora >= $desde) && $ahora <= $hasta;
+};
 foreach ($eventos as $evento) {
     $futuroOProvisional = $evento['fin'] >= $hoy || $evento['provisional'] !== null;
+    // Próximos con el plazo aún sin abrir: todavía nadie ha respondido.
+    if ($evento['provisional'] === null && $evento['fin'] >= $hoy && !$plazoAbierto($evento)) {
+        continue;
+    }
     foreach ($convocados($evento) as $educando) {
         $azar = mt_rand(1, 100);
         if ($futuroOProvisional) {
@@ -391,6 +406,7 @@ foreach ($eventos as $evento) {
     if ($evento['provisional'] !== null) {
         $admin->formulario('/api/superapi.php?ruta=editar', ['tabla' => 'eventos', 'id' => (string) $evento['id'],
             'datos' => json_encode($evento['datos'] + [
+                'apertura_dias' => null, 'cierre_horas' => null,
                 'fecha_inicio' => $evento['inicio']->format('Y-m-d H:i:s'),
                 'fecha_fin' => $evento['fin']->format('Y-m-d H:i:s'),
             ])]);

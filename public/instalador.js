@@ -2,7 +2,7 @@
 // Pasos: 1 base de datos y modo · 2 tablas (asistente) o archivo schema.sql ·
 // 3 datos iniciales y primer administrador · 4 revisar el SQL e instalar.
 // El servidor (api/instalar.php) valida el modelo y genera el SQL; aquí solo se edita.
-const TIPOS = ["VARCHAR", "CHAR", "INT", "SMALLINT", "TINYINT", "DECIMAL", "DATE", "DATETIME",
+const TIPOS = ["VARCHAR", "CHAR", "INT", "SMALLINT", "TINYINT", "DECIMAL", "DATE", "DATETIME", "TIME",
     "BOOLEAN", "TEXT", "ENUM"];
 const ACCIONES_FK = ["RESTRICT", "CASCADE", "SET NULL", "NO ACTION"];
 

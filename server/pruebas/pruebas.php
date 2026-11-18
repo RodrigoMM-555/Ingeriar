@@ -262,6 +262,7 @@ function limpiarDatosPrueba(PDO $db): void
         ->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare('DELETE FROM usuarios WHERE email LIKE ?')->execute(['%' . DOMINIO_PRUEBAS]);
     $db->prepare("DELETE FROM roles WHERE codigo LIKE 'prueba\\_%'")->execute();
+    $db->prepare("DELETE FROM tipos_evento WHERE codigo LIKE 'prueba\\_%'")->execute();
     borrarCarpeta(__DIR__ . '/../../storage/documentos/' . CARPETA_PRUEBAS);
     borrarCarpeta(__DIR__ . '/../../storage/documentos/permanente/' . CARPETA_PRUEBAS);
     borrarCarpeta(__DIR__ . '/../../storage/documentos/' . RONDA_ANTIGUA_PRUEBAS);
@@ -342,12 +343,14 @@ function crearFactura(PDO $db, int $responsableId, string $concepto): int
     return (int) $db->lastInsertId();
 }
 
-function crearEvento(PDO $db, string $nombre, ?string $seccion, string $fecha = '2026-10-10'): int
+// $plazo: [días antes en que se abren las respuestas, horas antes en que se cierran] propios
+// del evento (E-18); null usa los de su tipo.
+function crearEvento(PDO $db, string $nombre, ?string $seccion, string $fecha = '2026-10-10', ?array $plazo = null): int
 {
     $db->prepare(
-        "INSERT INTO eventos (nombre, fecha_inicio, fecha_fin, tipo)
-         VALUES (?, ?, ?, 'sabado')"
-    )->execute([$nombre, $fecha . ' 10:00:00', $fecha . ' 13:00:00']);
+        "INSERT INTO eventos (nombre, fecha_inicio, fecha_fin, tipo, apertura_dias, cierre_horas)
+         VALUES (?, ?, ?, 'sabado', ?, ?)"
+    )->execute([$nombre, $fecha . ' 10:00:00', $fecha . ' 13:00:00', $plazo[0] ?? null, $plazo[1] ?? null]);
     $id = (int) $db->lastInsertId();
     if ($seccion !== null) {
         $db->prepare('INSERT INTO eventos_secciones (id_evento, seccion) VALUES (?, ?)')
@@ -393,7 +396,8 @@ try {
 
     $eventoTropa = crearEvento($db, 'Prueba automática tropa', 'tropa');
     $eventoColonia = crearEvento($db, 'Prueba automática colonia', 'colonia');
-    $eventoFuturo = crearEvento($db, 'Prueba automática futura', null, '2099-01-09');
+    // Plazo de respuesta abierto desde hace mucho (las pruebas responden a este evento).
+    $eventoFuturo = crearEvento($db, 'Prueba automática futura', null, '2099-01-09', [36500, 0]);
     $entregaActiva = crearEntrega($db, $educandoId, $eventoTropa);
     $entregaVencida = crearEntrega($db, $educandoVencidoId, $eventoTropa);
 
@@ -683,7 +687,7 @@ try {
         return $fallos ? implode('; ', $fallos) : true;
     });
     prueba('RON-05', 'Una circular se guarda en la carpeta de la ronda del evento', function () use ($tutor, $db, $educandoId, $imagen) {
-        $evento = crearEvento($db, 'Prueba automática próxima ronda', 'tropa', '2027-10-09');
+        $evento = crearEvento($db, 'Prueba automática próxima ronda', 'tropa', '2027-10-09', [36500, 0]);
         $db->prepare('UPDATE eventos SET circular = 1 WHERE id = ?')->execute([$evento]);
         $respuesta = $tutor->post("/api/archivo.php?tipo=entrega&evento={$evento}&educando={$educandoId}", [
             'archivo' => new CURLFile($imagen, 'image/png', 'circular.png'),
@@ -692,6 +696,54 @@ try {
         return esperar($respuesta, 200) === true && str_starts_with($archivo, '27-28/')
             && is_file(__DIR__ . '/../../storage/documentos/' . $archivo) ?: ($archivo ?: $respuesta['texto']);
     });
+
+    echo "\nPlazos de respuesta y catálogos (E-18)\n";
+    $responder = fn(int $evento) => $tutor->json('/api/superapi.php?ruta=asistencia_tutor', [
+        'evento' => $evento, 'educando' => $educandoId, 'estado' => 'si',
+    ]);
+    $dentroDe = fn(string $desplazamiento) => (new DateTimeImmutable($desplazamiento))->format('Y-m-d');
+    prueba('PLZ-01', 'Antes de que se abra el plazo el tutor no puede responder → 409', function () use ($db, $responder, $dentroDe) {
+        $evento = crearEvento($db, 'Prueba automática plazo sin abrir', null, $dentroDe('+60 days'), [10, 0]);
+        return esperar($responder($evento), 409);
+    });
+    prueba('PLZ-02', 'Con el plazo cerrado no se responde ni se sube la circular → 409', function () use ($db, $tutor, $responder, $dentroDe, $educandoId, $imagen) {
+        $evento = crearEvento($db, 'Prueba automática plazo cerrado', null, $dentroDe('+1 day'), [30, 48]);
+        $db->prepare('UPDATE eventos SET circular = 1 WHERE id = ?')->execute([$evento]);
+        $subida = $tutor->post("/api/archivo.php?tipo=entrega&evento={$evento}&educando={$educandoId}", [
+            'archivo' => new CURLFile($imagen, 'image/png', 'circular.png'),
+        ]);
+        return esperar($responder($evento), 409) === true && $subida['codigo'] === 409 ?: 'subida ' . $subida['codigo'];
+    });
+    prueba('PLZ-03', 'Dentro del plazo el tutor responde', function () use ($db, $responder, $dentroDe) {
+        $evento = crearEvento($db, 'Prueba automática plazo abierto', null, $dentroDe('+5 days'), [10, 0]);
+        return esperar($responder($evento), 200);
+    });
+    prueba('PLZ-04', 'Sin plazo propio, el evento usa el de su tipo', function () use ($db, $responder, $dentroDe) {
+        $apertura = $db->query("SELECT apertura_dias FROM tipos_evento WHERE codigo = 'sabado'")->fetchColumn();
+        if ($apertura === null || $apertura === false) {
+            return true;
+        }
+        $evento = crearEvento($db, 'Prueba automática plazo del tipo', null, $dentroDe('+' . ((int) $apertura + 5) . ' days'));
+        return esperar($responder($evento), 409);
+    });
+    $catalogosActuales = fn() => $admin->get('/api/superapi.php?ruta=catalogos')['json'] ?? [];
+    prueba('CAT-01', 'El catálogo guarda color, horario y plazos de un tipo de evento', function () use ($admin, $catalogosActuales, $db) {
+        $catalogos = $catalogosActuales();
+        $catalogos['tipos_evento'][] = ['codigo' => 'prueba_tipo', 'nombre' => 'Prueba', 'color' => '#123ABC',
+            'hora_inicio' => '09:15', 'hora_fin' => '12:45', 'apertura_dias' => '7', 'cierre_horas' => '3', 'activo' => true];
+        $respuesta = $admin->json('/api/superapi.php?ruta=catalogos', $catalogos);
+        $fila = $db->query("SELECT color, TIME_FORMAT(hora_inicio, '%H:%i') AS inicio, apertura_dias, cierre_horas
+                            FROM tipos_evento WHERE codigo = 'prueba_tipo'")->fetch();
+        return esperar($respuesta, 200) === true && $fila && $fila['color'] === '#123abc' && $fila['inicio'] === '09:15'
+            && (int) $fila['apertura_dias'] === 7 && (int) $fila['cierre_horas'] === 3 ?: json_encode($fila ?: $respuesta['texto']);
+    });
+    prueba('CAT-02', 'Un color con formato incorrecto → 400', function () use ($admin, $catalogosActuales) {
+        $catalogos = $catalogosActuales();
+        $catalogos['secciones'][0]['color'] = 'red;}body{display:none';
+        return esperar($admin->json('/api/superapi.php?ruta=catalogos', $catalogos), 400);
+    });
+    prueba('CAT-03', 'Un monitor no puede cambiar los catálogos → 403', fn() => esperar(
+        $scouter->json('/api/superapi.php?ruta=catalogos', $catalogosActuales()), 403));
 
     echo "\nCargos y permisos (E-13)\n";
     $tesorero = new ClienteHttp($base);

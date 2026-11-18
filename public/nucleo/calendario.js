@@ -60,27 +60,9 @@ class IngeriarCalendario {
         }).sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
     }
 
+    // Clase del color del tipo (los colores vienen del catálogo, E-18).
     claseTipoEvento(evento) {
-        const tipo = String(evento.tipo || "otro")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "");
-        const tiposConColor = [
-            "reunion-de-familias",
-            "sabado",
-            "festival",
-            "excursion",
-            "acampada",
-            "campamento",
-            "taller",
-            "convivencia",
-            "actividad"
-        ];
-        return "cal-evento-" + (
-            tiposConColor.includes(tipo) ? tipo : "otro"
-        );
+        return this.utilidades.claseTipoEvento(evento.tipo);
     }
 
     nombreTipoEvento(tipo) {
@@ -368,11 +350,23 @@ class IngeriarCalendario {
             tabla.appendChild(cuerpo);
             contenedorTabla.appendChild(tabla);
             this.formulario.contenedor.appendChild(contenedorTabla);
-            const eventoPasado = this.eventoPasado(evento);
+            // E-18: se puede responder dentro del plazo del evento (lo calcula el servidor).
+            const plazo = asistencias[0];
+            const eventoPasado = plazo ? !plazo.respuestas_abiertas : this.eventoPasado(evento);
+            const formatear = (valor) => this.formatearFechaEvento(valor);
             if (eventoPasado) {
                 const aviso = document.createElement("p");
-                aviso.textContent = "Este evento ya ha terminado; solo puedes consultar la información.";
+                aviso.textContent = plazo && plazo.respuestas_desde && new Date(plazo.respuestas_desde.replace(" ", "T")) > new Date()
+                    ? "Las respuestas se abren el " + formatear(plazo.respuestas_desde) + "."
+                    : plazo
+                        ? "El plazo para responder terminó el " + formatear(plazo.respuestas_hasta) + "; solo puedes consultar la información."
+                        : "Este evento ya ha terminado; solo puedes consultar la información.";
                 aviso.className = "aviso-asistencia";
+                this.formulario.contenedor.insertBefore(aviso, contenedorTabla);
+            } else if (plazo && plazo.respuestas_hasta) {
+                const aviso = document.createElement("p");
+                aviso.textContent = "Puedes responder hasta el " + formatear(plazo.respuestas_hasta) + ".";
+                aviso.className = "aviso-asistencia aviso-plazo";
                 this.formulario.contenedor.insertBefore(aviso, contenedorTabla);
             }
 

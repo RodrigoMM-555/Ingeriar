@@ -71,6 +71,16 @@ function cargarPermisosUsuario(PDO $db, int $usuarioId): ?array
 function exigirUsuario(PDO $db): array
 {
     $sesion = exigirAutenticacion();
+    // E-18: cierre de sesión tras X minutos sin actividad (0 = sin límite).
+    $configuracion = json_decode((string) @file_get_contents(__DIR__ . '/../data/config.php'), true);
+    $minutos = max(0, (int) ($configuracion['sesion_inactividad_minutos'] ?? 0));
+    $ultima = (int) ($_SESSION['ultima_actividad'] ?? time());
+    if ($minutos > 0 && time() - $ultima > $minutos * 60) {
+        $_SESSION = [];
+        session_destroy();
+        responder(['error' => 'La sesión se ha cerrado por inactividad', 'sesion_caducada' => true], 401);
+    }
+    $_SESSION['ultima_actividad'] = time();
     $usuario = cargarPermisosUsuario($db, (int) $sesion['id']);
     if ($usuario === null) {
         $_SESSION = [];

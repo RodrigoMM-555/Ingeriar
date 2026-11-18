@@ -93,9 +93,17 @@ class IngeriarUtilidades {
         return coincidencia === null ? null : Number(coincidencia[1]);
     }
 
+    // Si la sesión se ha cerrado por inactividad (E-18), se vuelve a la pantalla de acceso.
+    comprobarSesion(respuesta, datos) {
+        if (respuesta.status === 401 && datos && datos.sesion_caducada) {
+            window.location.href = "login.html?caducada=1";
+        }
+    }
+
     obtenerJson(url) {
-        return fetch(url).then(function (respuesta) {
+        return fetch(url).then((respuesta) => {
             return respuesta.json().catch(() => ({})).then((datos) => {
+                this.comprobarSesion(respuesta, datos);
                 if (!respuesta.ok) {
                     throw new Error(
                         datos.error || "No se pudo obtener la información"
@@ -110,8 +118,9 @@ class IngeriarUtilidades {
         return fetch(url, {
             method: "POST",
             body: datos
-        }).then(function (respuesta) {
-            return respuesta.json().then(function (resultado) {
+        }).then((respuesta) => {
+            return respuesta.json().then((resultado) => {
+                this.comprobarSesion(respuesta, resultado);
                 if (!respuesta.ok || resultado.error) {
                     throw new Error(
                         resultado.error || "No se pudo completar la operación"
@@ -127,8 +136,9 @@ class IngeriarUtilidades {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify(datos)
-        }).then(function (respuesta) {
-            return respuesta.json().then(function (resultado) {
+        }).then((respuesta) => {
+            return respuesta.json().then((resultado) => {
+                this.comprobarSesion(respuesta, resultado);
                 if (!respuesta.ok || resultado.error) {
                     throw new Error(
                         resultado.error || "No se pudo completar la operación"
@@ -137,6 +147,55 @@ class IngeriarUtilidades {
                 return resultado;
             });
         });
+    }
+
+    // Clase CSS del color de un tipo de evento: «reunión de familias» → cal-evento-reunion-de-familias.
+    claseTipoEvento(codigo) {
+        return "cal-evento-" + (String(codigo || "otro")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "otro");
+    }
+
+    // Pie de un apartado de Configuración con su botón Guardar (E-18). Marca el apartado
+    // al cambiar algo («Cambios sin guardar») y lo desmarca al guardar. Los campos dentro de
+    // un elemento con data-sin-cambios (por ejemplo, el alta de un cargo) no cuentan.
+    crearAccionesGuardar(caja, alGuardar, texto = "Guardar") {
+        const acciones = document.createElement("div");
+        acciones.className = "acciones-caja";
+        const aviso = document.createElement("span");
+        aviso.className = "aviso-cambios";
+        aviso.textContent = "Cambios sin guardar";
+        aviso.hidden = true;
+        const boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "boton boton-crear";
+        boton.textContent = texto;
+        acciones.append(aviso, boton);
+        const marcar = (evento) => {
+            if (!evento.target.closest("[data-sin-cambios]")) {
+                caja.dataset.cambios = "1";
+                aviso.hidden = false;
+            }
+        };
+        caja.addEventListener("input", marcar);
+        caja.addEventListener("change", marcar);
+        boton.onclick = () => {
+            boton.disabled = true;
+            Promise.resolve()
+                .then(alGuardar)
+                .then(() => {
+                    delete caja.dataset.cambios;
+                    aviso.hidden = true;
+                })
+                .catch((error) => alert(error.message))
+                .finally(() => {
+                    boton.disabled = false;
+                });
+        };
+        return acciones;
     }
 }
 

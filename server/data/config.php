@@ -13,8 +13,9 @@
     "coordinador": "",
     "formato_nombre": "nombre_apellidos",
     "mostrar_educandos_sin_seccion": true,
-    "permitir_asistencia_pasada": false,
     "tamano_maximo_archivos_mb": 10,
     "formatos_entrega": "pdf, jpg, png, docx",
-    "plazo_conservacion_anos": 5
+    "plazo_conservacion_anos": 5,
+    "contrasena_longitud_minima": 8,
+    "sesion_inactividad_minutos": 0
 }

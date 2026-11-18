@@ -3,7 +3,15 @@
 // Funciones comunes para guardar y comprobar contraseñas de usuarios.
 // Se usan desde el inicio de sesión, el alta y edición de usuarios y el instalador.
 
+// Longitud mínima por defecto; el administrador la cambia en Configuración (E-18).
 const CONTRASENA_LONGITUD_MINIMA = 8;
+
+function longitudMinimaContrasena(): int
+{
+    $configuracion = json_decode((string) @file_get_contents(__DIR__ . '/../data/config.php'), true);
+    $valor = (int) ($configuracion['contrasena_longitud_minima'] ?? CONTRASENA_LONGITUD_MINIMA);
+    return max(6, min(64, $valor));
+}
 
 // Hash de una cadena aleatoria descartada. Se usa en el login cuando el email no existe
 // para que la respuesta tarde lo mismo y no revele qué emails están registrados.
@@ -17,8 +25,9 @@ function validarContrasena(string $contrasena): ?string
     // Se cuentan caracteres (no bytes) con una expresión regular UTF-8,
     // para no depender de la extensión mbstring.
     $longitud = (int) preg_match_all('/./su', $contrasena);
-    if ($longitud < CONTRASENA_LONGITUD_MINIMA) {
-        return 'La contraseña debe tener al menos ' . CONTRASENA_LONGITUD_MINIMA . ' caracteres';
+    $minima = longitudMinimaContrasena();
+    if ($longitud < $minima) {
+        return 'La contraseña debe tener al menos ' . $minima . ' caracteres';
     }
     if (preg_match('/[^\p{L}]/u', $contrasena) !== 1) {
         return 'La contraseña debe incluir al menos un número o un carácter especial';

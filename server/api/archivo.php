@@ -5,6 +5,7 @@ require_once __DIR__ . '/../data/secciones.php';
 require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../dominio/Educando.php';
+require_once __DIR__ . '/../dominio/Evento.php';
 require_once __DIR__ . '/../auth/registro.php';
 
 
@@ -33,9 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(409);
         exit('Este evento no requiere circular');
     }
-    if (new DateTimeImmutable($evento['fecha_fin']) < new DateTimeImmutable()) {
+    // E-18: solo dentro del plazo de respuesta del evento (o de su tipo).
+    $motivo = Evento::motivoVentanaCerrada(Evento::ventanaRespuestas($db, $eventoId));
+    if ($motivo !== null) {
         http_response_code(409);
-        exit('No se pueden subir entregas de eventos pasados');
+        exit($motivo);
     }
 
     $archivo = $_FILES['archivo'] ?? null;
