@@ -15,6 +15,22 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Plano del inventario: cajas anchas para ubicaciones con varias sububicaciones
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, con muchos datos había que bajar mucho para ver el plano. Ahora una ubicación
+  con dos o más sububicaciones ocupa toda la fila (en el plano y dentro de otra caja) y sus sububicaciones se reparten
+  a lo ancho. Las cajas pequeñas rellenan los huecos y cada caja mide solo lo que necesita.
+- Archivos creados o modificados: `public/nucleo/inventario.js` (clase `caja-ancha`), `public/estilo.css`, versión de
+  los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: se usa la fila entera (`grid-column: 1 / -1`) en lugar de un número fijo de columnas,
+  porque el número de columnas depende del ancho de la pantalla y del panel (en las listas el plano es más estrecho):
+  así no se desborda nunca. Con `grid-auto-flow: dense` el orden visual de las cajas puede no ser el alfabético.
+- Requisitos que cubre (RF/RNF): RF-06, RNF-06.
+- Cómo probarlo (pasos): con el inventario de ejemplo, abrir el plano: Local, Trastero y Armario de secciones ocupan
+  toda la fila.
+- Impacto en la memoria (apartados que habría que revisar): capturas del inventario.
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Inventario y listas de ejemplo
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, script que carga un inventario y listas de ejemplo para probar el plano y

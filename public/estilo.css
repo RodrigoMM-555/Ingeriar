@@ -2434,6 +2434,7 @@ tr.fila-baja td{
 .plano-inventario{
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    grid-auto-flow:row dense;
     gap:14px;
     align-items:start;
     min-height:120px;
@@ -2461,6 +2462,11 @@ tr.fila-baja td{
 
 .caja-ubicacion.nivel-impar{
     background:var(--color_fondo);
+}
+
+/* Caja con varias sububicaciones: toda la fila de su rejilla */
+.caja-ancha{
+    grid-column:1 / -1;
 }
 
 .caja-sin-existencias{
@@ -2497,7 +2503,9 @@ tr.fila-baja td{
 
 .hijas-caja{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));
+    grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));
+    grid-auto-flow:row dense;
+    align-items:start;
     gap:8px;
 }
 

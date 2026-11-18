@@ -308,6 +308,10 @@ class IngeriarInventario {
             fichas.appendChild(this.crearFicha(material, ubicacion.id, disponible, modo));
         });
         const hijas = this.hijas(ubicacion.id);
+        // Con varias sububicaciones la caja ocupa toda la fila y las reparte a lo ancho.
+        if (hijas.length >= 2) {
+            caja.classList.add("caja-ancha");
+        }
         if (fichas.children.length === 0 && hijas.length === 0) {
             fichas.appendChild(this.parrafo("Vacía", "caja-vacia"));
         }

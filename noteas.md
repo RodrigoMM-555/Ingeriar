@@ -531,6 +531,9 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
   (`guardar_ubicacion`); al fondo del plano, pasa a principal. El botón «⇄» de cada ficha
   hace lo mismo sin ratón. Arrastrar y soltar es el nativo de HTML: lo arrastrado se
   guarda en `this.arrastre` y la caja más interior que lo acepta recoge el evento.
+  Una caja con dos o más sububicaciones (`.caja-ancha`) ocupa toda la fila de su rejilla
+  y reparte sus sububicaciones a lo ancho; las cajas pequeñas rellenan los huecos
+  (`grid-auto-flow: dense`), así el plano crece menos hacia abajo.
 - Listas (reparto automático desde 2026-11-18; antes el monitor elegía a mano de qué
   ubicación cogía cada cantidad): a la izquierda el mismo plano, con lo que queda tras lo
   que coge la lista. A la derecha, «Lo que necesitamos»: se añade arrastrando una ficha,
@@ -808,6 +811,10 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-18 (cajas anchas en el plano)
+
+- Plano: las ubicaciones con varias sububicaciones ocupan toda la fila.
 
 ### 2026-11-18 (inventario de ejemplo)
 
