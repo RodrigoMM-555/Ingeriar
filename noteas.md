@@ -533,8 +533,14 @@ del usuario (se usa `textContent`), los permisos del cliente solo deciden qué s
 ### 15.3 Educandos y documentación de inscripción
 
 - Tabla de educandos con color por sección; las bajas, al final y en cursiva.
-- «Ver documentación» muestra las fichas del catálogo: plantilla en blanco, entregada o
-  no, estado de revisión y observaciones, y sus circulares.
+- «Ver documentación» abre una ventana con dos pestañas: «Fichas de inscripción
+  (entregadas/obligatorias)» y «Circulares de actividades (n)». En las fichas, un resumen
+  («6 de 8 obligatorias entregadas · 1 por revisar · 1 a corregir»), una leyenda y una
+  fila por documento: nombre, etiqueta de estado de color (Sin entregar, Por revisar,
+  Revisado, A corregir) con su detalle, y botones de icono SVG con su nombre al pasar el
+  ratón: plantilla en blanco, ver entregado, subir o sustituir, correcto y pedir
+  corrección (estos dos, solo con `documentos.revisar`; el del estado actual va relleno).
+  Cada icono tiene siempre su hueco aunque no aplique, así quedan en columna.
 - El tutor (o un monitor, con copia en papel) entrega cada ficha una vez; volver a subirla
   la sustituye y la deja pendiente. Un monitor la marca revisada o pide corrección.
 - Se guardan en `storage/documentos/permanente/<educando>/`.
@@ -718,6 +724,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (ventana de documentación del educando)
+
+- Pestañas de fichas y circulares, resumen, iconos alineados en lugar de cinco botones
+  por ficha; la ventana modal ya permite bajar hasta el final (margen en `vh`).
 
 ### 2026-11-18 (documentación técnica y datos de ejemplo)
 

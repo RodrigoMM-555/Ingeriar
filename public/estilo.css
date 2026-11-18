@@ -1331,13 +1331,14 @@ th.columna-acciones{
 .modal-dialogo{
     position:relative;
     width:min(900px,calc(100% - 32px));
-    max-height:calc(100vh - 32px);
-    margin:16px auto;
+    /* Margen y alto en vh: la ventana entera cabe en pantalla y se puede bajar hasta el
+       final (con margin-top en % el final quedaba fuera de la pantalla). */
+    max-height:92vh;
+    margin:4vh auto;
     overflow:auto;
     border-radius:var(--radio);
     background:var(--color_superficie);
     box-shadow:0 12px 40px rgba(0,0,0,0.3);
-    margin-top: 5%;
 }
 
 .modal-asistencia .modal-dialogo{
@@ -1912,25 +1913,160 @@ body.modal-abierto{
     gap:10px;
 }
 
-.fila-inscripcion{
-    display:grid;
-    grid-template-columns:minmax(160px,1fr) minmax(160px,1.2fr) auto;
-    align-items:center;
-    gap:10px 16px;
-    padding:12px;
+/* La rejilla de circulares tiene display:grid, que anula el atributo hidden de la pestaña */
+.rejilla-documentos[hidden]{
+    display:none;
 }
 
-.acciones-inscripcion{
+.pestanas-documentos{
     display:flex;
     flex-wrap:wrap;
-    justify-content:flex-end;
+    gap:8px;
+    margin:4px 0 16px;
+    padding-bottom:12px;
+    border-bottom:1px solid var(--color_borde);
+}
+
+.resumen-inscripcion{
+    margin:0 0 8px;
+    font-weight:600;
+}
+
+.leyenda-iconos{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px 16px;
+    margin-bottom:12px;
+    color:var(--color_secundario);
+    font-size:13px;
+}
+
+.leyenda-iconos span{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+}
+
+.leyenda-iconos .icono{
+    width:16px;
+    height:16px;
+}
+
+/* Misma rejilla en todas las filas: nombre, estado y un hueco por icono (aunque esté vacío) */
+.fila-inscripcion{
+    display:grid;
+    grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)
+        calc(var(--iconos-inscripcion, 5) * 34px + (var(--iconos-inscripcion, 5) - 1) * 6px);
+    align-items:center;
+    gap:10px 16px;
+    padding:10px 12px;
+}
+
+.nombre-inscripcion strong{
+    display:block;
+}
+
+.detalle-inscripcion{
+    margin:2px 0 0;
+    color:var(--color_secundario);
+    font-size:12px;
+}
+
+.iconos-inscripcion{
+    display:grid;
+    grid-template-columns:repeat(var(--iconos-inscripcion, 5), 34px);
     gap:6px;
 }
 
-.acciones-inscripcion .boton{
-    text-decoration:none;
+.hueco-icono{
+    width:34px;
 }
 
+.boton-icono{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    padding:0;
+    border:1px solid var(--color_borde);
+    border-radius:8px;
+    color:var(--color_texto);
+    background:var(--color_superficie);
+    cursor:pointer;
+}
+
+.boton-icono:hover{
+    background:var(--color_fondo);
+}
+
+.icono{
+    width:18px;
+    height:18px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+}
+
+.icono-descargar{
+    color:#1f5fd1;
+}
+
+.icono-correcto{
+    color:var(--color_exito);
+}
+
+.icono-corregir{
+    color:#d97706;
+}
+
+/* El icono del estado actual (revisado o a corregir) queda relleno */
+.boton-icono.marcado{
+    color:#fff;
+    border-color:transparent;
+}
+
+.icono-correcto.marcado{
+    background:var(--color_exito);
+}
+
+.icono-corregir.marcado{
+    background:#d97706;
+}
+
+.etiqueta-estado{
+    display:inline-block;
+    padding:2px 10px;
+    border-radius:999px;
+    color:#fff;
+    font-size:12px;
+    font-weight:700;
+}
+
+.etiqueta-estado.estado-falta{
+    color:var(--color_texto);
+    background:var(--color_fondo);
+    border:1px solid var(--color_borde);
+}
+
+.etiqueta-estado.estado-pendiente{
+    color:#fff;
+    background:#d97706;
+}
+
+.etiqueta-estado.estado-revisado{
+    color:#fff;
+    background:var(--color_exito);
+}
+
+.etiqueta-estado.estado-corregir{
+    color:#fff;
+    background:var(--color_peligro);
+}
+
+/* Estados usados en Configuración (plantillas) */
 .estado-documento{
     font-size:14px;
 }
@@ -2023,10 +2159,6 @@ body.modal-abierto{
 @media (max-width:700px){
     .fila-inscripcion{
         grid-template-columns:1fr;
-    }
-
-    .acciones-inscripcion{
-        justify-content:flex-start;
     }
 }
 

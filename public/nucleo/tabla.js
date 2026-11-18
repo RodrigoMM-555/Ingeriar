@@ -297,16 +297,39 @@ class IngeriarTabla {
             titulo.textContent = "Documentación: " + educando.nombre + " " +
                 educando.apellidos;
             contenedor.appendChild(titulo);
-            // E-14: fichas de inscripción, antes de las circulares de actividades.
-            if (this.documentos) {
-                contenedor.appendChild(this.documentos.crearBloqueInscripcion(educando));
-            }
-            const tituloCirculares = document.createElement("h3");
-            tituloCirculares.textContent = "Circulares de actividades";
-            contenedor.appendChild(tituloCirculares);
+            // Dos pestañas: fichas de inscripción (E-14) y circulares de actividades.
+            const pestanas = document.createElement("div");
+            pestanas.className = "pestanas-documentos";
+            pestanas.setAttribute("role", "tablist");
+            const panelFichas = document.createElement("div");
             const rejilla = document.createElement("div");
             rejilla.className = "rejilla-documentos";
-            contenedor.appendChild(rejilla);
+            const paneles = [];
+            const crearPestana = (texto, panel) => {
+                const boton = document.createElement("button");
+                boton.type = "button";
+                boton.setAttribute("role", "tab");
+                boton.textContent = texto;
+                panel.setAttribute("role", "tabpanel");
+                paneles.push([boton, panel]);
+                boton.onclick = () => paneles.forEach(([otro, otroPanel]) => {
+                    const activo = otro === boton;
+                    otro.className = "boton " + (activo ? "boton-crear" : "boton-cancelar");
+                    otro.setAttribute("aria-selected", String(activo));
+                    otroPanel.hidden = !activo;
+                });
+                pestanas.appendChild(boton);
+                return boton;
+            };
+            const pestanaFichas = this.documentos ? crearPestana("Fichas de inscripción", panelFichas) : null;
+            const pestanaCirculares = crearPestana("Circulares de actividades (" + documentos.length + ")", rejilla);
+            contenedor.append(pestanas, panelFichas, rejilla);
+            if (this.documentos) {
+                panelFichas.appendChild(this.documentos.crearBloqueInscripcion(educando, (resumen) => {
+                    pestanaFichas.textContent = "Fichas de inscripción (" + resumen + ")";
+                }));
+            }
+            (pestanaFichas || pestanaCirculares).click();
             if (!documentos.length) {
                 const mensaje = document.createElement("p");
                 mensaje.textContent = "No hay circulares subidas.";

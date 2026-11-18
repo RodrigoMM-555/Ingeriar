@@ -15,6 +15,31 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Ventana de documentación del educando: pestañas e iconos
+- Rama / commit: `feat/documentacion-educando-iconos`
+- Qué se ha hecho: a petición del usuario:
+  - No se podía bajar hasta el final de la ventana (las circulares quedaban cortadas). Causa: `.modal-dialogo` tenía
+    `max-height: calc(100vh - 32px)` y además `margin-top: 5%`, así que su parte de abajo quedaba fuera de la pantalla.
+    Ahora `max-height: 92vh` y `margin: 4vh auto`. Afecta a todas las ventanas modales.
+  - La ventana tiene dos pestañas: «Fichas de inscripción (6/8)» y «Circulares de actividades (2)».
+  - Cada ficha tenía hasta cinco botones con texto. Ahora (opción elegida por el usuario: botones de icono): resumen
+    arriba, leyenda de iconos y filas con la misma rejilla: nombre (y «Opcional»), etiqueta de estado de color con su
+    detalle (quién y cuándo revisó, observaciones) y botones de icono SVG (plantilla en blanco, ver, subir o sustituir,
+    correcto, pedir corrección) con su nombre en `title` y `aria-label`. Cada icono tiene siempre su hueco para que
+    queden en columna; el del estado actual va relleno. La familia solo ve los tres primeros.
+- Archivos creados o modificados: `public/nucleo/documentos.js` (`crearBloqueInscripcion`, resumen, leyenda, `icono`,
+  `enlaceIcono`, `crearEstado`, `crearBotonSubir`, `crearBotonRevisar`), `public/nucleo/tabla.js` (pestañas en
+  `mostrarDocumentosEducando`), `public/estilo.css` (modal, pestañas, filas, iconos y etiquetas), versión de los
+  scripts, `noteas.md`.
+- Decisiones técnicas y motivo: iconos en SVG dibujados con `createElementNS` (se ven igual en todos los navegadores,
+  sin archivos ni librerías). El número de columnas de iconos depende de los permisos y se pasa a CSS con la variable
+  `--iconos-inscripcion`. Comprobado con capturas de la pantalla real como monitora y como familia.
+- Requisitos que cubre (RF/RNF): RF-04, RNF-06.
+- Cómo probarlo (pasos): Educandos → «Ver documentación» como `lucia.fernandez@monitores.ingeriar.test` y como
+  `ana.garcia@familias.ingeriar.test` (contraseña `Seeonee-2026`).
+- Impacto en la memoria (apartados que habría que revisar): capturas de la documentación del educando.
+- Pendiente o problemas: «Pedir corrección» sigue pidiendo las observaciones con el cuadro del navegador (`prompt`).
+
 ## 2026-11-18 · Documentación técnica completa y datos de ejemplo
 - Rama / commit: `feat/datos-ejemplo-y-documentacion`
 - Qué se ha hecho: a petición del usuario:
