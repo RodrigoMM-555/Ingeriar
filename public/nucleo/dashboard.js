@@ -246,34 +246,56 @@ class IngeriarDashboard {
             zona.appendChild(vacio);
             return zona;
         }
+        // Una tarjeta por evento con una ficha por educando dentro (el servidor ya las envía
+        // ordenadas por fecha, así que los eventos salen en orden).
+        const eventos = new Map();
+        pendientes.forEach((pendiente) => {
+            if (!eventos.has(pendiente.evento_id)) {
+                eventos.set(pendiente.evento_id, []);
+            }
+            eventos.get(pendiente.evento_id).push(pendiente);
+        });
         const lista = document.createElement("div");
         lista.className = "lista-pendientes-tutor";
-        pendientes.forEach((pendiente) => {
-            const ficha = document.createElement("article");
-            // Mismo color de fondo que las filas de la sección en la tabla de educandos.
-            ficha.className = "pendiente-tutor fila-seccion-" + pendiente.seccion;
-            const educando = document.createElement("strong");
-            educando.textContent = pendiente.educando;
-            const evento = document.createElement("span");
-            evento.textContent = pendiente.evento + " · " + this.formatearFecha(pendiente.fecha);
-            const etiquetas = document.createElement("div");
-            etiquetas.className = "etiquetas-pendiente";
-            const etiqueta = (texto, clase) => {
-                const elemento = document.createElement("span");
-                elemento.className = "etiqueta-pendiente " + clase;
-                elemento.textContent = texto;
-                etiquetas.appendChild(elemento);
-            };
-            if (pendiente.motivo === "confirmar") {
-                etiqueta("Confirmar asistencia", "etiqueta-confirmar");
-                if (pendiente.circular) {
-                    etiqueta("Necesita circular", "etiqueta-circular");
-                }
-            } else {
-                etiqueta("Falta documentación (circular)", "etiqueta-falta-documentacion");
+        const etiqueta = (texto, clase) => {
+            const elemento = document.createElement("span");
+            elemento.className = "etiqueta-pendiente " + clase;
+            elemento.textContent = texto;
+            return elemento;
+        };
+        eventos.forEach((delEvento) => {
+            const primero = delEvento[0];
+            const tarjeta = document.createElement("article");
+            // Con tres educandos o más, la tarjeta ocupa dos columnas para que quepan en una fila.
+            tarjeta.className = "evento-pendiente vista-superficie" + (delEvento.length >= 3 ? " evento-pendiente-ancho" : "");
+            const cabecera = document.createElement("div");
+            cabecera.className = "cabecera-evento-pendiente";
+            const nombre = document.createElement("strong");
+            nombre.textContent = primero.evento;
+            const fecha = document.createElement("span");
+            fecha.className = "fecha-evento-pendiente";
+            fecha.textContent = this.formatearDiaMes(primero.fecha);
+            cabecera.append(nombre, fecha);
+            if (primero.circular) {
+                cabecera.appendChild(etiqueta("Necesita circular", "etiqueta-circular"));
             }
-            ficha.append(educando, evento, etiquetas);
-            lista.appendChild(ficha);
+            const hijos = document.createElement("div");
+            hijos.className = "educandos-evento-pendiente";
+            delEvento.forEach((pendiente) => {
+                const ficha = document.createElement("div");
+                // Mismo color de fondo que las filas de la sección en la tabla de educandos.
+                ficha.className = "pendiente-tutor fila-seccion-" + pendiente.seccion;
+                // Dentro de una familia basta el nombre; el completo, al pasar el ratón.
+                const educando = document.createElement("strong");
+                educando.textContent = pendiente.nombre || pendiente.educando;
+                ficha.title = pendiente.educando;
+                ficha.append(educando, pendiente.motivo === "confirmar"
+                    ? etiqueta("Confirmar asistencia", "etiqueta-confirmar")
+                    : etiqueta("Falta la circular", "etiqueta-falta-documentacion"));
+                hijos.appendChild(ficha);
+            });
+            tarjeta.append(cabecera, hijos);
+            lista.appendChild(tarjeta);
         });
         zona.appendChild(lista);
         return zona;

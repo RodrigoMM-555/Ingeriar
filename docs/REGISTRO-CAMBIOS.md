@@ -15,6 +15,23 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Dashboard del tutor: pendientes agrupados por evento
+- Rama / commit: `feat/dashboard-pendientes-por-evento`
+- Qué se ha hecho: a petición del usuario, «Pendientes de este mes» muestra una tarjeta por evento (nombre, día de la
+  semana y fecha, y «Necesita circular» una sola vez si la lleva) y dentro una ficha por educando con su nombre, el
+  color de su sección y lo que falta («Confirmar asistencia» o «Falta la circular»). Antes había una ficha suelta por
+  educando y evento. Un evento con tres educandos o más ocupa dos columnas para que quepan en una fila.
+- Archivos creados o modificados: `public/nucleo/dashboard.js` (`renderPendientesTutor`), `server/api/superapi.php`
+  (el pendiente incluye también el nombre del educando), `public/estilo.css`, versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: la agrupación se hace en el cliente con un `Map` por `evento_id` (el servidor ya los
+  envía ordenados por fecha). Dentro de una familia basta el nombre; el completo aparece al pasar el ratón.
+  Comprobado con capturas (datos inventados con tres hijos) en pantalla ancha y en móvil, y con la respuesta real de
+  Apache para una familia de ejemplo.
+- Requisitos que cubre (RF/RNF): RF-07, RNF-06.
+- Cómo probarlo (pasos): entrar como `ana.garcia@familias.ingeriar.test` (contraseña `Seeonee-2026`).
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard del tutor).
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Ventana de documentación del educando: pestañas e iconos
 - Rama / commit: `feat/documentacion-educando-iconos`
 - Qué se ha hecho: a petición del usuario:

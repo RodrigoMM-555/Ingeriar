@@ -513,9 +513,10 @@ del usuario (se usa `textContent`), los permisos del cliente solo deciden qué s
 - **Asistencias del sábado** (`asistencia.ver_todas`): anillo doble. Dentro, una porción
   por sección; fuera, sus tramos (asiste con circular, asiste sin ella, sin responder, no
   asiste) en tonos del color de la sección, con una tabla de cifras.
-- **Pendientes de este mes** (tutor): una ficha por educando y evento de este mes sin
-  terminar en el que falta confirmar la asistencia o, si va, entregar la circular; con el
-  color de la sección. **Calendario del trimestre**: próximos eventos hasta fin de trimestre.
+- **Pendientes de este mes** (tutor): una tarjeta por evento de este mes sin terminar
+  (nombre, día y «Necesita circular» si la lleva) y dentro una ficha por educando, con su
+  nombre y el color de su sección, si falta confirmar la asistencia o, si va, entregar la
+  circular. Con tres educandos o más la tarjeta ocupa dos columnas. **Calendario del trimestre**: próximos eventos hasta fin de trimestre.
 - **Facturas** (`facturas.cambiar_estado`): pendientes de revisar y de pagar, con totales
   (las 8 más antiguas de cada una).
 
@@ -724,6 +725,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (pendientes del tutor por evento)
+
+- Dashboard del tutor: los pendientes se agrupan en una tarjeta por evento con una ficha
+  por hijo dentro.
 
 ### 2026-11-18 (ventana de documentación del educando)
 

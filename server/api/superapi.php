@@ -449,6 +449,7 @@ switch ($ruta) {
                         'motivo' => $motivo,
                         'circular' => $circular,
                         'educando' => trim($educando->nombre . ' ' . $educando->apellidos),
+                        'nombre' => $educando->nombre,
                         'seccion' => $seccion,
                         'evento_id' => (int) $evento['id'],
                         'evento' => $evento['nombre'],
