@@ -852,6 +852,14 @@ switch ($ruta) {
                     $configuracion[$campo] = filter_var($recibida[$campo], FILTER_VALIDATE_BOOLEAN);
                 }
             }
+            // Orden del menú lateral: claves de vistas y tablas (minúsculas y guion bajo).
+            if (isset($recibida['orden_menu'])) {
+                $orden = array_values(array_unique(array_filter(
+                    array_map('strval', (array) $recibida['orden_menu']),
+                    fn(string $clave): bool => preg_match('/^[a-z][a-z0-9_]{0,49}$/', $clave) === 1
+                )));
+                $configuracion['orden_menu'] = array_slice($orden, 0, 50);
+            }
             if (isset($recibida['contrasena_longitud_minima'])) {
                 $configuracion['contrasena_longitud_minima'] = max(
                     6,

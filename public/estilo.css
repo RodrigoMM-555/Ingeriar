@@ -790,6 +790,32 @@ a.boton{
     text-decoration:none;
 }
 
+.lista-orden-menu{
+    display:grid;
+    gap:6px;
+    max-width:420px;
+    margin:0 0 12px;
+    padding:0;
+    list-style:none;
+}
+
+/* Misma rejilla en todas las filas: nombre y las dos flechas en su columna */
+.fila-orden-menu{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 36px 36px;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border:1px solid var(--color_borde);
+    border-radius:var(--radio);
+    background:var(--color_fondo);
+}
+
+.fila-orden-menu .boton-mini:disabled{
+    opacity:0.35;
+    cursor:default;
+}
+
 .boton-anadir-catalogo{
     margin-top:12px;
 }

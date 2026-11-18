@@ -284,3 +284,4 @@ Rellenar la columna Resultado con «Superada» o «No superada (motivo)» y la f
 | MAN-52 | Monitor | Crear un evento de tipo Sábado y elegir el día | Se proponen las 10:30 y las 13:30; los campos de plazo indican el del tipo | RF-03 | Pendiente | |
 | MAN-53 | Tutor | Abrir la asistencia de un evento con el plazo sin abrir y otro con el plazo abierto | El primero indica cuándo se abre y no deja responder; el segundo, hasta cuándo | RF-03 | Pendiente | |
 | MAN-54 | Administrador | Poner 1 minuto de inactividad, esperar y usar la aplicación | Vuelve al acceso con «La sesión se ha cerrado por inactividad» | RNF-03 | Pendiente | |
+| MAN-55 | Administrador | Configuración → «Menú de navegación»: subir Inventario dos puestos y guardar | El menú lateral cambia al momento y se mantiene al volver a entrar (también para otros usuarios) | RNF-06 | Pendiente | |

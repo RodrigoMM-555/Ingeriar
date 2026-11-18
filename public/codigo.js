@@ -65,6 +65,7 @@ window.addEventListener("beforeunload", (evento) => {
 });
 
 window.addEventListener("configuracion-actualizada", () => {
+    ordenarMenu(configuracion.configuracionActual?.orden_menu);
     if (vistaActual === "tabla" && tablaActual) {
         tabla.cargar(tablaActual);
     } else if (vistaActual === "calendario") {
@@ -84,13 +85,14 @@ function crearEnlaceDashboard() {
     let enlace = document.createElement("a");
     enlace.href = "#";
     enlace.textContent = "Dashboard";
+    enlace.dataset.clave = "dashboard";
     enlace.onclick = function (evento) {
         evento.preventDefault();
         marcarEnlaceActivo(enlace);
         vistaActual = "dashboard";
         dashboard.render();
     };
-    document.querySelector("#entidades").prepend(enlace);
+    document.querySelector("#entidades").appendChild(enlace);
     return enlace;
 }
 
@@ -98,6 +100,7 @@ function crearEnlaceCalendario() {
     let enlace = document.createElement("a");
     enlace.href = "#";
     enlace.textContent = "Calendario";
+    enlace.dataset.clave = "calendario";
     enlace.onclick = function (evento) {
         evento.preventDefault();
         marcarEnlaceActivo(enlace);
@@ -106,13 +109,14 @@ function crearEnlaceCalendario() {
             document.querySelector("section").textContent = error.message;
         });
     };
-    document.querySelector("#entidades").prepend(enlace);
+    document.querySelector("#entidades").appendChild(enlace);
 }
 
 function crearEnlaceGaleria() {
     let enlace = document.createElement("a");
     enlace.href = "#";
     enlace.textContent = "Galería";
+    enlace.dataset.clave = "galeria";
     enlace.onclick = function (evento) {
         evento.preventDefault();
         marcarEnlaceActivo(enlace);
@@ -121,7 +125,7 @@ function crearEnlaceGaleria() {
             document.querySelector("main > section").textContent = error.message;
         });
     };
-    document.querySelector("#entidades").prepend(enlace);
+    document.querySelector("#entidades").appendChild(enlace);
 }
 
 // Vista de facturas en tablero (E-05), para quien puede subir o ver facturas.
@@ -133,6 +137,7 @@ function crearEnlaceFacturas() {
     let enlace = document.createElement("a");
     enlace.href = "#";
     enlace.textContent = "Facturas";
+    enlace.dataset.clave = "facturas";
     enlace.onclick = function (evento) {
         evento.preventDefault();
         marcarEnlaceActivo(enlace);
@@ -141,7 +146,7 @@ function crearEnlaceFacturas() {
             document.querySelector("main > section").textContent = error.message;
         });
     };
-    document.querySelector("#entidades").prepend(enlace);
+    document.querySelector("#entidades").appendChild(enlace);
 }
 
 // Inventario y listas de material (E-04), para administradores y monitores.
@@ -152,6 +157,7 @@ function crearEnlaceInventario() {
     let enlace = document.createElement("a");
     enlace.href = "#";
     enlace.textContent = "Inventario";
+    enlace.dataset.clave = "inventario";
     enlace.onclick = function (evento) {
         evento.preventDefault();
         marcarEnlaceActivo(enlace);
@@ -160,7 +166,7 @@ function crearEnlaceInventario() {
             document.querySelector("main > section").textContent = error.message;
         });
     };
-    document.querySelector("#entidades").prepend(enlace);
+    document.querySelector("#entidades").appendChild(enlace);
 }
 
 function cargarModulos() {
@@ -191,15 +197,36 @@ function cargarModulos() {
         });
 }
 
-function cargarEntidades() {
-    utilidades.obtenerJson("api/superapi.php?ruta=entidades")
-        .then(function (datos) {
+// Ordena el menú lateral según la lista guardada en Configuración («Menú de navegación»)
+// o, si no hay, según IngeriarConfiguracion.ORDEN_MENU_PREDETERMINADO. Lo que no esté en la
+// lista (una pantalla o tabla nueva) va al final, en el orden en que se creó.
+function ordenarMenu(orden) {
+    const lista = Array.isArray(orden) && orden.length
+        ? orden
+        : IngeriarConfiguracion.ORDEN_MENU_PREDETERMINADO;
+    const menu = document.querySelector("#entidades");
+    const enlaces = Array.from(menu.querySelectorAll(":scope > a"));
+    const posicion = (enlace) => {
+        const indice = lista.indexOf(enlace.dataset.clave);
+        return indice === -1 ? lista.length + enlaces.indexOf(enlace) : indice;
+    };
+    enlaces.sort((a, b) => posicion(a) - posicion(b))
+        .forEach((enlace) => menu.appendChild(enlace));
+}
+
+function cargarEntidades(promesaConfiguracion) {
+    Promise.all([
+        utilidades.obtenerJson("api/superapi.php?ruta=entidades"),
+        promesaConfiguracion.catch(() => null)
+    ])
+        .then(function ([datos, datosConfiguracion]) {
             let menu = document.querySelector("#entidades");
 
             datos.forEach(function (dato) {
                 if (!entidadesOcultas.includes(dato)) {
                     let enlace = document.createElement("a");
                     enlace.textContent = utilidades.capitalizar(dato);
+                    enlace.dataset.clave = dato;
                     enlace.href = "#";
                     enlace.onclick = function (evento) {
                         evento.preventDefault();
@@ -222,11 +249,12 @@ function cargarEntidades() {
             });
 
             if (datos.length > 0) {
+                const enlaceDashboard = crearEnlaceDashboard();
+                crearEnlaceCalendario();
+                crearEnlaceGaleria();
                 crearEnlaceInventario();
                 crearEnlaceFacturas();
-                crearEnlaceGaleria();
-                crearEnlaceCalendario();
-                const enlaceDashboard = crearEnlaceDashboard();
+                ordenarMenu(datosConfiguracion?.orden_menu);
                 tablaActual = datos[0];
                 enlaceDashboard.classList.add("activo");
                 vistaActual = "dashboard";
@@ -279,9 +307,9 @@ function iniciarAplicacion() {
                 utilidades.nombreCargos(usuarioActual);
             document.querySelector("#avatar-usuario").textContent =
                 (usuarioActual.nombre || "?").charAt(0).toUpperCase();
-            configuracion.cargar();
+            const promesaConfiguracion = configuracion.cargar();
             cargarModulos();
-            cargarEntidades();
+            cargarEntidades(promesaConfiguracion);
             crearRedimensionable(document.querySelector("#modulos"));
             crearRedimensionable(document.querySelector("#entidades"));
             if (utilidades.tienePermiso("configuracion.gestionar")) {

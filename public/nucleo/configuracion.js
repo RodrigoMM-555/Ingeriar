@@ -1,4 +1,11 @@
 class IngeriarConfiguracion {
+    // Orden por defecto del menú lateral (claves de codigo.js: vistas y tablas). Se cambia
+    // desde Configuración → «Menú de navegación»; lo que no esté aquí sale al final.
+    static ORDEN_MENU_PREDETERMINADO = [
+        "dashboard", "calendario", "galeria", "educandos", "usuarios",
+        "inventario", "facturas", "registro_accesos"
+    ];
+
     constructor({utilidades, nombre = "#nombre", cabecera = "header"}) {
         this.utilidades = utilidades;
         this.nombre = nombre;
@@ -158,6 +165,7 @@ class IngeriarConfiguracion {
             apartados.forEach(([nombre, campos]) => {
                 seccion.appendChild(this.crearApartadoGeneral(nombre, campos, configuracion));
             });
+            seccion.appendChild(this.crearApartadoMenu(configuracion.orden_menu));
             seccion.appendChild(this.crearApartadoListas(configuracion.catalogos || {
                 tipos_evento: [], secciones: [], categorias_factura: []
             }));
@@ -252,6 +260,75 @@ class IngeriarConfiguracion {
                 formulario.append("logo", logo);
             }
             return this.utilidades.enviarFormulario("api/superapi.php?ruta=configuracion", formulario)
+                .then(() => this.cargar())
+                .then(() => window.dispatchEvent(new CustomEvent("configuracion-actualizada")));
+        }));
+        return caja;
+    }
+
+    // Orden del menú lateral: las entradas actuales del menú, con flechas para moverlas.
+    crearApartadoMenu(ordenGuardado) {
+        const caja = this.crearCaja("Menú de navegación");
+        const ayuda = document.createElement("p");
+        ayuda.textContent = "Orden de las entradas del menú lateral para todos los usuarios " +
+            "(cada uno solo ve las que permite su cargo).";
+        const lista = document.createElement("ol");
+        lista.className = "lista-orden-menu";
+        const pintar = (claves) => {
+            const enlaces = new Map(Array.from(document.querySelectorAll("#entidades > a[data-clave]"))
+                .map((enlace) => [enlace.dataset.clave, enlace.textContent]));
+            const orden = [...claves.filter((clave) => enlaces.has(clave)),
+                ...Array.from(enlaces.keys()).filter((clave) => !claves.includes(clave))];
+            lista.replaceChildren();
+            orden.forEach((clave, indice) => {
+                const fila = document.createElement("li");
+                fila.className = "fila-orden-menu";
+                fila.dataset.clave = clave;
+                const nombre = document.createElement("span");
+                nombre.textContent = enlaces.get(clave);
+                const mover = (desplazamiento) => {
+                    const claves = Array.from(lista.children).map((elemento) => elemento.dataset.clave);
+                    const destino = indice + desplazamiento;
+                    [claves[indice], claves[destino]] = [claves[destino], claves[indice]];
+                    pintar(claves);
+                    lista.dispatchEvent(new Event("change", {bubbles: true}));
+                };
+                const subir = document.createElement("button");
+                subir.type = "button";
+                subir.className = "boton boton-mini";
+                subir.textContent = "↑";
+                subir.title = "Subir " + nombre.textContent;
+                subir.disabled = indice === 0;
+                subir.onclick = () => mover(-1);
+                const bajar = document.createElement("button");
+                bajar.type = "button";
+                bajar.className = "boton boton-mini";
+                bajar.textContent = "↓";
+                bajar.title = "Bajar " + nombre.textContent;
+                bajar.disabled = indice === orden.length - 1;
+                bajar.onclick = () => mover(1);
+                fila.append(nombre, subir, bajar);
+                lista.appendChild(fila);
+            });
+        };
+        pintar(Array.isArray(ordenGuardado) && ordenGuardado.length
+            ? ordenGuardado
+            : IngeriarConfiguracion.ORDEN_MENU_PREDETERMINADO);
+        const restablecer = document.createElement("button");
+        restablecer.type = "button";
+        restablecer.className = "boton boton-cancelar";
+        restablecer.textContent = "Orden por defecto";
+        restablecer.onclick = () => {
+            pintar(IngeriarConfiguracion.ORDEN_MENU_PREDETERMINADO);
+            lista.dispatchEvent(new Event("change", {bubbles: true}));
+        };
+        caja.append(ayuda, lista, restablecer);
+        caja.appendChild(this.utilidades.crearAccionesGuardar(caja, () => {
+            const datos = new FormData();
+            datos.append("configuracion", JSON.stringify({
+                orden_menu: Array.from(lista.children).map((fila) => fila.dataset.clave)
+            }));
+            return this.utilidades.enviarFormulario("api/superapi.php?ruta=configuracion", datos)
                 .then(() => this.cargar())
                 .then(() => window.dispatchEvent(new CustomEvent("configuracion-actualizada")));
         }));

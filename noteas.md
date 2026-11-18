@@ -225,8 +225,13 @@ número en las tres páginas; si no, el navegador puede mezclar archivos nuevos 
 3. `configuracion.cargar()` aplica nombre, logo y colores del grupo (variables CSS).
 4. `cargarEntidades()` pide `ruta=entidades` (tablas que el usuario puede ver en el menú) y
    añade los enlaces fijos: Dashboard, Calendario, Galería, Facturas e Inventario (estos
-   dos, solo con su permiso). El botón ⚙ de Configuración aparece con
-   `configuracion.gestionar`.
+   dos, solo con su permiso). Cada enlace lleva una clave (`data-clave`: `dashboard`,
+   `calendario`, `galeria`, `inventario`, `facturas` o el nombre de la tabla) y
+   `ordenarMenu()` los coloca según `orden_menu` de la configuración o, si no hay, según
+   `IngeriarConfiguracion.ORDEN_MENU_PREDETERMINADO` (`public/nucleo/configuracion.js`):
+   Dashboard, Calendario, Galería, Educandos, Usuarios, Inventario, Facturas y Registro de
+   accesos. Lo que no esté en la lista sale al final. El botón ⚙ de Configuración aparece
+   con `configuracion.gestionar`.
 5. Se muestra el dashboard.
 
 **Una petición cualquiera**
@@ -364,8 +369,8 @@ lo dependiente por si la base se creó con el instalador antiguo sin claves for�
 `logo_archivo`, `color`, `color_secundario`, `modo_oscuro`, datos de contacto (`cif`,
 `direccion`, `municipio`, `provincia`, `telefono`, `correo`, `coordinador`),
 `formato_nombre`, `mostrar_educandos_sin_seccion`, `tamano_maximo_archivos_mb`,
-`formatos_entrega`, `plazo_conservacion_anos`, `contrasena_longitud_minima` y
-`sesion_inactividad_minutos`.
+`formatos_entrega`, `plazo_conservacion_anos`, `contrasena_longitud_minima`,
+`sesion_inactividad_minutos` y `orden_menu`.
 
 ## 11. Almacenamiento de archivos (`storage/`)
 
@@ -605,6 +610,8 @@ servidor conserva el resto). Apartados:
   (`sesion_inactividad_minutos`, 0 = nunca; lo comprueba `exigirUsuario` y el cliente
   vuelve al acceso con un aviso).
 - Conservación de datos (plazo en años).
+- **Menú de navegación**: orden de las entradas del menú lateral con flechas ↑ ↓ y «Orden
+  por defecto» (`orden_menu`; el servidor solo acepta claves en minúsculas y guion bajo).
 - **Listas de la aplicación**: tipos de evento (código, nombre, **color**, **hora de
   inicio y fin propuestas**, **días antes en que se abren las respuestas** y **horas
   antes en que se cierran**), secciones (código, nombre, **color**, edades) y categorías
@@ -763,6 +770,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (orden del menú)
+
+- Menú lateral ordenado por una lista configurable (Configuración → «Menú de
+  navegación»), con el orden por defecto en `ORDEN_MENU_PREDETERMINADO`.
 
 ### 2026-11-18 (detalle de sección en el anillo del sábado)
 

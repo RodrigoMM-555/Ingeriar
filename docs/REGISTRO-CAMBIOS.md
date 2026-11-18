@@ -15,6 +15,27 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Orden del menú de navegación configurable
+- Rama / commit: `feat/orden-menu`
+- Qué se ha hecho: a petición del usuario, el menú lateral sigue el orden Dashboard, Calendario, Galería, Educandos,
+  Usuarios, Inventario, Facturas y Registro de accesos (la Galería no estaba en la lista del usuario; va detrás del
+  Calendario y se puede mover). El orden se cambia en Configuración → «Menú de navegación» con flechas ↑ ↓, se guarda
+  para todos los usuarios y se puede volver al orden por defecto. Lo que no esté en la lista (una pantalla o tabla
+  nueva en el futuro) aparece al final hasta que se coloque.
+- Archivos creados o modificados: `public/codigo.js` (`data-clave` en cada enlace, `ordenarMenu`, espera a la
+  configuración antes de ordenar), `public/nucleo/configuracion.js` (`ORDEN_MENU_PREDETERMINADO`,
+  `crearApartadoMenu`), `server/api/superapi.php` (`orden_menu` en la configuración, solo claves válidas y sin
+  repetir), `public/estilo.css`, versión de los scripts, `noteas.md`, `docs/PLAN-PRUEBAS.md` (MAN-55).
+- Decisiones técnicas y motivo: antes cada enlace fijo se anteponía al menú (`prepend`), así que el orden salía al revés
+  del código y las tablas iban por orden alfabético. Ahora todos se añaden y una sola función los ordena con una lista;
+  el orden por defecto está en un único sitio del código. Comprobado con una captura real y con el guardado en el
+  entorno de pruebas.
+- Requisitos que cubre (RF/RNF): RNF-06, RF-07.
+- Cómo probarlo (pasos): MAN-55.
+- Impacto en la memoria (apartados que habría que revisar): configuración y navegación.
+- Pendiente o problemas: en la instalación local el orden no se puede guardar hasta que Apache tenga permiso de
+  escritura sobre `server/data/config.php` (ver E-18).
+
 ## 2026-11-18 · Dashboard: detalle de una sección en el anillo del sábado
 - Rama / commit: `feat/dashboard-anillo-seccion`
 - Qué se ha hecho: a petición del usuario:
