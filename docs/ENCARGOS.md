@@ -26,7 +26,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Aceptación: las pantallas actuales funcionan igual; `superapi.php` reduce su tamaño; cada clase tiene métodos de carga, guardado y borrado.
 - Decisión: mapeo hecho a mano, sin librerías ORM (el chat del documento no cambió el encargo). En la memoria se
   compara con Doctrine e Hibernate.
-- Estado: hecho (rama `feat/E-02-clases-dominio`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-02-clases-dominio`)
 
 ## E-03 · Galería de fotografías
 - Requisitos: RF-04, RNF-03. Apartados afectados: 3.1, 3.4.
@@ -36,7 +36,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Decisión del usuario (2026-11-16): cada foto pertenece a un evento, pero la galería se organiza por carpetas
   ronda → tipo de evento (por ejemplo «Ronda 2026-2027 / Sábados», «Reuniones de familias», «Otros»), con una carpeta
   por cada tipo del catálogo `tipos_evento`, de modo que los tipos nuevos aparecen solos.
-- Estado: hecho (rama `feat/E-03-galeria`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-03-galeria`)
 
 ## E-04 · Inventario en JSON y listas de material
 - Requisitos: RF-06. Resultado de aprendizaje: Acceso a datos RA1 y RA5.
@@ -55,7 +55,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Permisos (decisión del usuario): administrador y scouter gestionan el inventario y las listas; el tutor no tiene acceso.
 - Aceptación: alta, edición y borrado de ubicaciones y material; una lista calcula de dónde coger cada cosa y qué comprar;
   las plantillas se guardan y se reutilizan; el JSON no queda accesible desde la web.
-- Estado: hecho (rama `feat/E-04-inventario`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-04-inventario`)
 
 ## E-05 · Facturas en tablero (sustituye al E-05 anterior, 2026-11-17)
 - Requisitos: RF-05, RF-01, RNF-06. Depende de E-13. Apartados afectados: 2.5, 2.6 (RF-05), 3.1, 3.4, 3.9.
@@ -80,7 +80,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   nuevos y `estado_cambiado_por` / `estado_cambiado_en`.
 - Aceptación: monitor ve solo las suyas y no puede cambiar estados; tesorería y administrador las ven todas y pueden cambiarlos;
   un monitor que intenta cambiar un estado por la API recibe 403; las miniaturas cargan; pruebas automáticas nuevas.
-- Estado: hecho (rama `feat/E-05-facturas`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-05-facturas`)
 
 ## E-06 · Bajas, conservación y registro de accesos
 - Requisitos: RF-02, RF-04, RNF-03.
@@ -90,12 +90,12 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   que se quedan sin educandos se muestran y el administrador decide si borrar también su cuenta.
 - Registrar los accesos a documentación sensible (quién, qué, cuándo) en una tabla que nadie puede modificar.
 - Aceptación: un proceso (botón de administración) lista y elimina lo vencido; los accesos quedan en una tabla de registro.
-- Estado: hecho (rama `feat/E-06-conservacion`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-06-conservacion`)
 
 ## E-07 · Plan de pruebas
 - Requisitos: todos. Apartados afectados: 3.9, 5.1, 5.2, 5.7.
 - Lista de pruebas funcionales y de permisos por rol, con resultado (superada o no) y fecha. Un script o una página de comprobación para repetirlas.
-- Estado: hecho (rama `feat/E-07-pruebas`, pendiente de fusionar). Se ampliará al terminar E-02, E-04, E-05 y E-06.
+- Estado: fusionado (rama `feat/E-07-pruebas`). Se ampliará al terminar E-02, E-04, E-05 y E-06.
 
 ## E-08 · Proteger la exportación completa (`servicios/salida.php`)
 - Requisitos: RNF-03, RNF-04, RF-07. Apartados de la memoria afectados: a determinar por el chat del documento (seguridad y copias).
@@ -105,7 +105,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   Si se mantiene, excluir la columna `contraseña` y valorar ofrecerla como copia de seguridad desde la configuración (RNF-04).
 - Decidir con el usuario si `entrada.php` (importación) se implementa o se elimina.
 - Aceptación: sin sesión o con rol scouter/tutor la URL devuelve 401/403; como administrador funciona y no incluye contraseñas.
-- Estado: hecho (rama `feat/E-08-salida`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-08-salida`)
 
 ## E-09 · Proteger el instalador
 - Requisitos: RNF-03, RNF-05. Apartados de la memoria afectados: a determinar (instalación y seguridad).
@@ -114,7 +114,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Bloquear el instalador una vez instalada la aplicación. Opciones: marca en `storage/` tras la primera instalación,
   rechazarlo si ya existe la tabla `usuarios` con datos, o exigir sesión de administrador para reinstalar. Elegir con el usuario.
 - Aceptación: en una instalación en uso, el instalador responde 403 sin modificar la base de datos; en una instalación nueva funciona.
-- Estado: hecho (rama `feat/E-09-instalador`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-09-instalador`)
 
 ## E-10 · Credenciales fuera del repositorio
 - Requisitos: RNF-03, RNF-05.
@@ -148,7 +148,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   para que no baste con llegar a la URL en una instalación nueva.
 - Aceptación: instalar solo con el asistente deja un esquema equivalente a `schema.sql` (incluidas las claves foráneas y los
   roles); instalar subiendo `schema.sql` funciona; un archivo con DROP se rechaza; en una instalación en uso responde 403; pruebas nuevas.
-- Estado: hecho (rama `feat/E-11-instalador`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-11-instalador`)
 
 ## E-12 · Copia de seguridad de la base de datos y de storage
 - Requisitos: RNF-04, RNF-03. Apartados afectados: 2.6 (RNF-04), 3.5, 3.6, 4.4, 4.5.
@@ -169,7 +169,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   archivos; la retención elimina las copias antiguas; el botón solo funciona con permiso; el zip no queda accesible desde la web.
 - Nota de implementación: el cifrado AES del propio zip necesita la extensión `php-zip`, que no está instalada; se cifra
   el zip completo con AES-256 (openssl) y HMAC. Ver el registro de cambios.
-- Estado: hecho (rama `feat/E-12-copias`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-12-copias`)
 
 ## E-13 · Roles y permisos (RBAC)
 - Requisitos: RF-01, RNF-03, RNF-05. Apartados de la memoria afectados: 2.5, 2.6 (RF-01), 3.1, 3.4, 3.9.
@@ -202,7 +202,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   del básico. El monitor gestiona educandos (alta, edición y baja) pero no asistencias; solo el administrador borra educandos.
   El monitor ve solo sus facturas; tesorería ve todas y cambia estados. Permisos recargados en cada petición.
   Dashboard: suma de bloques según permisos.
-- Estado: hecho (rama `feat/E-13-roles-permisos`, pendiente de fusionar). La columna `usuarios.rol` se retira con la
+- Estado: fusionado (rama `feat/E-13-roles-permisos`). La columna `usuarios.rol` se retira con la
   segunda migración, que el usuario ejecuta en su base después de comprobar las pruebas.
 
 ## E-14 · Documentación de inscripción
@@ -223,7 +223,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Dashboard: documentos pendientes para el tutor y documentos por revisar para el monitor.
 - Aceptación: el tutor descarga las plantillas y sube los documentos de sus educandos (no de otros); el monitor los ve y
   los revisa; el administrador cambia las plantillas; volver a subir deja el documento pendiente; pruebas automáticas nuevas.
-- Estado: hecho (rama `feat/E-14-documentacion`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-14-documentacion`)
 
 ## E-15 · Inventario visual con arrastrar y soltar
 - Requisitos: RF-06, RNF-06. Pedido por el usuario el 2026-11-17 (amplía E-04).
@@ -239,7 +239,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
   2026-11-18).
 - Alternativa sin ratón: botones en cada ficha. Acción nueva en el servidor `mover_material`, dentro del bloqueo del JSON.
 - Aceptación: mover material y ubicaciones arrastrando; el servidor rechaza mover más de lo que hay; pruebas automáticas nuevas.
-- Estado: hecho (rama `feat/E-15-inventario-visual`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-15-inventario-visual`)
 
 ## E-16 · Rondas vencidas y fichas permanentes
 - Requisitos: RF-04, RF-02, RNF-03. Pedido por el usuario el 2026-11-18. Modifica E-06 y E-14.
@@ -254,7 +254,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Script de migración para mover las fichas ya entregadas a la carpeta permanente.
 - Aceptación: borrar una ronda vencida elimina su carpeta y sus asistencias y no toca las fichas permanentes ni rondas
   sin vencer; pruebas automáticas nuevas.
-- Estado: hecho (rama `feat/E-16-conservacion-rondas`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-16-conservacion-rondas`)
 
 ## E-17 · Carpetas por ronda para la galería y las facturas
 - Requisitos: RF-04, RF-05, RNF-03. Pedido por el usuario el 2026-11-18.
@@ -265,7 +265,7 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Al cambiar la fecha o el nombre de un evento, o la fecha de compra de una factura, el archivo se mueve a su carpeta.
 - Script de migración para mover los archivos existentes.
 - Aceptación: las subidas nuevas van a su carpeta; editar mueve los archivos; la migración se puede repetir; pruebas nuevas.
-- Estado: hecho (rama `feat/E-17-carpetas-galeria-facturas`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-17-carpetas-galeria-facturas`)
 
 ## E-18 · Configuración ampliada
 - Requisitos: RF-03, RF-07, RNF-03, RNF-06. Pedido por el usuario el 2026-11-18.
@@ -278,4 +278,47 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Acceso al instalador desde Configuración y arreglos visuales (tabla de permisos, botones «Añadir»).
 - Aceptación: fuera de plazo el servidor rechaza respuestas y circulares; guardar un apartado no cambia los demás;
   pruebas automáticas nuevas.
-- Estado: hecho (rama `feat/E-18-configuracion`, pendiente de fusionar)
+- Estado: fusionado (rama `feat/E-18-configuracion`)
+
+## E-19 · Aplicación instalable para el móvil (PWA)
+- Requisitos: RNF-02 compatibilidad, RNF-06 usabilidad, RNF-01 disponibilidad, RF-03 eventos y asistencia.
+  Resultados de aprendizaje: **Programación multimedia y dispositivos móviles, RA1 y RA2**.
+- Propuesto por Claude Code y aceptado por el usuario el 2026-11-18. **No empezar todavía**: el usuario decidirá cuándo.
+- Motivo: las familias usan la aplicación sobre todo desde el móvil. Una PWA (aplicación web progresiva) se instala en
+  la pantalla de inicio y usa funciones del dispositivo con APIs estándar del navegador, sin frameworks ni librerías.
+- Alcance previsto:
+  - `manifest.json` (nombre, iconos, colores del grupo, pantalla completa) y *service worker* para instalarla.
+  - Funcionamiento sin conexión: el calendario y los pendientes quedan guardados; las respuestas de asistencia hechas sin
+    cobertura se guardan en el móvil (IndexedDB) y se envían al recuperar la conexión (el servidor sigue comprobando
+    permisos y plazos).
+  - Cámara: fotografiar la circular firmada o el tique de una factura desde el propio formulario.
+  - Funciones del dispositivo: vibración al confirmar, compartir (Web Share) la lista de material, abrir el lugar del
+    evento en el mapa y avisos del sistema cuando se abre un plazo de respuesta.
+- RA1 (evaluar tecnologías y capacidades): documento que compare PWA, aplicación nativa e híbrida (ventajas y límites en
+  Android e iOS), detección de capacidades del dispositivo (cámara, modo sin conexión, avisos) y pruebas en móviles o
+  emuladores. RA2 (desarrollar la aplicación): lo anterior implementado.
+- Pendiente de confirmar con el profesor que una PWA sirve para estos RA (algunos esperan una app Android nativa).
+- Aceptación (cuando se haga): se instala en Android; funciona sin conexión para consultar y responder; la cámara sube
+  la circular; pruebas manuales nuevas en `docs/PLAN-PRUEBAS.md`.
+- Estado: propuesto (no iniciado)
+
+## Resultados de aprendizaje: notas para la memoria (2026-11-18)
+
+Decisiones del usuario sobre qué RA se justifican con el proyecto (no es obligatorio cubrirlos todos):
+
+- **Programación multimedia y dispositivos móviles**
+  - RA1 y RA2 (móviles): con la PWA del E-19, cuando se haga.
+  - RA3 (contenidos multimedia): con la galería existente (E-03, E-17 y la mejora de miniaturas): subida de imágenes con
+    comprobación del tipo real (`finfo`), miniaturas generadas en el navegador con `createImageBitmap`, `OffscreenCanvas`
+    y un grupo de Web Workers, visor con teclado, vistas previas de PDF convertidos a imagen con `pdftoppm` e imágenes
+    de ejemplo generadas en PHP sin librerías. Riesgo: si el profesor exige audio o vídeo, la ampliación más pequeña
+    sería admitir vídeos cortos en la galería. Pendiente de confirmar.
+  - RA4 y RA5 (motores de juegos): **no se cubren** (decisión del usuario).
+- **Programación de servicios y procesos**
+  - Concurrencia: grupo de Web Workers de las miniaturas (registro del 2026-11-18) y bloqueo de ficheros con `flock`
+    en el inventario (E-04). Falta confirmar a qué RA corresponde.
+  - RA3 (comunicación en red con sockets): en estudio por el usuario, sin encargo todavía. Opciones propuestas: un
+    servidor WebSocket propio en PHP (`stream_socket_server` y `stream_select`) para avisos en tiempo real (asistencias
+    del sábado, estados de facturas, plazos abiertos), o el envío de las copias de seguridad a un servidor de copias
+    externo por TCP con un protocolo propio (cabecera, hash SHA-256 y confirmación). También se valoraron el envío de
+    avisos por correo hablando SMTP con sockets y una comprobación del estado de los servicios.

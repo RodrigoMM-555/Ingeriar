@@ -781,6 +781,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
 
 ## 21. Diario de cambios
 
+### 2026-11-18 (E-19 PWA propuesto y notas de RA)
+
+- Encargo E-19 (PWA) propuesto sin iniciar; notas de qué RA cubre el proyecto en
+  `docs/ENCARGOS.md`.
+
 ### 2026-11-18 (miniaturas con un grupo de workers)
 
 - Grupo fijo de Web Workers reutilizables, miniaturas solo de lo que está a la vista y

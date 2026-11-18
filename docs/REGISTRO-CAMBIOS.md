@@ -15,6 +15,25 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Encargo propuesto E-19 (PWA) y notas sobre resultados de aprendizaje
+- Rama / commit: `docs/pwa-y-ra`
+- Qué se ha hecho: solo documentación, a petición del usuario, para que el chat del documento lo conozca:
+  - Nuevo encargo **E-19 · Aplicación instalable para el móvil (PWA)**, propuesto y **no iniciado** (el usuario
+    decidirá cuándo), pensado para los RA1 y RA2 de Programación multimedia y dispositivos móviles.
+  - Nuevo apartado «Resultados de aprendizaje: notas para la memoria» en `docs/ENCARGOS.md`: la galería existente para
+    el RA3 de multimedia (con el riesgo de que se exija audio o vídeo), los RA4 y RA5 de juegos no se cubren (decisión
+    del usuario) y las opciones con sockets para el RA3 de Programación de servicios y procesos, en estudio.
+  - Los estados de los encargos E-01 a E-18 ya fusionados en `main` pasan de «hecho, pendiente de fusionar» a
+    «fusionado».
+- Archivos creados o modificados: `docs/ENCARGOS.md`, `docs/REGISTRO-CAMBIOS.md`.
+- Decisiones técnicas y motivo: ninguna en el código.
+- Requisitos que cubre (RF/RNF): —
+- Cómo probarlo (pasos): —
+- Impacto en la memoria (apartados que habría que revisar): justificación de resultados de aprendizaje; posible
+  apartado de trabajo futuro (PWA).
+- Pendiente o problemas: confirmar con el profesor que la PWA sirve para RA1 y RA2 y que la galería basta para RA3 de
+  multimedia; decidir la opción de sockets.
+
 ## 2026-11-18 · Miniaturas: grupo de Web Workers y carga de lo visible
 - Rama / commit: `feat/miniaturas-workers`
 - Qué se ha hecho: a petición del usuario, las miniaturas se generan en segundo plano y varias a la vez sin parar la
@@ -33,7 +52,7 @@ Añadir las entradas nuevas arriba. Formato:
 - Decisiones técnicas y motivo: un grupo fijo evita el coste de crear un hilo por imagen y limita los hilos simultáneos;
   cada trabajador atiende una miniatura cada vez y pide la siguiente al terminar. Comprobado en Apache con el tablero
   de facturas (100 miniaturas): al abrir se generan 14 (las visibles) y al bajar, las de la nueva zona.
-- Requisitos que cubre (RF/RNF): RNF de rendimiento y usabilidad (RNF-06).
+- Requisitos que cubre (RF/RNF): RNF-07 (rendimiento), RNF-06.
 - Cómo probarlo (pasos): abrir Facturas o un evento de la galería con muchas fotos y desplazarse.
 - Impacto en la memoria (apartados que habría que revisar): tecnologías (Web Workers y concurrencia en el cliente).
 - Pendiente o problemas: el usuario cree que el uso de workers responde a algún resultado de aprendizaje; no está
