@@ -543,6 +543,12 @@ storage/inventario/listas.json       listas y plantillas: líneas {material, nec
   descuenta del inventario. El documento para imprimir agrupa por ubicación.
 - Plantillas: una lista se guarda como plantilla; de una plantilla sale una lista nueva o
   una versión nueva (se guarda de cuál viene).
+- Datos de ejemplo (ficticios) para probar el plano y las listas:
+  `php server/pruebas/inventario-ejemplo.php <url> <correo> <contraseña> --confirmar`.
+  Usa la API con un usuario que gestione el inventario (no necesita permiso de escritura
+  en `storage/`) y no duplica lo que ya existe: 18 ubicaciones en cuatro niveles, 33
+  materiales (dos sin existencias), cuatro listas y una plantilla, con faltas para
+  comprar y ubicaciones preferidas.
 - Permiso `inventario.gestionar` (administrador y monitor). Bases existentes:
   `2026-11-inventario.sql`. Los JSON se incluyen en la copia de seguridad de `storage/`.
 
@@ -802,6 +808,10 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-18 (inventario de ejemplo)
+
+- `server/pruebas/inventario-ejemplo.php`: ubicaciones, materiales y listas ficticias por la API.
 
 ### 2026-11-18 (listas con reparto automático)
 

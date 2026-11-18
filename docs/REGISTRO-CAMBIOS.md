@@ -15,6 +15,24 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Inventario y listas de ejemplo
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, script que carga un inventario y listas de ejemplo para probar el plano y
+  el reparto: 18 ubicaciones (Local con armario y baldas por sección, Trastero con zonas y estanterías, furgoneta, casa
+  de colonias), 33 materiales repartidos en varias ubicaciones (dos sin existencias) y cinco listas (acampada de
+  Tropa, excursión de Manada, travesía de Rutas con ubicaciones preferidas, actividad en el local y la plantilla
+  «Campamento de verano (base)»), con material que falta y compras que no están en el inventario.
+- Archivos creados o modificados: `server/pruebas/inventario-ejemplo.php` (nuevo), `noteas.md`.
+- Decisiones técnicas y motivo: carga los datos por la API con un usuario que gestione el inventario, así pasan las
+  mismas validaciones y el bloqueo de fichero y no hace falta permiso de escritura en `storage/`. No duplica lo que ya
+  existe (se puede ejecutar varias veces). El reparto de las listas es el mismo que hace la aplicación. Solo datos
+  ficticios.
+- Requisitos que cubre (RF/RNF): RF-06 (apoyo a las pruebas manuales MAN-36 a MAN-47).
+- Cómo probarlo (pasos): `php server/pruebas/inventario-ejemplo.php http://localhost/Ingeriar/public <correo> <contraseña> --confirmar`
+  y abrir Inventario.
+- Impacto en la memoria (apartados que habría que revisar): ninguno (herramienta de pruebas).
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · E-15 Listas de material con reparto automático y compras calculadas
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, al hacer una lista solo se dice cuánto se necesita de cada cosa y la
