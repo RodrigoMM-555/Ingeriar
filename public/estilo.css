@@ -2425,6 +2425,12 @@ tr.fila-baja td{
 /* ==================== INVENTARIO ==================== */
 
 /* Plano del inventario (E-15): cada ubicación es una caja con sus fichas de material */
+.botones-plano{
+    display:flex;
+    gap:8px;
+    margin-left:auto;
+}
+
 .selector-vista-inventario{
     display:flex;
     gap:8px;

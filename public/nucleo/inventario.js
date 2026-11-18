@@ -186,11 +186,14 @@ class IngeriarInventario {
         const herramientas = document.createElement("div");
         herramientas.className = "filtros-tabla";
         const buscador = this.buscadorPlano();
-        herramientas.append(
-            buscador,
+        // Los dos botones juntos, pegados a la derecha de la barra.
+        const botones = document.createElement("div");
+        botones.className = "botones-plano";
+        botones.append(
             this.boton("+ Ubicación", "boton-crear", () => this.formularioUbicacion(null, null)),
             this.boton("+ Material", "boton-crear", () => this.formularioMaterial(null))
         );
+        herramientas.append(buscador, botones);
         const plano = this.crearPlano("inventario");
         buscador.oninput = () => {
             this.busqueda = buscador.value;

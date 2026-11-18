@@ -814,6 +814,10 @@ Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
 
+### 2026-11-18 (botones del plano)
+
+- Plano: «+ Ubicación» y «+ Material» juntos a la derecha de la barra (`.botones-plano`).
+
 ### 2026-11-18 (cajas anchas en el plano)
 
 - Plano: las ubicaciones con varias sububicaciones se ensanchan, primero a toda la fila y

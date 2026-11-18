@@ -15,6 +15,18 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Plano del inventario: botones de crear juntos a la derecha
+- Rama / commit: `feat/E-15-inventario-visual`
+- Qué se ha hecho: a petición del usuario, «+ Ubicación» y «+ Material» van en un mismo contenedor, juntos y pegados a
+  la derecha de la barra del plano (antes quedaban separados).
+- Archivos creados o modificados: `public/nucleo/inventario.js`, `public/estilo.css` (`.botones-plano`), versión de los
+  scripts, `noteas.md`.
+- Decisiones técnicas y motivo: un `div` con `display:flex` y `margin-left:auto` dentro de la barra.
+- Requisitos que cubre (RF/RNF): RNF-06.
+- Cómo probarlo (pasos): abrir Inventario › Plano.
+- Impacto en la memoria (apartados que habría que revisar): capturas del inventario.
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Plano del inventario: cada caja ocupa tantas columnas como sububicaciones
 - Rama / commit: `feat/E-15-inventario-visual`
 - Qué se ha hecho: a petición del usuario, sustituye a «toda la fila» (entrada siguiente): una ubicación con dos
