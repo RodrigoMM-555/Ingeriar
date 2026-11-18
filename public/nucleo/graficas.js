@@ -62,7 +62,9 @@ class DarkorangeGraficas {
     //   - anillo exterior: encima de cada grupo, sus partes con los tonos de su color;
     //   - al lado, una tabla con todas las cifras.
     // grupos: [{nombre, color, tonos: [...], valores: [...]}]; etiquetas: nombre de cada parte.
-    static crearAnilloAgrupado(contenedor, grupos, etiquetas, textoCentro = "") {
+    // alElegir(índice del grupo): si se indica, cada grupo se puede pulsar (sus sectores y
+    // su fila de la tabla) para ver su detalle.
+    static crearAnilloAgrupado(contenedor, grupos, etiquetas, textoCentro = "", alElegir = null) {
         const elemento = typeof contenedor === "string"
             ? document.querySelector(contenedor)
             : contenedor;
@@ -85,7 +87,7 @@ class DarkorangeGraficas {
             centro + distancia * Math.cos(angulo),
             centro + distancia * Math.sin(angulo)
         ];
-        const sector = (radio, radioInterior, inicio, amplitud, color, dato, totalDato) => {
+        const sector = (radio, radioInterior, inicio, amplitud, color, dato, totalDato, indiceGrupo) => {
             if (!amplitud) {
                 return;
             }
@@ -99,19 +101,26 @@ class DarkorangeGraficas {
             });
             svg.appendChild(figura);
             this.activarTooltip(figura, dato, totalDato, tooltip);
+            if (alElegir) {
+                figura.classList.add("sector-seleccionable");
+                figura.addEventListener("click", () => {
+                    tooltip.style.display = "none";
+                    alElegir(indiceGrupo);
+                });
+            }
         };
 
         let angulo = -Math.PI / 2;
-        grupos.forEach((grupo) => {
+        grupos.forEach((grupo, indiceGrupo) => {
             const totalGrupo = grupo.valores.reduce((suma, valor) => suma + valor, 0);
             const amplitudGrupo = totalGrupo / total * Math.PI * 2;
             sector(100, 60, angulo, amplitudGrupo, grupo.color,
-                {label: grupo.nombre, valor: totalGrupo}, total);
+                {label: grupo.nombre, valor: totalGrupo}, total, indiceGrupo);
             let anguloParte = angulo;
             grupo.valores.forEach((valor, indice) => {
                 const amplitud = valor / total * Math.PI * 2;
                 sector(152, 104, anguloParte, amplitud, grupo.tonos[indice],
-                    {label: grupo.nombre + " · " + etiquetas[indice], valor}, totalGrupo);
+                    {label: grupo.nombre + " · " + etiquetas[indice], valor}, totalGrupo, indiceGrupo);
                 anguloParte += amplitud;
             });
             angulo += amplitudGrupo;
@@ -135,14 +144,25 @@ class DarkorangeGraficas {
         });
         tabla.appendChild(document.createElement("thead")).appendChild(cabecera);
         const cuerpo = tabla.appendChild(document.createElement("tbody"));
-        grupos.forEach((grupo) => {
+        grupos.forEach((grupo, indiceGrupo) => {
             const fila = document.createElement("tr");
             const nombre = document.createElement("th");
             nombre.scope = "row";
             const muestra = document.createElement("span");
             muestra.className = "muestra-color";
             muestra.style.background = grupo.color;
-            nombre.append(muestra, grupo.nombre);
+            if (alElegir) {
+                // También con el teclado: el nombre del grupo es un botón.
+                const boton = document.createElement("button");
+                boton.type = "button";
+                boton.className = "boton-grupo-grafica";
+                boton.title = "Ver el detalle de " + grupo.nombre;
+                boton.append(muestra, grupo.nombre);
+                boton.onclick = () => alElegir(indiceGrupo);
+                nombre.appendChild(boton);
+            } else {
+                nombre.append(muestra, grupo.nombre);
+            }
             fila.appendChild(nombre);
             grupo.valores.forEach((valor, indice) => {
                 const celda = document.createElement("td");
@@ -162,6 +182,45 @@ class DarkorangeGraficas {
         envoltorio.className = "anillo-agrupado";
         envoltorio.append(svg, tabla);
         elemento.appendChild(envoltorio);
+    }
+
+    // Anillo simple y grande: una porción por parte ({nombre, color, valor}) y el total en el
+    // centro. Devuelve el SVG (lo coloca quien lo llama).
+    static crearAnilloSimple(partes, textoCentro = "") {
+        const total = partes.reduce((suma, parte) => suma + parte.valor, 0);
+        const svg = this.crearNodo("svg", {viewBox: "0 0 320 320", role: "img", "aria-label": textoCentro || "Gráfica"});
+        svg.classList.add("grafica-svg", "grafica-agrupada");
+        const tooltip = this.obtenerTooltip();
+        const centro = 160;
+        const punto = (distancia, angulo) => [
+            centro + distancia * Math.cos(angulo),
+            centro + distancia * Math.sin(angulo)
+        ];
+        let angulo = -Math.PI / 2;
+        partes.forEach((parte) => {
+            if (!parte.valor) {
+                return;
+            }
+            const amplitud = parte.valor / total * Math.PI * 2;
+            const figura = this.crearNodo("path", {
+                d: this.crearRutaCircular(centro, centro, 152, 88, angulo, angulo + amplitud, amplitud, punto),
+                fill: parte.color,
+                stroke: "#fff",
+                "stroke-width": 2,
+                "fill-rule": "evenodd"
+            });
+            svg.appendChild(figura);
+            this.activarTooltip(figura, {label: parte.nombre, valor: parte.valor}, total, tooltip);
+            angulo += amplitud;
+        });
+        const numero = this.crearNodo("text", {x: centro, y: centro + 6, "text-anchor": "middle",
+            "font-size": 40, "font-weight": 700, fill: "currentColor"});
+        numero.textContent = String(total);
+        const leyenda = this.crearNodo("text", {x: centro, y: centro + 30, "text-anchor": "middle",
+            "font-size": 13, fill: "currentColor"});
+        leyenda.textContent = textoCentro;
+        svg.append(numero, leyenda);
+        return svg;
     }
 
     static crearSvg(tipo, titulo) {

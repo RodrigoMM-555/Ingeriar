@@ -15,6 +15,25 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Dashboard: detalle de una sección en el anillo del sábado
+- Rama / commit: `feat/dashboard-anillo-seccion`
+- Qué se ha hecho: a petición del usuario:
+  - Se quita el efecto al pasar el ratón por las tarjetas de gráficas (borde y sombra de `.grafica-card:hover`).
+  - En «Asistencias del sábado», al pulsar una sección (sus sectores del anillo o su nombre en la tabla, que es un
+    botón para usarlo con teclado) la tarjeta muestra la sección ampliada: un anillo grande con sus tramos y, al lado,
+    la lista de educandos de cada tramo (asiste y entregó, asiste sin circular, sin responder, no asiste), para saber a
+    quién falta que conteste o entregue. «← Todas las secciones» vuelve a la vista general.
+- Archivos creados o modificados: `server/api/superapi.php` (`asistencias_sabado.detalle` con los nombres por sección y
+  tramo), `public/nucleo/graficas.js` (`crearAnilloAgrupado` con `alElegir`, nuevo `crearAnilloSimple`),
+  `public/nucleo/dashboard.js` (`renderAsistenciasSabado`), `public/estilo.css`, versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: los nombres solo los recibe quien ya tiene `asistencia.ver_todas` (el mismo bloque).
+  Las listas largas tienen un alto máximo con desplazamiento. Comprobado con capturas reales como monitora.
+- Requisitos que cubre (RF/RNF): RF-07, RF-03, RNF-06.
+- Cómo probarlo (pasos): entrar como `lucia.fernandez@monitores.ingeriar.test` (contraseña `Seeonee-2026`) y pulsar una
+  sección en el anillo del sábado.
+- Impacto en la memoria (apartados que habría que revisar): RF-07 (dashboard del monitor).
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · E-18 Configuración ampliada
 - Rama / commit: `feat/E-18-configuracion`
 - Qué se ha hecho: a petición del usuario:

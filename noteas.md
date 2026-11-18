@@ -518,7 +518,10 @@ del usuario (se usa `textContent`), los permisos del cliente solo deciden qué s
   sábado). Para un tutor, solo eventos que convocan a las secciones de sus educandos.
 - **Asistencias del sábado** (`asistencia.ver_todas`): anillo doble. Dentro, una porción
   por sección; fuera, sus tramos (asiste con circular, asiste sin ella, sin responder, no
-  asiste) en tonos del color de la sección, con una tabla de cifras.
+  asiste) en tonos del color de la sección, con una tabla de cifras. Al pulsar una sección
+  (en el anillo o su nombre en la tabla) la tarjeta muestra su detalle: un anillo grande
+  con sus tramos y la lista de educandos de cada tramo (el servidor envía los nombres en
+  `asistencias_sabado.detalle`); «← Todas las secciones» vuelve.
 - **Pendientes de este mes** (tutor): una tarjeta por evento de este mes sin terminar
   (nombre, día y «Necesita circular» si la lleva) y dentro una ficha por educando, con su
   nombre y el color de su sección, si falta confirmar la asistencia o, si va, entregar la
@@ -760,6 +763,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (detalle de sección en el anillo del sábado)
+
+- Sin efecto al pasar el ratón por las tarjetas de gráficas; pulsar una sección del anillo
+  del sábado muestra su detalle con los nombres de cada tramo.
 
 ### 2026-11-18 (E-18 configuración ampliada)
 

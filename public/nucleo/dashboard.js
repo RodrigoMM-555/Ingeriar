@@ -164,7 +164,8 @@ class IngeriarDashboard {
             ? ["Asiste y entregó", "Asiste sin circular", "Sin responder", "No asiste"]
             : ["Asiste", "Sin responder", "No asiste"];
         // Un solo anillo doble: secciones dentro y, por fuera, sus tramos con los tonos de su color.
-        const grupos = this.ordenarSecciones(Object.keys(datos.secciones || {})).map((seccion) => {
+        const codigos = this.ordenarSecciones(Object.keys(datos.secciones || {}));
+        const grupos = codigos.map((seccion) => {
             const tramos = datos.secciones[seccion];
             const tonos = this.tonosSeccion(seccion);
             return {
@@ -178,7 +179,78 @@ class IngeriarDashboard {
         });
         const tarjeta = document.createElement("article");
         tarjeta.className = "grafica-card vista-superficie";
-        this.graficas.crearAnilloAgrupado(tarjeta, grupos, etiquetas, "educandos");
+        // Al pulsar una sección (en el anillo o en la tabla) se ve ampliada; «Todas» vuelve.
+        const mostrarTodas = () => {
+            tarjeta.replaceChildren();
+            const ayuda = document.createElement("p");
+            ayuda.className = "ayuda-grafica";
+            ayuda.textContent = "Pulsa una sección para ver su detalle.";
+            tarjeta.appendChild(ayuda);
+            const grafica = document.createElement("div");
+            tarjeta.appendChild(grafica);
+            this.graficas.crearAnilloAgrupado(grafica, grupos, etiquetas, "educandos",
+                (indice) => mostrarSeccion(indice));
+        };
+        const claves = conCircular
+            ? ["asiste_entregada", "asiste_sin_circular", "pendiente", "no"]
+            : ["asiste_entregada", "pendiente", "no"];
+        const mostrarSeccion = (indice) => {
+            const grupo = grupos[indice];
+            const codigo = codigos[indice];
+            const nombres = (datos.detalle || {})[codigo] || {};
+            tarjeta.replaceChildren();
+            const cabecera = document.createElement("div");
+            cabecera.className = "cabecera-detalle-seccion";
+            const volver = document.createElement("button");
+            volver.type = "button";
+            volver.className = "boton boton-cancelar";
+            volver.textContent = "← Todas las secciones";
+            volver.onclick = mostrarTodas;
+            const titulo = document.createElement("h4");
+            const muestra = document.createElement("span");
+            muestra.className = "muestra-color";
+            muestra.style.background = grupo.color;
+            titulo.append(muestra, grupo.nombre);
+            cabecera.append(volver, titulo);
+            const partes = etiquetas.map((etiqueta, posicion) => ({
+                nombre: etiqueta,
+                color: grupo.tonos[posicion],
+                valor: grupo.valores[posicion],
+                personas: nombres[claves[posicion]] || []
+            }));
+            const cuerpo = document.createElement("div");
+            cuerpo.className = "detalle-seccion-sabado";
+            cuerpo.appendChild(this.graficas.crearAnilloSimple(partes, "educandos"));
+            // Quién está en cada tramo (para saber a quién falta que responda o que entregue).
+            const listas = document.createElement("div");
+            listas.className = "tramos-seccion-sabado";
+            partes.forEach((parte) => {
+                const tramo = document.createElement("section");
+                tramo.className = "tramo-seccion-sabado";
+                const encabezado = document.createElement("h5");
+                const tono = document.createElement("span");
+                tono.className = "muestra-color";
+                tono.style.background = parte.color;
+                encabezado.append(tono, parte.nombre + " (" + parte.valor + ")");
+                const lista = document.createElement("ul");
+                parte.personas.forEach((persona) => {
+                    const elemento = document.createElement("li");
+                    elemento.textContent = persona;
+                    lista.appendChild(elemento);
+                });
+                if (!parte.personas.length) {
+                    const nadie = document.createElement("li");
+                    nadie.className = "sin-personas";
+                    nadie.textContent = "Nadie";
+                    lista.appendChild(nadie);
+                }
+                tramo.append(encabezado, lista);
+                listas.appendChild(tramo);
+            });
+            cuerpo.appendChild(listas);
+            tarjeta.append(cabecera, cuerpo);
+        };
+        mostrarTodas();
         zona.appendChild(tarjeta);
         return zona;
     }

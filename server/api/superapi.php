@@ -364,6 +364,8 @@ switch ($ruta) {
         if (tienePermiso('asistencia.ver_todas')) {
             $sabado = $sabadosProximos[0] ?? null;
             $asistenciaSabado = [];
+            // Nombres de cada tramo por sección, para la vista ampliada de una sección.
+            $detalleSabado = [];
             if ($sabado) {
                 $educandos = $consultarTodos(
                     'SELECT e.id, e.nombre, e.apellidos, e.naz
@@ -400,11 +402,13 @@ switch ($ruta) {
                         'asiste_entregada' => 0, 'asiste_sin_circular' => 0, 'pendiente' => 0, 'no' => 0,
                     ];
                     $asistenciaSabado[$seccion][$grupo]++;
+                    $detalleSabado[$seccion][$grupo][] = trim($educando['nombre'] . ' ' . $educando['apellidos']);
                 }
             }
             $datos['asistencias_sabado'] = [
                 'evento' => $sabado,
                 'secciones' => $asistenciaSabado,
+                'detalle' => $detalleSabado,
             ];
         }
 
