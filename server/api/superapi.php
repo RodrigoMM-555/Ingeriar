@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
+require_once __DIR__ . '/../data/almacenamiento.php';
 require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../dominio/Educando.php';
@@ -1476,6 +1477,10 @@ switch ($ruta) {
             }
         }
         $db->commit();
+        // E-17: si han cambiado la fecha o el nombre del evento, sus fotos van a su carpeta nueva.
+        if ($tabla === 'eventos') {
+            recolocarFotosEvento($db, $registroId);
+        }
         responder(['ok' => true]);
 
     case 'borrar':
@@ -1501,10 +1506,7 @@ switch ($ruta) {
         }
         $db->commit();
         foreach ($fotosEvento as $archivo) {
-            $rutaFoto = __DIR__ . '/../../storage/galeria/' . basename($archivo);
-            if (is_file($rutaFoto)) {
-                unlink($rutaFoto);
-            }
+            borrarDeAlmacen('galeria', $archivo);
         }
         responder(['ok' => true]);
 

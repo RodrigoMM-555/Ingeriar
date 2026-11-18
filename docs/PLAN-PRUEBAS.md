@@ -70,6 +70,8 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | GAL-07 | Ver una foto sin sesión → 401 | RNF-03 | Superada | 2026-11-16 |
 | GAL-08 | Tutor no puede borrar fotos → 403 | RF-04, RNF-03 | Superada | 2026-11-16 |
 | GAL-09 | Scouter borra una foto y su archivo | RF-04 | Superada | 2026-11-16 |
+| GAL-10 | Una foto se guarda en la carpeta de la ronda y del evento | RF-04 | Superada | 2026-11-18 |
+| GAL-11 | Al cambiar la fecha de un evento a otra ronda, sus fotos se mueven | RF-04 | Superada | 2026-11-18 |
 
 | BAJ-01 | El tutor no ve a su educando dado de baja | RF-02, RNF-03 | Superada | 2026-11-17 |
 | BAJ-02 | El tutor confirma la asistencia de un educando activo | RF-03 | Superada | 2026-11-17 |
@@ -122,6 +124,7 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | FAC-10 | Las rutas genéricas ya no escriben facturas → 400 | RF-05, RNF-03 | Superada | 2026-11-17 |
 | FAC-11 | El monitor borra su factura pendiente y su imagen | RF-05 | Superada | 2026-11-17 |
 | FAC-12 | Un tutor no accede a las facturas → 403 | RNF-03 | Superada | 2026-11-17 |
+| FAC-13 | La imagen de una factura va a la carpeta de la ronda de compra y se mueve si cambia la fecha | RF-05 | Superada | 2026-11-18 |
 
 | DOC-01 | Cualquier usuario descarga la circular de participación en blanco | RF-04 | Superada | 2026-11-17 |
 | DOC-02 | Un documento sin plantilla → 404 | RF-04 | Superada | 2026-11-17 |
@@ -164,7 +167,7 @@ Entorno de la última ejecución: MySQL 8.4, PHP 8.5 con su servidor integrado, 
 | COP-03 | Un nombre que no es de copia (../) se rechaza → 400 | RNF-03 | Superada | 2026-11-17 |
 | COP-04 | Descargar una copia queda en el registro de accesos | RNF-03, RNF-04 | Superada | 2026-11-17 |
 
-Resultado: 121 de 121 superadas el 2026-11-18 (con las pruebas de E-15 y E-16).
+Resultado: 124 de 124 superadas el 2026-11-18 (con las pruebas de E-15, E-16 y E-17).
 
 ### Copias de seguridad (`server/pruebas/pruebas-copias.php --base-vacia=<base> --confirmar`)
 

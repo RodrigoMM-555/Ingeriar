@@ -18,6 +18,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/../data/almacenamiento.php';
 require_once __DIR__ . '/../auth/contrasenas.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../dominio/Educando.php';
@@ -220,10 +221,7 @@ function limpiarDatosPrueba(PDO $db): void
         $fotos = $db->prepare('SELECT archivo FROM galeria_fotos WHERE id_evento = ?');
         $fotos->execute([$evento]);
         foreach ($fotos->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
-            $ruta = __DIR__ . '/../../storage/galeria/' . basename($archivo);
-            if (is_file($ruta)) {
-                unlink($ruta);
-            }
+            borrarDeAlmacen('galeria', $archivo);
         }
         $db->prepare('DELETE FROM eventos WHERE id = ?')->execute([$evento]);
     }
@@ -258,10 +256,7 @@ function limpiarDatosPrueba(PDO $db): void
                               WHERE u.email LIKE ? AND f.imagen_factura IS NOT NULL');
     $imagenes->execute(['%' . DOMINIO_PRUEBAS]);
     foreach ($imagenes->fetchAll(PDO::FETCH_COLUMN) as $archivo) {
-        $ruta = __DIR__ . '/../../storage/facturas/' . basename($archivo);
-        if (is_file($ruta)) {
-            unlink($ruta);
-        }
+        borrarDeAlmacen('facturas', $archivo);
     }
     $db->prepare('DELETE f FROM facturas f JOIN usuarios u ON u.id = f.responsable_id WHERE u.email LIKE ?')
         ->execute(['%' . DOMINIO_PRUEBAS]);
@@ -556,6 +551,30 @@ try {
         return $resultado === true && !$existe ?: ($resultado === true ? 'el archivo sigue en disco' : $resultado);
     });
 
+    prueba('GAL-10', 'Una foto se guarda en la carpeta de la ronda y del evento', function () use ($db, $fotoDe, $eventoTropa) {
+        $archivo = (string) $db->query('SELECT archivo FROM galeria_fotos WHERE id = ' . $fotoDe($eventoTropa))->fetchColumn();
+        return str_starts_with($archivo, '26-27/' . $eventoTropa . '-prueba-automatica-tropa/')
+            && is_file(__DIR__ . '/../../storage/galeria/' . $archivo) ?: $archivo;
+    });
+    prueba('GAL-11', 'Al cambiar la fecha de un evento a otra ronda, sus fotos se mueven', function () use ($db, $admin, $scouter, $subir, $fotoDe, $imagen) {
+        $evento = crearEvento($db, 'Prueba automática que cambia de ronda', 'tropa', '2026-10-17');
+        esperar($subir($scouter, $evento, $imagen, 'mover.png'), 200);
+        $antes = (string) $db->query('SELECT archivo FROM galeria_fotos WHERE id = ' . $fotoDe($evento))->fetchColumn();
+        $respuesta = $admin->post('/api/superapi.php?ruta=editar', [
+            'tabla' => 'eventos', 'id' => (string) $evento,
+            'datos' => json_encode([
+                'nombre' => 'Prueba automática que cambia de ronda', 'tipo' => 'sabado',
+                'fecha_inicio' => '2025-10-18 10:00:00', 'fecha_fin' => '2025-10-18 13:00:00',
+                'convocatorias' => ['tropa'],
+            ]),
+        ]);
+        $despues = (string) $db->query('SELECT archivo FROM galeria_fotos WHERE id = ' . $fotoDe($evento))->fetchColumn();
+        $base = __DIR__ . '/../../storage/galeria/';
+        return esperar($respuesta, 200) === true && str_starts_with($despues, '25-26/' . $evento . '-')
+            && is_file($base . $despues) && !is_file($base . $antes) && !is_dir(dirname($base . $antes))
+            ?: json_encode([$antes, $despues, $respuesta['texto']]);
+    });
+
     echo "\nBajas, conservación y registro de accesos\n";
     prueba('BAJ-01', 'El tutor no ve a su educando dado de baja', function () use ($tutor, $educandoId) {
         $ids = array_map('intval', array_column(
@@ -843,6 +862,19 @@ try {
         return esperar($respuesta, 200) === true && !is_file($archivo) ?: 'código ' . $respuesta['codigo'] . ', archivo ' . (is_file($archivo) ? 'sigue' : 'borrado');
     });
     prueba('FAC-12', 'Un tutor no accede a las facturas → 403', fn() => esperar($tutor->get('/api/facturas.php?accion=listar'), 403));
+    prueba('FAC-13', 'La imagen de una factura va a la carpeta de la ronda de compra y se mueve si cambia la fecha', function () use ($apiFacturas, $scouter, $db, $camposFactura, $conImagen) {
+        $apiFacturas($scouter, 'crear', $conImagen($camposFactura('Factura que cambia de ronda')));
+        $factura = $db->query("SELECT id, imagen_factura FROM facturas WHERE concepto = 'Factura que cambia de ronda'")->fetch();
+        $editar = $apiFacturas($scouter, 'editar', $camposFactura('Factura que cambia de ronda', [
+            'id' => (string) $factura['id'], 'fecha_compra' => '2025-03-01',
+        ]));
+        $despues = (string) $db->query('SELECT imagen_factura FROM facturas WHERE id = ' . (int) $factura['id'])->fetchColumn();
+        $base = __DIR__ . '/../../storage/facturas/';
+        return str_starts_with((string) $factura['imagen_factura'], '26-27/factura-' . $factura['id'] . '-')
+            && esperar($editar, 200) === true && str_starts_with($despues, '24-25/') && is_file($base . $despues)
+            && !is_file($base . $factura['imagen_factura'])
+            ?: json_encode([$factura, $despues, $editar['texto']]);
+    });
 
     echo "\nDocumentación de inscripción (E-14)\n";
     $tutorTesoreroId = (int) $db->query("SELECT id FROM usuarios WHERE email = 'tutortesorero" . DOMINIO_PRUEBAS . "'")->fetchColumn();

@@ -6,11 +6,12 @@
 //   ver     GET   devuelve una foto tras comprobar permisos (&id=, &descargar=1 opcional)
 //   subir   POST  administrador o scouter: evento + fotos[]
 //   borrar  POST  administrador o scouter: id
-// Las fotos se guardan en storage/galeria/ con nombre aleatorio y nunca se sirven
-// directamente: todo pasa por este archivo.
+// Las fotos se guardan en storage/galeria/<ronda>/<id>-<evento>/ (E-17) con nombre
+// aleatorio y nunca se sirven directamente: todo pasa por este archivo.
 
 require_once __DIR__ . '/../data/database.php';
 require_once __DIR__ . '/../data/secciones.php';
+require_once __DIR__ . '/../data/almacenamiento.php';
 require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../dominio/Educando.php';
@@ -22,15 +23,6 @@ const FORMATOS_GALERIA = [
     'image/webp' => 'webp',
 ];
 const MAXIMO_FOTOS_POR_SUBIDA = 20;
-
-function directorioGaleria(): string
-{
-    $directorio = __DIR__ . '/../../storage/galeria';
-    if (!is_dir($directorio) && !mkdir($directorio, 0770, true)) {
-        responder(['error' => 'No se pudo preparar la carpeta de la galería'], 500);
-    }
-    return realpath($directorio);
-}
 
 // Devuelve una función que indica si el usuario puede ver las fotos de un evento.
 // Administrador y scouter ven todo. Un tutor solo ve los eventos que convocan alguna
@@ -93,13 +85,7 @@ function buscarFoto(PDO $db, int $id): ?array
 // Ruta física de una foto, comprobando que no sale de storage/galeria/.
 function rutaFoto(string $archivo): ?string
 {
-    $base = directorioGaleria();
-    $ruta = realpath($base . DIRECTORY_SEPARATOR . basename($archivo));
-    if ($ruta === false || !is_file($ruta)
-        || !str_starts_with($ruta, $base . DIRECTORY_SEPARATOR)) {
-        return null;
-    }
-    return $ruta;
+    return rutaEnAlmacen('galeria', $archivo);
 }
 
 // Nombre original apto para mostrar y para la cabecera de descarga.
@@ -250,9 +236,10 @@ switch ($accion) {
         exigirPermiso('galeria.subir');
 
         $eventoId = (int) ($_POST['evento'] ?? 0);
-        $eventoStmt = $db->prepare('SELECT 1 FROM eventos WHERE id = ?');
+        $eventoStmt = $db->prepare('SELECT id, nombre, fecha_inicio FROM eventos WHERE id = ?');
         $eventoStmt->execute([$eventoId]);
-        if (!$eventoStmt->fetchColumn()) {
+        $evento = $eventoStmt->fetch();
+        if (!$evento) {
             responder(['error' => 'Selecciona un evento válido'], 400);
         }
 
@@ -287,7 +274,8 @@ switch ($accion) {
         }
         unset($archivo);
 
-        $directorio = directorioGaleria();
+        // E-17: carpeta de la ronda y del evento.
+        $carpeta = carpetaGaleriaEvento((int) $evento['id'], $evento['nombre'], $evento['fecha_inicio']);
         $insertar = $db->prepare(
             'INSERT INTO galeria_fotos (id_evento, archivo, nombre_original, id_usuario)
              VALUES (?, ?, ?, ?)'
@@ -296,15 +284,16 @@ switch ($accion) {
         foreach ($archivos as $archivo) {
             // Nombre aleatorio: evita colisiones y que el nombre original llegue al disco.
             $nombreDisco = bin2hex(random_bytes(16)) . '.' . $archivo['extension'];
-            $destino = $directorio . DIRECTORY_SEPARATOR . $nombreDisco;
-            if (!move_uploaded_file($archivo['tmp_name'], $destino)) {
+            try {
+                $relativa = guardarSubidoEn('galeria', $carpeta, $nombreDisco, $archivo['tmp_name']);
+            } catch (RuntimeException) {
                 responder(['error' => 'No se pudo guardar «' . $archivo['nombre_limpio']
                     . '». Se han guardado ' . $guardadas . ' fotos.'], 500);
             }
             try {
-                $insertar->execute([$eventoId, $nombreDisco, $archivo['nombre_limpio'], $usuario['id']]);
+                $insertar->execute([$eventoId, $relativa, $archivo['nombre_limpio'], $usuario['id']]);
             } catch (Throwable $error) {
-                unlink($destino);
+                borrarDeAlmacen('galeria', $relativa);
                 throw $error;
             }
             $guardadas++;
@@ -321,10 +310,7 @@ switch ($accion) {
             responder(['error' => 'No existe la foto'], 404);
         }
         $db->prepare('DELETE FROM galeria_fotos WHERE id = ?')->execute([$foto['id']]);
-        $ruta = rutaFoto($foto['archivo']);
-        if ($ruta !== null) {
-            unlink($ruta);
-        }
+        borrarDeAlmacen('galeria', $foto['archivo']);
         responder(['ok' => true]);
 
     default:

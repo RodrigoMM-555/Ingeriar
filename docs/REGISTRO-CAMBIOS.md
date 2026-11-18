@@ -15,6 +15,32 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · E-17 Carpetas por ronda para la galería y las facturas
+- Rama / commit: `feat/E-17-carpetas-galeria-facturas`
+- Qué se ha hecho: a petición del usuario, los archivos de la galería y de las facturas dejan de estar todos en una
+  carpeta:
+  - Galería: `storage/galeria/<ronda>/<id>-<nombre-del-evento>/<aleatorio>.<ext>` (ronda de la fecha del evento).
+  - Facturas: `storage/facturas/<ronda>/factura-<id>-<aleatorio>.<ext>` (ronda de la fecha de compra).
+  - Al editar un evento (fecha o nombre) sus fotos se mueven a la carpeta nueva; al cambiar la fecha de compra de una
+    factura, su imagen también. Al borrar se quitan las carpetas que quedan vacías.
+  - Script `2026-11-carpetas-galeria-facturas.php` para mover los archivos que ya existen.
+- Archivos creados o modificados: `server/data/almacenamiento.php` (nuevo: rutas, guardar, mover y borrar dentro de
+  `storage/`), `server/api/galeria.php`, `server/api/facturas.php`, `server/api/superapi.php` (borrar y editar
+  eventos), `server/pruebas/fotos-ejemplo.php`, `server/pruebas/pruebas.php` (GAL-10, GAL-11, FAC-13 y limpieza con
+  rutas relativas), `server/data/migraciones/2026-11-carpetas-galeria-facturas.php` (nuevo), `docs/PLAN-PRUEBAS.md`,
+  `docs/ENCARGOS.md`, `noteas.md`.
+- Decisiones técnicas y motivo: decisiones del usuario: ronda › evento para la galería (sin el tipo, que puede cambiar),
+  facturas por ronda (como el resto) y las fotos no se borran con las rondas vencidas. La carpeta del evento lleva el id
+  delante para no chocar entre eventos con el mismo nombre. En la base de datos se guarda la ruta relativa y todas las
+  rutas se comprueban con `realpath` dentro de `storage/<tipo>/` antes de leer, mover o borrar. Las funciones comunes
+  lanzan excepciones en lugar de responder, para usarlas también desde los scripts.
+- Requisitos que cubre (RF/RNF): RF-04, RF-05, RNF-03.
+- Cómo probarlo (pasos): pruebas automáticas (124 de 124 en una base de pruebas). En la instalación local, mover los
+  archivos existentes:
+  `sudo -u www-data php /var/www/html/Ingeriar/server/data/migraciones/2026-11-carpetas-galeria-facturas.php --confirmar`.
+- Impacto en la memoria (apartados que habría que revisar): estructura de `storage/`, galería (RF-04) y facturas (RF-05).
+- Pendiente o problemas: ninguno.
+
 ## 2026-11-18 · Configuración: columnas alineadas y nombres de documentos más anchos
 - Rama / commit: `feat/E-16-conservacion-rondas`
 - Qué se ha hecho: a petición del usuario, en Configuración:

@@ -14,6 +14,7 @@
 // nadie cambia un estado sin facturas.cambiar_estado, ni siquiera en las suyas.
 
 require_once __DIR__ . '/../data/database.php';
+require_once __DIR__ . '/../data/almacenamiento.php';
 require_once __DIR__ . '/comun.php';
 require_once __DIR__ . '/../auth/permisos.php';
 require_once __DIR__ . '/../dominio/Factura.php';
@@ -23,26 +24,10 @@ const FORMATOS_FACTURA = [
     'image/webp' => 'webp',
 ];
 
-function directorioFacturas(): string
-{
-    $directorio = __DIR__ . '/../../storage/facturas';
-    if (!is_dir($directorio) && !mkdir($directorio, 0770, true)) {
-        responder(['error' => 'No se pudo preparar la carpeta de facturas'], 500);
-    }
-    return realpath($directorio);
-}
-
+// Ruta física de la imagen, comprobando que no sale de storage/facturas/.
 function rutaImagenFactura(?string $archivo): ?string
 {
-    if (!$archivo) {
-        return null;
-    }
-    $base = directorioFacturas();
-    $ruta = realpath($base . DIRECTORY_SEPARATOR . basename($archivo));
-    if ($ruta === false || !is_file($ruta) || !str_starts_with($ruta, $base . DIRECTORY_SEPARATOR)) {
-        return null;
-    }
-    return $ruta;
+    return rutaEnAlmacen('facturas', $archivo);
 }
 
 // Comprueba la imagen subida (tipo real, tamaño) y devuelve su extensión.
@@ -67,14 +52,16 @@ function validarImagenFactura(): ?string
     return FORMATOS_FACTURA[$mime];
 }
 
-// Guarda la imagen con un nombre aleatorio y devuelve ese nombre.
-function guardarImagenFactura(int $facturaId, string $extension): string
+// Guarda la imagen con un nombre aleatorio en la carpeta de la ronda de la fecha de compra
+// (E-17) y devuelve su ruta relativa.
+function guardarImagenFactura(int $facturaId, string $extension, string $fechaCompra): string
 {
     $nombre = 'factura-' . $facturaId . '-' . bin2hex(random_bytes(12)) . '.' . $extension;
-    if (!move_uploaded_file($_FILES['imagen']['tmp_name'], directorioFacturas() . DIRECTORY_SEPARATOR . $nombre)) {
+    try {
+        return guardarSubidoEn('facturas', carpetaFactura($fechaCompra), $nombre, $_FILES['imagen']['tmp_name']);
+    } catch (RuntimeException) {
         responder(['error' => 'No se pudo guardar la imagen de la factura'], 500);
     }
-    return $nombre;
 }
 
 function fechaValida(string $valor): ?string
@@ -219,7 +206,7 @@ switch ($accion) {
         // La fila se crea primero para que el nombre de la imagen lleve su id.
         $db->beginTransaction();
         $factura->guardar($db);
-        $factura->imagen = guardarImagenFactura($factura->id, $extension);
+        $factura->imagen = guardarImagenFactura($factura->id, $extension, $factura->fechaCompra);
         $factura->guardar($db);
         $db->commit();
         responder(['ok' => true, 'id' => $factura->id]);
@@ -239,14 +226,16 @@ switch ($accion) {
         $db->beginTransaction();
         $anterior = null;
         if ($extension !== null) {
-            $anterior = rutaImagenFactura($factura->imagen);
-            $factura->imagen = guardarImagenFactura($factura->id, $extension);
+            $anterior = $factura->imagen;
+            $factura->imagen = guardarImagenFactura($factura->id, $extension, $factura->fechaCompra);
         }
         $factura->guardar($db);
         $db->commit();
         if ($anterior !== null) {
-            unlink($anterior);
+            borrarDeAlmacen('facturas', $anterior);
         }
+        // Si ha cambiado la fecha de compra a otra ronda, la imagen se mueve a su carpeta.
+        recolocarImagenFactura($db, $factura->id);
         responder(['ok' => true]);
 
     case 'borrar':
@@ -258,11 +247,9 @@ switch ($accion) {
         if ($motivo !== null) {
             responder(['error' => $motivo], $factura->estado === 'pagada' ? 409 : 403);
         }
-        $imagen = rutaImagenFactura($factura->imagen);
+        $imagen = $factura->imagen;
         $factura->borrar($db);
-        if ($imagen !== null) {
-            unlink($imagen);
-        }
+        borrarDeAlmacen('facturas', $imagen);
         responder(['ok' => true]);
 
     case 'estado':

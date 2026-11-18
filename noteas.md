@@ -363,7 +363,9 @@ facturas y el importe.
   tarjeta o arrastrando entre columnas, también en sus propias facturas. Se guarda quién
   hizo el último cambio y cuándo (`estado_cambiado_por`, `estado_cambiado_en`).
 - La imagen es obligatoria al crear: tipo real con `finfo` (JPEG, PNG o WebP), tamaño de
-  la configuración y nombre aleatorio en `storage/facturas/`. Se sirve solo por PHP.
+  la configuración y nombre aleatorio en `storage/facturas/<ronda>/` (E-17: ronda de la
+  fecha de compra; si se cambia la fecha a otra ronda, la imagen se mueve). Se sirve solo
+  por PHP.
 - El monitor ve solo sus facturas y las edita o borra mientras están pendientes. Una
   factura pagada no la edita ni la borra nadie (409); tesorería puede devolverla a revisada.
 - Las rutas genéricas de `superapi.php` ya no escriben facturas: la tabla queda de solo
@@ -439,9 +441,9 @@ permite descargar el archivo original.
 
 ## 10 bis. Galería de fotografías
 
-Cada foto pertenece a un evento (tabla `galeria_fotos`). La galería no guarda
-carpetas: las calcula a partir del evento, así que si cambia la fecha o el tipo
-de un evento, sus fotos se recolocan solas.
+Cada foto pertenece a un evento (tabla `galeria_fotos`). El árbol que se ve en la
+aplicación (ronda › tipo › evento) se calcula a partir del evento, así que si cambia la
+fecha o el tipo de un evento, sus fotos se recolocan solas en la vista.
 
 ```text
 Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
@@ -451,7 +453,11 @@ Ronda 2026-2027            (ronda scout de septiembre a agosto, según la fecha)
 └── <tipo nuevo>           (los tipos añadidos en configuración aparecen solos)
 ```
 
-- Archivos: `storage/galeria/` con nombre aleatorio (`bin2hex(random_bytes(16))`).
+- Archivos (E-17): `storage/galeria/<ronda>/<id>-<nombre-del-evento>/` con nombre
+  aleatorio (`bin2hex(random_bytes(16))`); la ronda es la de la fecha de inicio del
+  evento y en `galeria_fotos.archivo` se guarda la ruta relativa. Al editar un evento
+  (fecha o nombre) sus fotos se mueven a la carpeta nueva (`recolocarFotosEvento` en
+  `server/data/almacenamiento.php`). Las fotos no se borran con las rondas vencidas.
   Se comprueba el tipo real con `finfo` (JPEG, PNG o WebP), el tamaño con
   `tamano_maximo_archivos_mb` de la configuración y un máximo de 20 fotos por
   subida. Se validan todas antes de guardar ninguna.
@@ -693,6 +699,8 @@ SetEnv INGERIAR_DB_PASSWORD tu_clave_de_mysql
     permanente con el usuario del servidor web, desde la copia que sirve Apache:
     `sudo -u www-data php <ruta>/server/data/migraciones/2026-11-fichas-permanentes.php --confirmar`
     (sin `--confirmar` solo muestra lo que haría; se puede repetir).
+11. Igual para las fotos y facturas subidas antes de E-17 (las pasa a sus carpetas):
+    `sudo -u www-data php <ruta>/server/data/migraciones/2026-11-carpetas-galeria-facturas.php --confirmar`.
 
 El archivo `.gitignore` excluye del repositorio todo lo que se sube desde la
 aplicación (fotos, facturas, entregas y logo), porque puede contener datos reales.
@@ -830,6 +838,12 @@ ALTER TABLE eventos
 Las sentencias deben ejecutarse solo si las columnas todavía no existen.
 
 ## 15. Diario de cambios
+
+### 2026-11-18 (E-17 carpetas de galería y facturas)
+
+- Galería en `<ronda>/<id>-<evento>/` y facturas en `<ronda>/` dentro de `storage/`;
+  se mueven al cambiar la fecha o el nombre. `server/data/almacenamiento.php`, migración
+  `2026-11-carpetas-galeria-facturas.php`. Pruebas GAL-10, GAL-11 y FAC-13.
 
 ### 2026-11-18 (alineación en Configuración)
 

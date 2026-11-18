@@ -255,3 +255,14 @@ RNF-06 usabilidad y accesibilidad · RNF-07 rendimiento.
 - Aceptación: borrar una ronda vencida elimina su carpeta y sus asistencias y no toca las fichas permanentes ni rondas
   sin vencer; pruebas automáticas nuevas.
 - Estado: hecho (rama `feat/E-16-conservacion-rondas`, pendiente de fusionar)
+
+## E-17 · Carpetas por ronda para la galería y las facturas
+- Requisitos: RF-04, RF-05, RNF-03. Pedido por el usuario el 2026-11-18.
+- Hasta ahora todas las fotos estaban sueltas en `storage/galeria/` y todas las facturas en `storage/facturas/`; las
+  carpetas de la galería solo existían en la aplicación (calculadas desde la base de datos).
+- Decisiones del usuario: galería en `storage/galeria/<ronda>/<id>-<evento>/` (ronda de la fecha del evento); facturas
+  en `storage/facturas/<ronda>/` (ronda de la fecha de compra); las fotos **no** se borran con las rondas vencidas.
+- Al cambiar la fecha o el nombre de un evento, o la fecha de compra de una factura, el archivo se mueve a su carpeta.
+- Script de migración para mover los archivos existentes.
+- Aceptación: las subidas nuevas van a su carpeta; editar mueve los archivos; la migración se puede repetir; pruebas nuevas.
+- Estado: hecho (rama `feat/E-17-carpetas-galeria-facturas`, pendiente de fusionar)
