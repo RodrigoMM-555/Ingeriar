@@ -15,6 +15,30 @@ Añadir las entradas nuevas arriba. Formato:
 - Pendiente o problemas:
 ```
 
+## 2026-11-18 · Miniaturas: grupo de Web Workers y carga de lo visible
+- Rama / commit: `feat/miniaturas-workers`
+- Qué se ha hecho: a petición del usuario, las miniaturas se generan en segundo plano y varias a la vez sin parar la
+  aplicación:
+  - Un grupo fijo de Web Workers (2 a 4 según los núcleos del equipo) que se crean una vez y se reutilizan. Antes se
+    creaba y destruía un worker por cada imagen (galería y facturas) y las circulares creaban uno por documento sin
+    límite, todos a la vez.
+  - Solo se generan las miniaturas que están a la vista o a punto de estarlo (`IntersectionObserver`, 400 px de
+    margen): al abrir una vista con muchas imágenes salen primero las de arriba y las demás al desplazarse.
+  - Las circulares de la documentación del educando usan la misma cola (en su pestaña, solo cuando se abre).
+  - Al cambiar de vista se vacía la cola y se libera la memoria de las miniaturas anteriores; las imágenes se decodifican
+    en segundo plano (`decoding="async"`).
+- Archivos creados o modificados: `public/nucleo/utilidades.js` (`iniciarTrabajadores`, `encolarMiniatura`,
+  `procesarCola`, `terminarTarea`, `mostrarMiniatura`, `vaciarColaMiniaturas`), `public/nucleo/documento-preview-worker.js`
+  (mensajes con id), `public/nucleo/tabla.js` (`crearVistaPrevia` usa la cola), versión de los scripts, `noteas.md`.
+- Decisiones técnicas y motivo: un grupo fijo evita el coste de crear un hilo por imagen y limita los hilos simultáneos;
+  cada trabajador atiende una miniatura cada vez y pide la siguiente al terminar. Comprobado en Apache con el tablero
+  de facturas (100 miniaturas): al abrir se generan 14 (las visibles) y al bajar, las de la nueva zona.
+- Requisitos que cubre (RF/RNF): RNF de rendimiento y usabilidad (RNF-06).
+- Cómo probarlo (pasos): abrir Facturas o un evento de la galería con muchas fotos y desplazarse.
+- Impacto en la memoria (apartados que habría que revisar): tecnologías (Web Workers y concurrencia en el cliente).
+- Pendiente o problemas: el usuario cree que el uso de workers responde a algún resultado de aprendizaje; no está
+  indicado en los encargos y queda por confirmar cuál.
+
 ## 2026-11-18 · Orden del menú de navegación configurable
 - Rama / commit: `feat/orden-menu`
 - Qué se ha hecho: a petición del usuario, el menú lateral sigue el orden Dashboard, Calendario, Galería, Educandos,

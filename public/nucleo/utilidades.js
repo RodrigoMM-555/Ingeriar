@@ -6,70 +6,112 @@ class IngeriarUtilidades {
             Boolean(usuarioActual?.permisos?.includes(codigo));
     }
 
-    // Miniaturas de imágenes (galería y facturas). Se generan con el Web Worker de
-    // vistas previas para no bloquear la interfaz, con un máximo de trabajadores a la vez.
+    // ---------- Miniaturas en segundo plano ----------
+    // Galería, facturas y circulares usan un grupo fijo de Web Workers (hilos aparte) que se
+    // crean una vez y se reutilizan: varias miniaturas se generan a la vez sin parar la
+    // página. Solo entran en la cola las que están en pantalla o a punto de entrar
+    // (IntersectionObserver), así primero se ve lo que se está mirando. Al cambiar de
+    // vista se vacía la cola y se libera la memoria de las miniaturas anteriores.
+
+    // Tantos trabajadores como núcleos, entre 2 y 4.
+    iniciarTrabajadores() {
+        if (this.trabajadores) {
+            return;
+        }
+        this.colaMiniaturas ??= [];
+        this.tareasEnCurso = new Map();
+        this.siguienteTarea = 1;
+        const cantidad = Math.max(2, Math.min(4, navigator.hardwareConcurrency || 2));
+        this.trabajadores = Array.from({length: cantidad}, () => {
+            const trabajador = new Worker("nucleo/documento-preview-worker.js");
+            trabajador.tarea = null;
+            trabajador.onmessage = (evento) => this.terminarTarea(trabajador, evento.data);
+            trabajador.onerror = (evento) => {
+                evento.preventDefault();
+                this.terminarTarea(trabajador, {id: trabajador.tarea, kind: "error"});
+            };
+            return trabajador;
+        });
+    }
+
     vaciarColaMiniaturas() {
         this.colaMiniaturas = [];
+        this.observadorMiniaturas?.disconnect();
+        (this.urlsMiniaturas || []).forEach((url) => URL.revokeObjectURL(url));
+        this.urlsMiniaturas = [];
     }
 
-    encolarMiniatura(url, contenedor, nombre) {
-        this.colaMiniaturas ??= [];
-        this.trabajadoresActivos ??= 0;
+    // Pide la miniatura de «url» para «contenedor». «sinVista»: texto si no se puede generar.
+    encolarMiniatura(url, contenedor, nombre, sinVista = "Sin vista previa") {
         // El Web Worker resuelve las rutas relativas desde su propia carpeta (nucleo/),
         // así que se le pasa la dirección completa.
-        const direccion = new URL(url, document.baseURI).href;
-        this.colaMiniaturas.push({url: direccion, contenedor, nombre});
-        // Se espera a que la vista termine de añadir los elementos a la página:
-        // los que no están en el documento se descartan.
-        setTimeout(() => this.procesarCola(), 0);
+        const tarea = {url: new URL(url, document.baseURI).href, contenedor, nombre, sinVista};
+        if (!window.Worker) {
+            this.mostrarMiniatura(tarea, tarea.url);
+            return;
+        }
+        this.iniciarTrabajadores();
+        if (!window.IntersectionObserver) {
+            this.colaMiniaturas.push(tarea);
+            setTimeout(() => this.procesarCola(), 0);
+            return;
+        }
+        // Entra en la cola cuando está a menos de 400 px de verse.
+        this.observadorMiniaturas ??= new IntersectionObserver((entradas) => {
+            entradas.filter((entrada) => entrada.isIntersecting).forEach((entrada) => {
+                this.observadorMiniaturas.unobserve(entrada.target);
+                const pendiente = entrada.target.tareaMiniatura;
+                delete entrada.target.tareaMiniatura;
+                if (pendiente) {
+                    this.colaMiniaturas.push(pendiente);
+                }
+            });
+            this.procesarCola();
+        }, {rootMargin: "400px"});
+        contenedor.tareaMiniatura = tarea;
+        this.observadorMiniaturas.observe(contenedor);
     }
 
+    // Reparte la cola entre los trabajadores libres (cada uno, una miniatura a la vez).
     procesarCola() {
-        while (this.trabajadoresActivos < 4 &&
-            this.colaMiniaturas.length > 0) {
-            const tarea = this.colaMiniaturas.shift();
-            if (!tarea.contenedor.isConnected) {
-                continue;
+        for (const trabajador of this.trabajadores || []) {
+            while (trabajador.tarea === null && this.colaMiniaturas.length > 0) {
+                const tarea = this.colaMiniaturas.shift();
+                if (!tarea.contenedor.isConnected) {
+                    continue;
+                }
+                const id = this.siguienteTarea++;
+                this.tareasEnCurso.set(id, tarea);
+                trabajador.tarea = id;
+                trabajador.postMessage({id, url: tarea.url});
             }
-            this.trabajadoresActivos++;
-            this.crearMiniatura(tarea).finally(() => {
-                this.trabajadoresActivos--;
-                this.procesarCola();
-            });
         }
     }
 
-    crearMiniatura({url, contenedor, nombre}) {
-        return new Promise((resolver) => {
-            const mostrarImagen = (origen) => {
-                const imagen = document.createElement("img");
-                imagen.src = origen;
-                imagen.alt = nombre;
-                imagen.loading = "lazy";
-                contenedor.replaceChildren(imagen);
-            };
-            if (!window.Worker) {
-                mostrarImagen(url);
-                resolver();
-                return;
+    terminarTarea(trabajador, resultado) {
+        const tarea = this.tareasEnCurso.get(resultado.id);
+        this.tareasEnCurso.delete(resultado.id);
+        trabajador.tarea = null;
+        // Si mientras tanto se ha cambiado de vista, el resultado se descarta.
+        if (tarea && tarea.contenedor.isConnected) {
+            if (resultado.kind === "image") {
+                const url = URL.createObjectURL(resultado.blob);
+                (this.urlsMiniaturas ??= []).push(url);
+                this.mostrarMiniatura(tarea, url);
+            } else {
+                tarea.contenedor.textContent = tarea.sinVista;
             }
-            const trabajador = new Worker("nucleo/documento-preview-worker.js");
-            trabajador.onmessage = (evento) => {
-                trabajador.terminate();
-                if (evento.data.kind === "image") {
-                    mostrarImagen(URL.createObjectURL(evento.data.blob));
-                } else {
-                    contenedor.textContent = "Sin vista previa";
-                }
-                resolver();
-            };
-            trabajador.onerror = () => {
-                trabajador.terminate();
-                contenedor.textContent = "Sin vista previa";
-                resolver();
-            };
-            trabajador.postMessage({url});
-        });
+        }
+        this.procesarCola();
+    }
+
+    mostrarMiniatura({contenedor, nombre}, origen) {
+        const imagen = document.createElement("img");
+        imagen.src = origen;
+        imagen.alt = nombre;
+        imagen.decoding = "async";
+        imagen.loading = "lazy";
+        contenedor.replaceChildren(imagen);
     }
 
     // Nombres de los cargos del usuario actual, por ejemplo «Monitor · Tesorería».

@@ -293,6 +293,7 @@ class IngeriarTabla {
             const modal = document.querySelector("#modal-formulario");
             const contenedor = document.querySelector("#contenedor-formulario");
             contenedor.replaceChildren();
+            this.utilidades.vaciarColaMiniaturas();
             const titulo = document.createElement("h2");
             titulo.textContent = "Documentación: " + educando.nombre + " " +
                 educando.apellidos;
@@ -360,30 +361,11 @@ class IngeriarTabla {
         });
     }
 
+    // Vista previa de una circular: la misma cola y los mismos trabajadores que las
+    // miniaturas de la galería (los PDF llegan ya convertidos en imagen desde el servidor).
     crearVistaPrevia(url, contenedor) {
-        if (!window.Worker) {
-            contenedor.textContent = "Vista previa no disponible";
-            return;
-        }
-        const trabajador = new Worker("nucleo/documento-preview-worker.js");
-        trabajador.onmessage = (evento) => {
-            const resultado = evento.data;
-            trabajador.terminate();
-            if (resultado.kind === "image") {
-                const imagen = document.createElement("img");
-                imagen.src = URL.createObjectURL(resultado.blob);
-                imagen.alt = "Vista previa del documento";
-                contenedor.appendChild(imagen);
-            } else if (resultado.kind === "pdf") {
-                const marco = document.createElement("iframe");
-                marco.src = url;
-                marco.title = "Vista previa del PDF";
-                contenedor.appendChild(marco);
-            } else {
-                contenedor.textContent = "Vista previa no disponible";
-            }
-        };
-        trabajador.postMessage({url});
+        contenedor.textContent = "Cargando…";
+        this.utilidades.encolarMiniatura(url, contenedor, "Vista previa del documento", "Vista previa no disponible");
     }
 
     configurarFiltros(selector, buscador, cuerpo) {

@@ -101,7 +101,7 @@ Principios que se repiten en todo el código:
 | `information_schema` | Formularios y tablas genéricas | Descubre columnas, tipos, ENUM y claves foráneas para generar formularios automáticos. |
 | JSON en ficheros + `flock` | Inventario y listas de material | Requisito del proyecto: una parte en base documental. Lectura con bloqueo compartido, escritura con exclusivo y `rename` atómico. |
 | SVG | Gráficas del dashboard (`graficas.js`) | Sin librerías; tooltips y colores con el DOM. |
-| Web Worker | Miniaturas de imágenes y PDF (`documento-preview-worker.js`) | No bloquea la interfaz. Máximo cuatro a la vez. |
+| Web Workers | Miniaturas de galería, facturas y circulares (`documento-preview-worker.js`) | Programación concurrente en el navegador: un grupo fijo de 2 a 4 hilos (según los núcleos) descarga y reduce las imágenes en paralelo sin parar la página. Solo se generan las que están a la vista (`IntersectionObserver`). |
 | `pdftoppm` (poppler) | Primera página de un PDF como imagen | Previsualizar circulares y fichas en PDF. |
 | `finfo` | Tipo real de cada archivo subido | No fiarse de la extensión ni del tipo que dice el navegador. |
 | `mysqldump`, `PharData`, OpenSSL | Copias de seguridad | Zip sin la extensión zip; cifrado AES-256-CBC + HMAC con clave por PBKDF2. |
@@ -494,7 +494,7 @@ módulos ES) desde `index.html`. Cada vista pinta dentro de `main > section`.
 | Archivo / clase | Responsabilidad |
 |---|---|
 | `codigo.js` | Arranque, menú lateral (`cargarEntidades`, enlaces fijos), cambio de vista. |
-| `utilidades.js` · `IngeriarUtilidades` | `obtenerJson`, `enviarJson`, `enviarFormulario` (convierte errores en excepciones), `tienePermiso`, cola de miniaturas con el Web Worker, textos comunes. |
+| `utilidades.js` · `IngeriarUtilidades` | `obtenerJson`, `enviarJson`, `enviarFormulario` (convierte errores en excepciones), `tienePermiso`, miniaturas en segundo plano (ver abajo), `crearAccionesGuardar`, `claseTipoEvento`, textos comunes. |
 | `tabla.js` · `IngeriarTabla` | Tablas genéricas: buscador por columna, orden, colores por sección, bajas en cursiva, acciones (ver documentación, editar, borrar) según permisos. |
 | `formulario.js` · `IngeriarFormulario` | Formularios automáticos a partir de las columnas: fecha, número, ENUM, sí/no, relaciones con nombres legibles, secciones convocadas, educandos vinculados y cargos. |
 | `calendario.js` · `IngeriarCalendario` | Calendario mensual, eventos por día con color por tipo, alta y edición, y la ventana de asistencias (tutor: responder y subir circular; monitor: ver por sección). |
@@ -506,7 +506,17 @@ módulos ES) desde `index.html`. Cada vista pinta dentro de `main > section`.
 | `inventario.js` · `IngeriarInventario` | Plano y tabla del inventario, arrastrar y soltar, listas con reparto automático, documento para imprimir. |
 | `configuracion.js` · `IngeriarConfiguracion` | Configuración del grupo, catálogos, cargos y permisos, copias, datos vencidos y rondas vencidas. |
 | `exportacion.js` · `IngeriarExportacion` | Exportar lo visible a impresión, HTML, JSON o CSV. |
-| `documento-preview-worker.js` | Web Worker que genera miniaturas sin bloquear la página. |
+| `documento-preview-worker.js` | Web Worker que descarga una imagen, la reduce a 320×240 con `OffscreenCanvas` y devuelve un JPEG; cada mensaje lleva un `id` y la respuesta lo devuelve. |
+
+**Miniaturas en segundo plano** (`IngeriarUtilidades`): `iniciarTrabajadores()` crea una
+sola vez un grupo de Web Workers (tantos como núcleos, entre 2 y 4) que se reutilizan.
+`encolarMiniatura(url, contenedor, nombre)` vigila el hueco con un `IntersectionObserver`
+y lo pasa a la cola cuando está a menos de 400 px de verse; `procesarCola()` da una tarea a
+cada trabajador libre y `terminarTarea()` coloca la imagen (con `decoding="async"`) y sigue
+con la siguiente. Si se cambia de vista, `vaciarColaMiniaturas()` vacía la cola, deja de
+vigilar los huecos antiguos y libera las URL de las miniaturas (`URL.revokeObjectURL`);
+los resultados que llegan para elementos que ya no están en la página se descartan. Lo usan
+la galería, el tablero de facturas y las circulares de la documentación del educando.
 | `login.js`, `instalador.js` | Acceso e instalador. |
 
 Convenciones: nombres en español, clases con prefijo `Ingeriar`, sin `innerHTML` con datos
@@ -770,6 +780,11 @@ Colonia y Lola en Manada). Las imágenes y PDF se generan en PHP puro
   la cabecera de «Cargos y permisos» es estrecha y corta el nombre «Administrador».
 
 ## 21. Diario de cambios
+
+### 2026-11-18 (miniaturas con un grupo de workers)
+
+- Grupo fijo de Web Workers reutilizables, miniaturas solo de lo que está a la vista y
+  liberación de memoria al cambiar de vista; las circulares usan la misma cola.
 
 ### 2026-11-18 (orden del menú)
 
